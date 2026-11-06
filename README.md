@@ -20,7 +20,7 @@ See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [architecture and
 
 Install the unified package and enable both its agent/backend and Desktop components in Capabilities → Plugins. Open CRM from the sidebar or command palette. No localhost service, iframe, separate API token or new model provider is required. The active app connection/profile controls this workspace, and a profile change clears previous records and unfinished forms.
 
-Desktop and Agent version labels differ. The backend requires Agent v0.23.0 or newer compatible APIs; Desktop must also supply the required routing capabilities. Unsupported Desktop builds show a notice and disable CRM operations. See [exact host compatibility](docs/COMPATIBILITY.md).
+Desktop and Agent version labels differ. Compatibility is verified against the exact host source revision below, not inferred from a release label. Desktop must supply the required routing capabilities; unsupported builds show a notice and disable CRM operations. See [exact host compatibility](docs/COMPATIBILITY.md).
 
 An empty workspace offers an explicit, confirmed synthetic-demo seed. This never runs automatically and refuses existing records. See [native Desktop setup and test scope](docs/NATIVE_DESKTOP.md).
 
@@ -44,17 +44,19 @@ To start an empty workspace, choose a fresh HERMES_CRM_DATA_DIR and omit `--demo
 
 ## Install as a native Hermes plugin
 
-Integration target: Hermes Agent **v0.23.0**, commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. The repository uses a native plugin.yaml and register(ctx) entry point. There is no invented SDK API version.
+Verified integration target: official Hermes source commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, including its Desktop SDK. The isolated native test runtime identified as `vgit.2bd378e`; the source manifests say `0.0.0`. Earlier documentation called this v0.23.0, which was not a reliable identity for the tested build. The repository uses a native plugin.yaml and register(ctx) entry point. Its existing `requires_hermes: >=0.23.0` declaration is retained, but is not proof of a tested numeric minimum or compatibility with every later release.
 
-After reviewing this checkout, use Hermes' documented local-path install command and enable it in the intended profile:
+After reviewing a local Git checkout, install it with a file URI and enable it in the intended profile. On the tested host, a bare absolute path was misparsed as a GitHub identifier; this file-URI form worked:
 
 ```bash
-hermes plugins install /absolute/path/to/hermes-crm
+hermes plugins install "file:///absolute/path/to/hermes-crm"
 hermes plugins doctor /absolute/path/to/hermes-crm
 hermes plugins validate /absolute/path/to/hermes-crm
 ```
 
 Follow the host's dependency and enablement prompts. The Python dependencies are declared in pyproject.toml. Do not install into another person's existing profile without their permission.
+
+For isolated testing, use synthetic records and a fresh test home, without copying real credentials or configuration. A separate Hermes home does not prevent the host from auto-discovering other CLI logins. See [safe test setup](docs/NATIVE_DESKTOP.md#isolated-testing-and-provider-discovery).
 
 Try in an interactive Hermes session:
 

@@ -198,7 +198,7 @@ export function CRMRoot({ ctx }) {
       h(
         "p",
         null,
-        "Update Hermes Desktop to a build providing connection identity, gateway activation epochs, and scoped plugin timers, then reload this plugin. The backend also requires Hermes 0.23.0 or newer. Updating only the backend does not upgrade Desktop.",
+        "Use a Desktop build providing connection identity, gateway activation epochs, and scoped plugin timers, with a backend matching the compatibility guide, then reload this plugin. Updating only the backend does not upgrade Desktop.",
       ),
       h(
         "p",

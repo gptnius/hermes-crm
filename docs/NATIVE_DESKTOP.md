@@ -14,7 +14,9 @@ Native contributions: a main-area CRM pane, /hermes-crm full page, CRM sidebar e
 
 ## Installation and enablement
 
-Use Agent v0.23.0 or a newer compatible release and a Desktop build that supplies the required SDK capabilities. The two components have different version labels. Older Desktop builds show a compatibility notice instead of attempting CRM reads or changes; see COMPATIBILITY.md for the exact checked builds. Install the reviewed unified package using the host plugin installer. Enable both the Desktop component and the agent/backend component for the intended profile in Capabilities → Plugins. They are separate gates, and the package is inert until enabled.
+Use a host matching the pinned source contract and a Desktop build that supplies the required SDK capabilities. Desktop and Agent have different version labels; see COMPATIBILITY.md for exact tested identities and the limits of the manifest's numeric declaration. Older Desktop builds show a compatibility notice instead of attempting CRM reads or changes.
+
+Install the reviewed local Git checkout using `hermes plugins install "file:///absolute/path/to/hermes-crm"`. The bare absolute-path form was misparsed on the tested host; the file URI was verified. Enable both the Desktop component and the agent/backend component for the intended profile in Capabilities → Plugins. They are separate gates, and the package is inert until enabled.
 
 The Desktop app copies desktop/plugin.js into its app-level plugin root. After editing an installed copy, use Capabilities → Plugins → Rescan or restart as documented by Hermes. A source checkout linked using the documented development workflow hot-reloads through the host.
 
@@ -40,6 +42,14 @@ An empty workspace offers Explore demo data. It requires a second explicit confi
 
 Actual pinned Hermes server tests exercise unified component discovery, Python import gates, real authentication, shared native-tool/REST records, optimistic conflicts, workspace tokens, runtime disablement and secondary-profile host IPC. Both in_process and host isolation modes are covered with temporary profiles.
 
-Native JavaScript checks cover SDK registration, scoped transport, lifecycle and rendered interactions. These are not a claim that the macOS/Electron window has been visually inspected. Full visual layout/accessibility QA and a live gateway reminder firing remain release gates.
+Native JavaScript checks cover SDK registration, scoped transport, lifecycle and rendered interactions. A separate genuine Mac native-window run on the pinned source build also verified installation, rendering, contact editing, registered-tool/desktop record interchange, task completion, pipeline drill-through and a new empty secondary profile. Dashboard and contact-detail screenshots contain synthetic data only. This is core workflow coverage, not a complete accessibility, responsive-layout or cross-platform audit. A live gateway reminder firing remains unverified. See VERIFICATION.md for exact commits and results.
+
+## Isolated testing and provider discovery
+
+Use a fresh test home and synthetic records. Do not copy real Hermes configuration, provider credentials, login stores or customer records into it. Native CRM CRUD and direct registered-tool checks do not require a model provider.
+
+A separate Hermes home isolates CRM records but is not a complete credential boundary. During native sandbox testing, the host's provider auto-discovery attempted a login refresh and received `invalid_grant`; no credentials were manually retrieved or copied. Starting the host can therefore touch other CLI authentication state even when the test profile has no working model provider.
+
+For repeatable tests, prefer a credential-free test environment and restrict outbound access where the test permits it. Do not assume that clearing environment variables or choosing a fresh Hermes home disables all host auto-discovery. Do not sign in, copy credentials or expand provider access merely to make a test pass. A live model or scheduler execution test requires separately authorized setup. Existing installations, production data and remote services are not part of these test instructions.
 
 Primary reference: https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk

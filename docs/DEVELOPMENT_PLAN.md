@@ -27,6 +27,7 @@ An agent-native relationship workspace: people, pipeline and follow-through in o
 - Demo seed is opt-in, visibly labeled and refuses non-empty databases.
 - No email, messaging, calendar invitation, marketing send or autonomous outreach. Tasks and scheduler jobs may prepare internal reminders only.
 - No live external-model calls or credentials needed for tests. Do not invent auth, billing or multi-tenant guarantees.
+- A separate Hermes home is not complete credential isolation: host provider auto-discovery may inspect other CLI login state. Use a credential-free test environment, do not copy real credentials, and authorize any live provider setup separately.
 - Public distribution gate: source and artifact review for private content, secrets, credentials, filesystem paths, databases, screenshots and dependency licenses. Only an identified repository owner may be used.
 - Network exposure is excluded from prototype; deployment, production auth, backups and tenant security are separate future work.
 
@@ -59,11 +60,11 @@ Multi-user auth, bulk import/export, email sync, attachments, custom schema buil
 - [x] Native Desktop pane and shared agent/backend implemented
 - [x] Actual host authentication, enablement and secondary-profile routing tested
 - [x] Native React interactions and stale-scope protection tested
-- [ ] UI flows visually verified
+- [x] Core native Mac workflows visually verified on pinned source; broader accessibility/responsive QA remains open
 - [x] Profile isolation and no silent database fallback tested
 - [x] PostgreSQL runtime contract verified on disposable PostgreSQL 17.11
 - [x] Scheduler claims distinguish due dates, job creation and actual execution
-- [ ] Install and demo instructions work from a clean checkout
+- [x] Native install and demo verified in isolated source build using file-URI installation
 - [ ] Secret/privacy review complete
 - [x] Repository owner verified; source prototype published at https://github.com/gptnius/hermes-crm
 - [ ] No production or contest submission claimed without verification

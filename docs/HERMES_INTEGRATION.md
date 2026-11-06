@@ -2,17 +2,17 @@
 
 ## Verified upstream target
 
-Hermes Agent v0.23.0, released November 5, 2026; commit 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19.
+Official Hermes source commit 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19, including its Desktop SDK. The isolated native runtime identified as vgit.2bd378e, while the source package manifests declare 0.0.0. Use this exact source identity rather than the earlier, imprecise v0.23.0 label. No release date or broad version compatibility is inferred from this test.
 
 Primary sources:
-- https://github.com/NousResearch/hermes-agent/releases/tag/v0.23.0
+- https://github.com/NousResearch/hermes-agent/tree/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
 - https://hermes-agent.nousresearch.com/docs/developer-guide/plugins
 - https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/public-api
 - https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission
 - https://hermes-agent.nousresearch.com/docs/user-guide/features/cron
-- https://github.com/NousResearch/hermes-agent/blob/v0.23.0/hermes_cli/plugins.py
-- https://github.com/NousResearch/hermes-agent/blob/v0.23.0/plugins/plugin_storage.py
-- https://github.com/NousResearch/hermes-agent/blob/v0.23.0/tools/cronjob_tools.py
+- https://github.com/NousResearch/hermes-agent/blob/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19/hermes_cli/plugins.py
+- https://github.com/NousResearch/hermes-agent/blob/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19/plugins/plugin_storage.py
+- https://github.com/NousResearch/hermes-agent/blob/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19/tools/cronjob_tools.py
 
 ## Native registration
 
@@ -22,7 +22,7 @@ Read toolset crm_read: crm_contact_list, crm_contact_get, crm_deal_list, crm_dea
 
 Write toolset crm_write: crm_contact_create, crm_contact_update, crm_deal_create, crm_deal_update, crm_task_create, crm_task_update, crm_followup_schedule.
 
-Native storage comes from plugins.plugin_storage. Plugin PostgreSQL selection uses ctx.get_config('backend', default='sqlite') and agent.secret_scope.get_secret('HERMES_CRM_DATABASE_URL'). No secret is needed for SQLite. No settings, jobs, tokens or credentials are discovered by scanning the filesystem.
+Native storage comes from plugins.plugin_storage. Plugin PostgreSQL selection uses ctx.get_config('backend', default='sqlite') and agent.secret_scope.get_secret('HERMES_CRM_DATABASE_URL'). No secret is needed for SQLite. The CRM plugin does not scan the filesystem to discover settings, jobs, tokens or credentials. The Hermes host has separate provider auto-discovery behavior; see NATIVE_DESKTOP.md for the testing caveat.
 
 Native PostgreSQL schema is `crm_` followed by the first 24 hex characters of SHA-256 of the resolved plugin data-directory path. This keeps active profiles separate on one explicitly selected database. The standalone CLI needs the same explicit HERMES_CRM_POSTGRES_SCHEMA to view those records. Do not publish resolved profile paths; they are only local namespace inputs.
 
@@ -30,7 +30,7 @@ Native PostgreSQL schema is `crm_` followed by the first 24 hex characters of SH
 
 Use `ctx.dispatch_tool('cronjob_manage', payload, **context)` in an active tool turn. Forward session context. Do not import the private cron function or edit jobs.json.
 
-The adapter targets v0.23.0 and does not pretend to support older `cronjob` registry naming. ISO timestamps with UTC offsets are one-shot schedules. A bare interval such as 30m is recurring, so this prototype never constructs that shorthand.
+The adapter targets the pinned source contract and does not pretend to support older `cronjob` registry naming. ISO timestamps with UTC offsets are one-shot schedules. A bare interval such as 30m is recurring, so this prototype never constructs that shorthand.
 
 Hermes can save a job but fail scheduler registration. Its result may contain success=false, job_id, job_saved=true, scheduler_registered=false and retry_create=false. The CRM preserves the ID and marks uncertain. A generic error can also arise after persistence and is not proof no job exists.
 

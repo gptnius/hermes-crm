@@ -1,6 +1,6 @@
 # Verification report
 
-Verified November 6, 2026. This is a tested local prototype, not a production release. Visual browser QA and a live scheduler firing remain incomplete.
+Verified November 6, 2026. This is a tested prototype, not a production release. Native Mac installation and core visual workflows passed on the exact source build below. Live scheduler firing, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
 ## Passed
 
@@ -30,7 +30,7 @@ The test fixture creates random crm_test_ schemas and removes only those schemas
 
 ### Official Hermes checks
 
-Exact source: Hermes v0.23.0, commit 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19.
+Exact source: official Hermes commit 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19. The isolated native runtime identifies as vgit.2bd378e and its source manifests declare 0.0.0. Earlier documentation's v0.23.0 label was imprecise; these checks establish source-revision compatibility, not a numeric release minimum.
 
 - Plugin Doctor: actual discovery, manifest, import and registration passed; 14 tools, 0 hooks.
 - Catalog validator: all 16 checks passed, including the Desktop surface; zero warnings; security scan safe; host_ready true.
@@ -41,7 +41,7 @@ Exact source: Hermes v0.23.0, commit 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19.
 The three opt-in host tests are reproducible with HERMES_SOURCE pointing at the official checkout and its dependencies installed:
 `HERMES_SOURCE=/path/to/hermes-agent python -m pytest tests/test_desktop_host.py tests/test_hermes_host.py -q`.
 
-All host checks used isolated profile homes and no model calls. No cron jobs were created. Doctor/catalog loadability is not proof that a live reminder fires.
+Automated host checks used isolated profile homes and no model calls. No cron jobs were created. Doctor/catalog loadability is not proof that a live reminder fires. Native host startup has a separate provider auto-discovery caveat described below.
 
 ### Native Desktop and standalone UI checks
 
@@ -55,23 +55,39 @@ Run `node tests/ui_smoke.cjs`, `node --experimental-vm-modules tests/native_desk
 
 Exact historical Desktop and Agent source checks are recorded in COMPATIBILITY.md. The older Agent is deliberately unsupported; its two current-host integration-test failures and authenticated metadata 503 responses are not counted as passing product tests.
 
+### Genuine native Mac workflow run
+
+CRM source: public commit `8ab6f511899253235bc2d9e5432ef486fe95e0dc`. Host: the pinned official source commit above, built in its supported isolated development sandbox and reporting `vgit.2bd378e`. The existing Desktop/Agent installation was not modified; this was a separate source build, not a demonstration that an older installed release is compatible.
+
+Verified in the native window:
+- Local Git installation through a `file:///absolute/path` URI, enablement and CRM rendering. The bare absolute-path install form failed by being misparsed as a GitHub identifier.
+- Explicit demo seed: eight contacts, eight deals, $113,500 open pipeline and $48,100 weighted forecast.
+- Contact editing persisted version 2 and a desktop audit entry. The actual registered agent tool read that change, updated the record, and Desktop displayed the update. This was a registered-tool interoperability check, not a live model conversation.
+- Completing a follow-up changed open tasks from five to four and overdue tasks from one to zero.
+- Pipeline drill-through showed two proposal deals totaling $60,000.
+- A new empty secondary profile showed zero contacts, deals and tasks; switching back restored the synthetic sample workspace.
+- Genuine native-window dashboard and contact-detail screenshots were captured using synthetic records only.
+
+The Mac run also passed 33 Python tests (the 30 domain/API plus three actual-host tests, not an additional 33 distinct contracts), Plugin Doctor's 14 registered tools, all 16 catalog checks, standalone/native smoke and routing suites, actual React 19.3.0 Strict Mode tests, syntax and whitespace checks.
+
+No working model provider was configured for this sandbox, and live cron execution was not attempted. Host provider auto-discovery nevertheless attempted a login refresh and received `invalid_grant`. No credentials were manually retrieved or copied. A fresh Hermes home is not sufficient to isolate all host credential discovery; see NATIVE_DESKTOP.md for safe testing guidance.
+
 ## Not completed
 
-- Live browser layout and interaction QA. The available executable Chromium was denied socket creation before page startup. The supported cloud browser could not connect to the isolated local server. The browser also rejected file URLs. These restrictions were not bypassed. No screenshot or real-browser success is claimed.
+- Broader native accessibility, keyboard/focus, responsive-layout and cross-platform QA beyond the Mac workflows above. Standalone desktop/mobile browser QA also remains incomplete; the earlier cloud browser restrictions were not bypassed.
 - A real Hermes scheduler create → gateway execution → local delivery cycle. Payload/state/host restriction tests pass, but no live job has been created.
 - Hosted Supabase connectivity, network latency/failure behavior and deployment security.
-- Visual inspection of the native Hermes Desktop pane in a running Electron app. The native pane and real-host backend integration exist and pass the automated checks above; pixel layout, focus behavior and full accessibility remain unverified.
 - Catalog PR, social post, contest form or production deployment.
 
 ## Source prototype publication
 
-The source prototype is public at https://github.com/gptnius/hermes-crm. Its initial published commit is 1c70b16f09dfb534109abb3406d35e08c9f9085e. Source publication is not completion of native-window visual QA, scheduler execution or the contest milestone. Changes undergo independent review before publication.
+The source prototype is public at https://github.com/gptnius/hermes-crm. Its initial published commit is 1c70b16f09dfb534109abb3406d35e08c9f9085e; the compatibility/reconnect fix and native Mac test baseline is 8ab6f511899253235bc2d9e5432ef486fe95e0dc. Source publication is not completion of all runtime or contest milestones. Changes undergo independent review before publication.
 
 ## Release gates still open
 
-1. Complete native Desktop/Electron visual and accessibility QA, plus standalone desktop/mobile QA, in an authorized browser-reachable environment.
+1. Expand accessibility, keyboard/focus and responsive/cross-platform coverage beyond the verified native Mac workflows; complete standalone desktop/mobile QA.
 2. Exercise one synthetic internal follow-up in an isolated real Hermes gateway, including failure reconciliation.
 3. Complete source-distribution review and pin the reviewed commit before publishing each update.
 4. Complete the runtime gates before calling this a fully validated release or preparing any authorized contest submission. A clearly labeled source prototype can remain public while those gates are open.
 
-No real contacts, production systems, private repository history or credential stores were used. Dependency deprecation warnings are recorded in test output; no application test failure remains in the verified checks above.
+CRM records were synthetic. No production CRM or deployment was modified, and no private repository history or credentials were copied into the plugin. The host authentication auto-discovery attempt is disclosed above rather than treating a separate home as complete credential isolation. Dependency deprecation warnings are recorded in test output; no application test failure remains in the supported checks above.

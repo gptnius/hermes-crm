@@ -1,4 +1,4 @@
-"""Native Hermes adapter, validated against the v0.23.0 public interface."""
+"""Native Hermes adapter; exact tested host revision is in HERMES_INTEGRATION.md."""
 import json
 from pydantic import ValidationError
 from .domain import CRMError, MODELS

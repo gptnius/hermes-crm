@@ -32,7 +32,7 @@ Job creation is not execution confirmation. Hermes' gateway must be running. Com
 
 The unified package ships `desktop/plugin.js` and `dashboard/plugin_api.py`. The Desktop contribution is a real React pane/page, not an embedded web server. It imports only the public SDK and host React. All requests use ctx.rest inside /api/plugins/hermes-crm. Hermes supplies authentication, enablement and profile routing, including isolated secondary-profile hosts.
 
-The UI keys all record/form state by connection, active app profile and gateway activation epoch. It pauses requests when disconnected, discards stale responses and captures a workspace token when a form opens. Every native REST write checks that token against the current database, so late requests cannot silently create records in a different workspace. The token is an opaque scope marker, not an authentication credential. Timers and contributions are disposed with the pane/plugin.
+The UI keys all record/form state by connection, active app profile, gateway activation epoch and a synchronous monotonic connection-state generation. It pauses requests when disconnected, rejects stale clients across reconnects, discards stale responses and captures a workspace token when a form opens. Every native REST write checks that token against the current database, so late requests cannot silently create records in a different workspace. The token is an opaque scope marker, not an authentication credential. Timers, listeners and contributions are disposed with the pane/plugin.
 
 Demo seeding requires an explicit confirmation, refuses existing records, and inserts records/activity in one transaction. It locks out concurrent writes during the emptiness check and rolls back fully on interruption.
 
@@ -46,4 +46,4 @@ SQLAlchemy owns dialect differences, bound parameters and schema mapping. SQLite
 
 ## Future work
 
-Introduce schema migrations, pagination and scalable aggregate queries before large datasets. Add authentication, authorization, backup/restore and operational health before remote hosting. Visually inspect the real Desktop pane on supported platforms and expand accessibility coverage. Add a safe schedule reconciliation flow only after inspecting real host states and cancellation semantics.
+Introduce schema migrations, pagination and scalable aggregate queries before large datasets. Add authentication, authorization, backup/restore and operational health before remote hosting. Expand the verified native Mac workflows to broader platform, responsive-layout and accessibility coverage. Add a safe schedule reconciliation flow only after inspecting real host states and cancellation semantics.

@@ -4,7 +4,9 @@ Desktop and Agent have different release labels. A backend version alone does no
 
 ## Supported contract
 
-The integration is tested against official Hermes source commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19` (Agent v0.23.0), including the Desktop SDK in that checkout. The backend manifest keeps `requires_hermes: >=0.23.0`. Newer versions still need compatible public APIs; this is not a promise about every future build.
+The integration is tested against official Hermes source commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, including the Desktop SDK in that checkout. The isolated native runtime identifies as `vgit.2bd378e`; the source manifests declare `0.0.0`. This is the verified identity, not a confirmed Agent v0.23.0 release build.
+
+The backend manifest's existing `requires_hermes: >=0.23.0` declaration is unchanged. It is not an empirically established numeric minimum or a guarantee for later releases. The pinned host's version gate permits unparseable development versions, so successful loading of `vgit.2bd378e` does not validate that numeric boundary. Use the exact source contract, capability checks and tests when assessing another build.
 
 The native pane requires connection/profile/gateway stores, both gateway activation-epoch APIs, profile-scoped REST, context-managed timers and disposal. It checks capabilities rather than guessing a Desktop version threshold. An older Desktop that can register the pane but lacks these capabilities gets a compatibility notice with CRM reads and changes disabled. It does not substitute a constant epoch, a guessed connection identity, a localhost server or an older scheduler tool name.
 
@@ -28,7 +30,7 @@ Isolated probes found that its nonempty `crm_read` plus `no_mcp` scheduler allow
 
 ## Validation versus previews
 
-An isolated UI preview can use synthetic SDK state and sample records to show the actual component layout. It does not prove that an older installed Desktop supports the required APIs. Full native-window visual QA and a live reminder execution remain separate gates in VERIFICATION.md. Any app or backend upgrade must be handled separately; this plugin never upgrades the host itself.
+An isolated UI preview can use synthetic SDK state and sample records to show the actual component layout. It does not prove that an older installed Desktop supports the required APIs. A later native Mac run did verify installation, rendering and core CRM workflows on the pinned source build, as recorded in VERIFICATION.md. Broader accessibility/responsive coverage and live reminder execution remain open. Any app or backend upgrade must be handled separately; this plugin never upgrades the host itself.
 
 Official sources:
 - https://github.com/NousResearch/hermes-agent/tree/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
