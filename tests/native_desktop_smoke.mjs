@@ -40,7 +40,20 @@ let epoch = 1,
   profile = "work",
   gateway = "open";
 let navigated;
-const atom = (get) => ({ get });
+const atom = (get) => ({
+  get,
+  listen: () => () => {},
+  subscribe: () => () => {},
+});
+const mutableAtom = (initial) => {
+  let value = initial;
+  return {
+    get: () => value,
+    set(next) {
+      value = next;
+    },
+  };
+};
 const host = {
   state: {
     connectionId: atom(() => connection),
@@ -52,6 +65,7 @@ const host = {
   },
 };
 const sdk = {
+  atom: mutableAtom,
   host,
   useValue: (a) => a.get(),
   gatewayActivationEpoch: () => epoch,
@@ -121,6 +135,7 @@ await module.evaluate();
 const {
   default: plugin,
   routeIdentity,
+  initializeLifetime,
   createRouteClient,
   createPayload,
   CRMRoot,
@@ -148,6 +163,10 @@ assert.deepEqual(
 const calls = [];
 let release;
 const delayed = {
+  registerMany() {},
+  onDispose() {},
+  setTimeout() {},
+  setInterval() {},
   rest(path, options) {
     calls.push([path, options]);
     return new Promise((resolve) => {
@@ -155,7 +174,8 @@ const delayed = {
     });
   },
 };
-let client = createRouteClient(delayed, routeIdentity());
+initializeLifetime(delayed);
+let client = createRouteClient(delayed, routeIdentity(delayed));
 let pending = client.request("/contacts");
 profile = "other";
 release([{ name: "PRIVATE old profile" }]);
@@ -166,22 +186,22 @@ await assert.rejects(
 );
 assert.equal(calls.length, 1);
 profile = "work";
-client = createRouteClient(delayed, routeIdentity());
+client = createRouteClient(delayed, routeIdentity(delayed));
 pending = client.request("/meta");
 connection = "remote-b";
 release({});
 await assert.rejects(pending, /previous connection or profile/);
-client = createRouteClient(delayed, routeIdentity());
+client = createRouteClient(delayed, routeIdentity(delayed));
 pending = client.request("/meta");
 epoch++;
 release({});
 await assert.rejects(pending, /previous connection or profile/);
-client = createRouteClient(delayed, routeIdentity());
+client = createRouteClient(delayed, routeIdentity(delayed));
 pending = client.request("/tasks");
 client.dispose();
 release([]);
 await assert.rejects(pending, /previous connection or profile/);
-client = createRouteClient(delayed, routeIdentity());
+client = createRouteClient(delayed, routeIdentity(delayed));
 gateway = "connecting";
 await assert.rejects(client.request("/tasks", { method: "POST" }), /changed/);
 gateway = "open";
@@ -246,6 +266,8 @@ const sample = {
 const writes = [],
   cleanups = [];
 const ctx = {
+  registerMany() {},
+  onDispose() {},
   async rest(path, options) {
     if (options) {
       writes.push([path, options]);
@@ -265,6 +287,7 @@ const ctx = {
     return () => cleanups.push("timeout");
   },
 };
+initializeLifetime(ctx);
 const root = () => render({ type: CRMRoot, props: { ctx } });
 root();
 const disposers = effects

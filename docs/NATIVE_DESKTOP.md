@@ -14,7 +14,7 @@ Native contributions: a main-area CRM pane, /hermes-crm full page, CRM sidebar e
 
 ## Installation and enablement
 
-Use Hermes v0.23.0 or newer compatible release. Install the reviewed unified package using the host plugin installer. Enable both the Desktop component and the agent/backend component for the intended profile in Capabilities → Plugins. They are separate gates, and the package is inert until enabled.
+Use Agent v0.23.0 or a newer compatible release and a Desktop build that supplies the required SDK capabilities. The two components have different version labels. Older Desktop builds show a compatibility notice instead of attempting CRM reads or changes; see COMPATIBILITY.md for the exact checked builds. Install the reviewed unified package using the host plugin installer. Enable both the Desktop component and the agent/backend component for the intended profile in Capabilities → Plugins. They are separate gates, and the package is inert until enabled.
 
 The Desktop app copies desktop/plugin.js into its app-level plugin root. After editing an installed copy, use Capabilities → Plugins → Rescan or restart as documented by Hermes. A source checkout linked using the documented development workflow hot-reloads through the host.
 
@@ -22,7 +22,7 @@ For a remote backend, the Desktop half must also be installed on the computer ru
 
 ## Profile and connection behavior
 
-The active app connection/profile controls ctx.rest. This is deliberately not the owner of an arbitrary focused chat tile. The UI displays the active scope and keys all state by connection, profile and gateway activation epoch. A switch clears the prior workspace and form state. Responses from the old scope are discarded, and writes check the captured scope immediately before transport.
+The active app connection/profile controls ctx.rest. This is deliberately not the owner of an arbitrary focused chat tile. The UI displays the active scope and keys state by connection, profile, gateway activation epoch and a monotonic generation observing connection-state transitions. A switch or reconnect clears prior workspace and form state. Responses from the old scope are discarded, and writes check the captured scope immediately before transport. Plugin disposal invalidates pending clients and removes listeners.
 
 GET /snapshot returns metadata and initial records from one storage-factory call so a backend change cannot mix workspaces during refresh. Metadata contains an opaque persisted workspace_token. Each create/update/demo write includes the token captured when its form or confirmation opens. Search and detail requests also send their captured token. The backend rejects a mismatched token. This is additional stale-scope protection, not authentication; Hermes still enforces credentials and plugin enablement.
 

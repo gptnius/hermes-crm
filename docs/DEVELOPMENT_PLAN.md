@@ -65,5 +65,5 @@ Multi-user auth, bulk import/export, email sync, attachments, custom schema buil
 - [x] Scheduler claims distinguish due dates, job creation and actual execution
 - [ ] Install and demo instructions work from a clean checkout
 - [ ] Secret/privacy review complete
-- [x] Repository owner verified; public repository not yet created
+- [x] Repository owner verified; source prototype published at https://github.com/gptnius/hermes-crm
 - [ ] No production or contest submission claimed without verification

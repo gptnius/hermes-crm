@@ -20,6 +20,8 @@ See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [architecture and
 
 Install the unified package and enable both its agent/backend and Desktop components in Capabilities → Plugins. Open CRM from the sidebar or command palette. No localhost service, iframe, separate API token or new model provider is required. The active app connection/profile controls this workspace, and a profile change clears previous records and unfinished forms.
 
+Desktop and Agent version labels differ. The backend requires Agent v0.23.0 or newer compatible APIs; Desktop must also supply the required routing capabilities. Unsupported Desktop builds show a notice and disable CRM operations. See [exact host compatibility](docs/COMPATIBILITY.md).
+
 An empty workspace offers an explicit, confirmed synthetic-demo seed. This never runs automatically and refuses existing records. See [native Desktop setup and test scope](docs/NATIVE_DESKTOP.md).
 
 ## Optional standalone demo

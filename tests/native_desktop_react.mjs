@@ -25,6 +25,10 @@ function atom(initial) {
       value = next;
       for (const fn of listeners) fn();
     },
+    listen(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
     subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
@@ -43,6 +47,7 @@ const host = {
   navigate() {},
 };
 const sdk = {
+  atom,
   host,
   useValue,
   gatewayActivationEpoch: epoch.get,
@@ -119,7 +124,12 @@ let backendTokenSuffix = "",
   backendKind = "sqlite";
 let delayDetail = false,
   releaseDetail;
+const pluginDisposers = [];
 const ctx = {
+  onDispose(fn) {
+    pluginDisposers.push(fn);
+  },
+  registerMany() {},
   async rest(path, options) {
     calls.push({ path, profile: profile.get(), connection: connection.get() });
     if (options) {
@@ -176,6 +186,7 @@ const ctx = {
     return () => intervals.delete(fn);
   },
 };
+module.namespace.default.register(ctx);
 let root;
 await act(async () => {
   root = Renderer.create(
@@ -311,11 +322,54 @@ assert.equal(
 assert.equal(writes[3].options.body.data.title, "Updated title only");
 await click("Contacts");
 await click("+ Contact");
+for (const [name, transition] of [
+  [
+    "reconnect",
+    () => {
+      gateway.set("closed");
+      gateway.set("open");
+    },
+  ],
+  [
+    "profile ABA",
+    () => {
+      profile.set("temporary");
+      profile.set("work");
+    },
+  ],
+  [
+    "source ABA",
+    () => {
+      connection.set("temporary-source");
+      connection.set("source-a");
+    },
+  ],
+  ["same-value activation", () => epoch.set(epoch.get() + 1)],
+]) {
+  const staleCallback = root.root.findByType("form").props.onSubmit;
+  const count = writes.length;
+  await act(async () => {
+    transition();
+    await staleCallback({ preventDefault() {} });
+  });
+  assert.equal(
+    writes.length,
+    count,
+    `${name}: old callback is blocked before effects`,
+  );
+  assert.equal(
+    root.root.findAllByType("form").length,
+    0,
+    `${name}: reactive generation remounts workspace`,
+  );
+  await click("Contacts");
+  await click("+ Contact");
+}
 const staleSubmit = root.root.findByType("form").props.onSubmit;
 const before = writes.length;
 await act(async () => {
   profile.set("new-agent");
-  epoch.set(2);
+  epoch.set(epoch.get() + 1);
 });
 assert.doesNotMatch(text(), /Ada Example/);
 assert.equal(root.root.findAllByType("form").length, 0);
@@ -325,7 +379,7 @@ await act(async () => {
 assert.equal(writes.length, before, "Unmounted old-profile form cannot write");
 await act(async () => {
   connection.set("source-b");
-  epoch.set(3);
+  epoch.set(epoch.get() + 1);
 });
 assert.match(text(), /source-b/);
 overview.contacts = 0;
@@ -358,6 +412,7 @@ await act(async () => {
   root.unmount();
 });
 assert.equal(timers.size, 0);
+for (const dispose of pluginDisposers) dispose();
 assert.equal(profile.listeners.size, 0);
 assert.equal(epoch.listeners.size, 0);
 console.log(

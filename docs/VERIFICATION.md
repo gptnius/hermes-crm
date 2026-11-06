@@ -49,7 +49,11 @@ JavaScript syntax and whitespace checks pass. The standalone VM suite covers sec
 
 The native VM suite checks SDK registration/imports, scoped transport, stale response/write rejection, create payloads, profile remounts and timer cleanup. The actual React 19.3.0 Strict Mode suite tests dashboard/contacts/forms, name-only contact creation, versioned edit/completion, unchanged scheduled timestamps, scoped snapshot/search, captured demo targets, navigation races, profile/source remounts and subscription/timer cleanup. React is real; the SDK transport is an explicit fixture. Optional HERMES_SOURCE checks compare the used SDK exports and CSS variables with the pinned host.
 
-Run `node tests/ui_smoke.cjs`, `node --experimental-vm-modules tests/native_desktop_smoke.mjs` and `node --experimental-vm-modules tests/native_desktop_react.mjs`. The React suite requires the exact test-only dependencies listed at its top; they are not bundled with the plugin. These are logic, component and server checks, not a real Electron rendering or full browser-to-backend pass.
+The routing regression suite additionally exercises synchronous open→closed→open and profile/source A→B→A transitions before React can render, same-valued official epoch changes, pending stale responses, stale write callbacks, Strict Mode request invalidation and plugin unload/reload. An exact legacy capability-shape fixture links the namespace import and verifies that the compatibility screen performs zero REST calls or polling. The actual React suite checks stale form callbacks in the same transition batch and the subsequent workspace remount.
+
+Run `node tests/ui_smoke.cjs`, `node --experimental-vm-modules tests/native_desktop_smoke.mjs`, `node --experimental-vm-modules tests/native_desktop_routing.mjs` and `node --experimental-vm-modules tests/native_desktop_react.mjs`. The React suite requires the exact test-only dependencies listed at its top; they are not bundled with the plugin. These are logic, component and server checks, not a real Electron rendering or full browser-to-backend pass.
+
+Exact historical Desktop and Agent source checks are recorded in COMPATIBILITY.md. The older Agent is deliberately unsupported; its two current-host integration-test failures and authenticated metadata 503 responses are not counted as passing product tests.
 
 ## Not completed
 
@@ -57,13 +61,17 @@ Run `node tests/ui_smoke.cjs`, `node --experimental-vm-modules tests/native_desk
 - A real Hermes scheduler create → gateway execution → local delivery cycle. Payload/state/host restriction tests pass, but no live job has been created.
 - Hosted Supabase connectivity, network latency/failure behavior and deployment security.
 - Visual inspection of the native Hermes Desktop pane in a running Electron app. The native pane and real-host backend integration exist and pass the automated checks above; pixel layout, focus behavior and full accessibility remain unverified.
-- External public repository creation, catalog PR, social post, contest form or production deployment.
+- Catalog PR, social post, contest form or production deployment.
+
+## Source prototype publication
+
+The source prototype is public at https://github.com/gptnius/hermes-crm. Its initial published commit is 1c70b16f09dfb534109abb3406d35e08c9f9085e. Source publication is not completion of native-window visual QA, scheduler execution or the contest milestone. Changes undergo independent review before publication.
 
 ## Release gates still open
 
 1. Complete native Desktop/Electron visual and accessibility QA, plus standalone desktop/mobile QA, in an authorized browser-reachable environment.
 2. Exercise one synthetic internal follow-up in an isolated real Hermes gateway, including failure reconciliation.
-3. Complete the final source-distribution review and pin the reviewed commit before creating the repository under its verified owner.
-4. Only then prepare the authorized public release or contest submission steps.
+3. Complete source-distribution review and pin the reviewed commit before publishing each update.
+4. Complete the runtime gates before calling this a fully validated release or preparing any authorized contest submission. A clearly labeled source prototype can remain public while those gates are open.
 
 No real contacts, production systems, private repository history or credential stores were used. Dependency deprecation warnings are recorded in test output; no application test failure remains in the verified checks above.

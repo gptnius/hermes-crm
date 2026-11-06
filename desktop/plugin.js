@@ -1,4 +1,7 @@
-import {
+import * as sdk from "@hermes/plugin-sdk";
+import { createElement as h, useState, useEffect, useRef } from "react";
+
+const {
   host,
   useValue,
   gatewayActivationEpoch,
@@ -7,8 +10,77 @@ import {
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
   PALETTE_AREA,
-} from "@hermes/plugin-sdk";
-import { createElement as h, useState, useEffect, useRef } from "react";
+} = sdk;
+const lifetimes = new WeakMap();
+let nextLifetime = 0;
+
+// Installed before contributions can mount. Store listeners run synchronously,
+// so React batching cannot hide A → B → A or open → closed → open transitions.
+export function initializeLifetime(ctx) {
+  const registrationMissing = [];
+  if (typeof ctx?.registerMany !== "function")
+    registrationMissing.push("ctx.registerMany");
+  if (typeof host?.navigate !== "function")
+    registrationMissing.push("host.navigate");
+  for (const name of [
+    "PANES_AREA",
+    "ROUTES_AREA",
+    "SIDEBAR_NAV_AREA",
+    "PALETTE_AREA",
+  ])
+    if (typeof sdk[name] !== "string" || !sdk[name].trim())
+      registrationMissing.push(`SDK.${name}`);
+  if (registrationMissing.length)
+    throw new Error(
+      `Hermes CRM compatibility error: cannot safely register its Desktop surfaces. Missing capabilities: ${registrationMissing.join(", ")}. Update Hermes Desktop and reload the plugin.`,
+    );
+  const previous = lifetimes.get(ctx);
+  if (previous?.alive) return previous;
+  const missing = [];
+  for (const name of [
+    "atom",
+    "useValue",
+    "gatewayActivationEpoch",
+    "useGatewayActivationEpoch",
+  ])
+    if (typeof sdk[name] !== "function") missing.push(`SDK.${name}`);
+  for (const name of ["profile", "connectionId", "gateway"])
+    for (const method of ["get", "listen", "subscribe"])
+      if (typeof host?.state?.[name]?.[method] !== "function")
+        missing.push(`host.state.${name}.${method}`);
+  for (const name of ["rest", "setTimeout", "setInterval", "onDispose"])
+    if (typeof ctx[name] !== "function") missing.push(`ctx.${name}`);
+  if (missing.length) {
+    const unsupported = { supported: false, alive: false, missing };
+    lifetimes.set(ctx, unsupported);
+    return unsupported;
+  }
+  const lifetime = {
+    supported: true,
+    alive: true,
+    id: ++nextLifetime,
+    generation: sdk.atom(0),
+  };
+  const stops = [];
+  const bump = () => lifetime.generation.set(lifetime.generation.get() + 1);
+  const dispose = () => {
+    if (!lifetime.alive) return;
+    lifetime.alive = false;
+    bump();
+    for (const stop of stops.splice(0)) stop();
+  };
+  // Register cleanup first; a later registration failure must not leak listeners.
+  ctx.onDispose(dispose);
+  try {
+    for (const name of ["gateway", "profile", "connectionId"])
+      stops.push(host.state[name].listen(bump));
+  } catch (error) {
+    dispose();
+    throw error;
+  }
+  lifetimes.set(ctx, lifetime);
+  return lifetime;
+}
 
 const STAGES = ["lead", "qualified", "proposal", "negotiation", "won", "lost"];
 const PROBABILITY = [10, 25, 50, 75, 100, 0];
@@ -33,34 +105,44 @@ const button = (text, onClick, props = {}) =>
 const badge = (text) => h("span", { className: "hc-badge" }, label(text));
 
 // ctx.rest follows the ACTIVE app route, not the focused conversation tile.
-export function routeIdentity() {
+export function routeIdentity(ctx) {
+  const lifetime = lifetimes.get(ctx);
+  if (!lifetime?.supported || !lifetime.alive) return null;
   return JSON.stringify([
     host.state.connectionId.get(),
     host.state.profile.get(),
     gatewayActivationEpoch(),
+    lifetime.id,
+    lifetime.generation.get(),
   ]);
 }
 export function createRouteClient(ctx, identity) {
+  const lifetime = lifetimes.get(ctx);
   let alive = true;
+  let mountGeneration = 0;
   const current = () =>
     alive &&
-    identity === routeIdentity() &&
+    lifetime?.alive &&
+    identity !== null &&
+    identity === routeIdentity(ctx) &&
     host.state.gateway.get() === "open";
   return {
     current,
     dispose() {
       alive = false;
+      mountGeneration++;
     },
     activate() {
-      alive = true;
+      if (lifetime?.alive) alive = true;
     },
     async request(path, options) {
       if (!current())
         throw new Error(
           "Connection or profile changed. Reload before continuing.",
         );
+      const capturedMount = mountGeneration;
       const result = await ctx.rest(path, options);
-      if (!current())
+      if (!current() || capturedMount !== mountGeneration)
         throw new Error(
           "Discarded a response from the previous connection or profile.",
         );
@@ -102,11 +184,53 @@ function Shell({ children }) {
   );
 }
 export function CRMRoot({ ctx }) {
+  const lifetime = lifetimes.get(ctx);
+  if (!lifetime?.supported)
+    return h(
+      Shell,
+      null,
+      h("h1", null, "Hermes CRM needs a newer Desktop SDK"),
+      h(
+        "p",
+        { role: "status", className: "hc-notice" },
+        "This Hermes Desktop build lacks the routing and cleanup capabilities required for safe CRM access. No CRM data has been read or changed.",
+      ),
+      h(
+        "p",
+        null,
+        "Update Hermes Desktop to a build providing connection identity, gateway activation epochs, and scoped plugin timers, then reload this plugin. The backend also requires Hermes 0.23.0 or newer. Updating only the backend does not upgrade Desktop.",
+      ),
+      h(
+        "p",
+        { className: "hc-muted" },
+        `Missing capabilities: ${lifetime?.missing?.join(", ") || "plugin registration"}`,
+      ),
+    );
+  return h(SupportedRoot, { ctx, lifetime });
+}
+function SupportedRoot({ ctx, lifetime }) {
+  const generation = useValue(lifetime.generation);
   const profile = useValue(host.state.profile);
   const connection = useValue(host.state.connectionId);
   const gateway = useValue(host.state.gateway);
   const epoch = useGatewayActivationEpoch();
-  const identity = JSON.stringify([connection, profile, epoch]);
+  const identity = JSON.stringify([
+    connection,
+    profile,
+    epoch,
+    lifetime.id,
+    generation,
+  ]);
+  if (!lifetime.alive)
+    return h(
+      Shell,
+      null,
+      h(
+        "p",
+        { role: "status" },
+        "Hermes CRM has been unloaded. Re-enable the plugin to continue.",
+      ),
+    );
   if (gateway !== "open")
     return h(
       Shell,
@@ -1112,6 +1236,7 @@ export default {
   name: "Hermes CRM",
   defaultEnabled: false,
   register(ctx) {
+    initializeLifetime(ctx);
     const render = () => h(CRMRoot, { ctx });
     ctx.registerMany([
       {
