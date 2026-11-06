@@ -1,0 +1,31 @@
+name: hermes-crm
+version: "0.1.0"
+description: Profile-local CRM for contacts, deals and safe internal follow-ups.
+requires_hermes: ">=0.23.0"
+provides_tools:
+  - crm_contact_list
+  - crm_contact_get
+  - crm_contact_create
+  - crm_contact_update
+  - crm_deal_list
+  - crm_deal_get
+  - crm_deal_create
+  - crm_deal_update
+  - crm_task_list
+  - crm_task_get
+  - crm_task_create
+  - crm_task_update
+  - crm_overview
+  - crm_followup_schedule
+config_schema:
+  backend:
+    type: str
+    choices: [sqlite, postgres]
+    default: sqlite
+    label: Storage backend
+    description: SQLite is local to this profile. PostgreSQL is explicit and never falls back.
+  database_url:
+    type: secret
+    env: HERMES_CRM_DATABASE_URL
+    label: PostgreSQL connection URL
+    description: Optional. Used only when PostgreSQL is selected. Keep credentials in the host secret store.

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Hermes CRM · Workspace</title>
+    <link rel="stylesheet" href="/static/app.css" />
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to workspace</a>
+    <aside class="sidebar">
+      <a href="#overview" class="brand"
+        ><span class="brandmark">H</span> hermes <small>CRM</small></a
+      >
+      <div class="workspace">
+        <span class="avatar">W</span>
+        <div>
+          <span class="workspace-name">CRM workspace</span
+          ><small>Local-first · Agent-ready</small>
+        </div>
+      </div>
+      <div class="nav-label">WORKSPACE</div>
+      <nav aria-label="Main navigation">
+        <a href="#overview" data-page="overview"><span>▦</span>Overview</a
+        ><a href="#contacts" data-page="contacts"><span>◎</span>Contacts</a
+        ><a href="#deals" data-page="deals"><span>▤</span>Deals</a
+        ><a href="#tasks" data-page="tasks"><span>☑</span>Tasks</a
+        ><a href="#activity" data-page="activity"><span>◷</span>Activity</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="agent-badge">
+          <span class="status-dot"></span> Hermes profile <b id="profile">—</b>
+        </div>
+        <p>Your relationships.<br />Your workspace. Your agents.</p>
+        <div class="avatar-row">
+          <span class="avatar">DW</span>
+          <div>
+            <span class="workspace-name">CRM workspace</span
+            ><small><span class="workspace-description">Local CRM</span></small>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <div class="app">
+      <header class="topbar">
+        <span class="breadcrumb"
+          >Workspace <span>/</span> <strong id="crumb">Overview</strong></span
+        >
+        <div class="header-right">
+          <span class="demo-label" hidden>SYNTHETIC DEMO</span
+          ><span class="avatar small">DW</span>
+        </div>
+      </header>
+      <main id="main" tabindex="-1">
+        <div id="content" aria-live="polite"></div>
+      </main>
+      <footer>
+        Hermes CRM <span>Built for people. Ready for agents.</span>
+      </footer>
+    </div>
+    <div id="toast" role="status" class="toast" hidden></div>
+    <dialog id="modal" aria-labelledby="dialog-title">
+      <div id="modal-body"></div>
+    </dialog>
+  </body>
+</html>
