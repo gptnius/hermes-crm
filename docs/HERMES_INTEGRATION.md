@@ -54,6 +54,12 @@ The UI uses ctx.rest, active app profile/connection state and gateway activation
 
 Official Desktop reference: https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk
 
+### Existing native conversation companion
+
+The optional chat handoff uses the tested public `host.openWorkspace` side-dock option, `host.revealPane`, `host.paneVisibility`, `host.navigate` and read-only session ownership atoms. It returns only to an already loaded matching primary conversation. It does not call `host.openSession`, `host.newChat`, gateway RPC or any composer helper. Missing, ambiguous or foreign ownership fails closed. Old hosts that ignore side docking do not receive a misleading success state.
+
+Record preview/copy carries only connection, profile, kind, ID and version. Copy re-reads the scoped record with its workspace token and checks the version, but never puts that token or record text on the clipboard. The user pastes and sends through the genuine native composer, retaining host approvals. Read NATIVE_CHAT.md for steps, required state and limitations. This is not email integration or automatic context attachment.
+
 ## Catalog and release gates
 
 Catalog metadata must identify a verified repository owner and pin an exact reviewed 40-character plugin commit. A template is intentionally not submitted. Public distribution requires privacy/secret review, dependency review, install instructions, declared capabilities and truthful compatibility floor. No automatic self-update or core patching is included.

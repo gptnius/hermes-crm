@@ -496,7 +496,7 @@ assert.match(text(), /Upcoming follow-ups/);
 assert.match(text(), /Example opportunity/);
 assert.match(text(), /Recorded by desktop/);
 assert.doesNotMatch(text(), /Human owner/);
-assert.equal(root.root.findAllByType("button").some(node => /Send email|Chat with/.test(flatten(node.children))), false);
+assert.equal(root.root.findAllByType("button").some(node => /Send email|Send message/.test(flatten(node.children))), false);
 await click("Create follow-up");
 assert.equal(select("contact_id").props.value, "c1");
 assert.equal(recordDetails().length, 1, "The contact remains behind the drawer for cancellation");

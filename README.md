@@ -7,6 +7,7 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 ## What works
 
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
+- Native conversation companion: open CRM beside an existing verified main Hermes chat; preview and copy a minimal record reference for manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: six-stage value donut with keyboard/hover details, unique-contact drillthrough and preset missing/overdue follow-up reports.
 - Pipeline: six stages, integer-cent USD amounts, company/value filters and weighted forecast.

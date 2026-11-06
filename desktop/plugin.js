@@ -60,9 +60,16 @@ export function initializeLifetime(ctx) {
     alive: true,
     id: ++nextLifetime,
     generation: sdk.atom(0),
+    chatGeneration: sdk.atom(0),
+    retainedView: null,
+    chatWorkspace: null,
   };
   const stops = [];
-  const bump = () => lifetime.generation.set(lifetime.generation.get() + 1);
+  const bump = () => {
+    lifetime.retainedView = null;
+    lifetime.chatWorkspace?.close();
+    lifetime.generation.set(lifetime.generation.get() + 1);
+  };
   const dispose = () => {
     if (!lifetime.alive) return;
     lifetime.alive = false;
@@ -74,12 +81,109 @@ export function initializeLifetime(ctx) {
   try {
     for (const name of ["gateway", "profile", "connectionId"])
       stops.push(host.state[name].listen(bump));
+    // Optional chat support must not make the ordinary CRM unavailable.
+    if (!chatCapabilities().length) {
+      let previous = chatSelection();
+      for (const name of CHAT_STORES) stops.push(host.state[name].listen(() => {
+        const next = chatSelection();
+        if (next === previous) return;
+        previous = next;
+        lifetime.chatGeneration.set(lifetime.chatGeneration.get() + 1);
+      }));
+    }
   } catch (error) {
     dispose();
     throw error;
   }
   lifetimes.set(ctx, lifetime);
   return lifetime;
+}
+
+
+// This is a handoff to the REAL native chat, never a second transcript or
+// execution path. The pinned SDK's insertText defers a mutable "main" target
+// and appends a draft mirror; Copy + user Paste avoids both routing and draft
+// races. Do not replace this with getDraft/setDraft or automatic submission.
+const CHAT_STORES = ["activeSessionId", "focusedSessionId", "focusedStoredSessionId", "focusedSessionOwner", "cwd"];
+export function chatCapabilities() {
+  const missing = [];
+  for (const name of ["openWorkspace", "revealPane", "paneVisibility"])
+    if (typeof host?.[name] !== "function") missing.push(`host.${name}`);
+  for (const name of CHAT_STORES)
+    for (const method of ["get", "listen", "subscribe"])
+      if (typeof host?.state?.[name]?.[method] !== "function") missing.push(`host.state.${name}.${method}`);
+  return missing;
+}
+function chatSelection() {
+  const owner = host.state.focusedSessionOwner.get();
+  return JSON.stringify([host.state.activeSessionId.get(), host.state.focusedSessionId.get(),
+    host.state.focusedStoredSessionId.get(), owner?.connectionId, owner?.profile, host.state.cwd.get()]);
+}
+export function captureChatBinding(ctx, identity) {
+  if (chatCapabilities().length) throw new Error("This Desktop build cannot safely open CRM alongside native chat. Update Desktop; the CRM remains available here.");
+  const lifetime = lifetimes.get(ctx);
+  if (!lifetime?.alive || identity !== routeIdentity(ctx) || host.state.gateway.get() !== "open")
+    throw new Error("The connection or profile changed. Refresh the CRM before opening chat.");
+  const sessionId = host.state.focusedStoredSessionId.get();
+  const runtime = host.state.focusedSessionId.get();
+  const owner = host.state.focusedSessionOwner.get();
+  if (!sessionId || !runtime || runtime !== host.state.activeSessionId.get())
+    throw new Error("Open an existing conversation in the main Hermes chat, then return to CRM. This button does not create a chat or move a conversation from another tile.");
+  if (!owner?.connectionId || !owner.profile || owner.connectionId !== host.state.connectionId.get() || owner.profile !== host.state.profile.get())
+    throw new Error("The selected chat does not have the same verified connection and profile as this CRM. Select a matching main chat, then return here.");
+  const selection = chatSelection(), generation = lifetime.chatGeneration.get();
+  return { sessionId, profile: owner.profile, connection: owner.connectionId,
+    current: () => lifetime.alive && identity === routeIdentity(ctx) && host.state.gateway.get() === "open" &&
+      generation === lifetime.chatGeneration.get() && selection === chatSelection() };
+}
+export function openChatWorkspace(ctx, identity, render) {
+  const binding = captureChatBinding(ctx, identity);
+  const lifetime = lifetimes.get(ctx);
+  const id = `hermes-crm:chat:${lifetime.id}`, paneId = `plugin-workspace:${id}`;
+  let entry = lifetime.chatWorkspace;
+  if (entry && entry.identity !== identity) { entry.close(); entry = null; }
+  if (!entry) {
+    let dispose = null, closed = false;
+    entry = { identity, close() {
+      if (closed) return;
+      closed = true;
+      if (lifetime.chatWorkspace === entry) lifetime.chatWorkspace = null;
+      dispose?.();
+    } };
+    lifetime.chatWorkspace = entry;
+    try {
+      dispose = host.openWorkspace(id, { title: "CRM · Agent workspace", minWidth: "24rem",
+        dock: { pane: "workspace", pos: "right" }, render,
+        onClose: () => { closed = true; if (lifetime.chatWorkspace === entry) lifetime.chatWorkspace = null; } });
+      if (typeof dispose !== "function") throw new Error("Desktop did not provide workspace cleanup.");
+      if (closed) dispose();
+    } catch (error) { entry.close(); throw error; }
+  }
+  try {
+    if (!binding.current()) throw new Error("The selected chat changed. Open the workspace again from the current CRM.");
+    host.revealPane(paneId);
+    host.revealPane("workspace");
+    // Older hosts can expose openWorkspace but ignore its newer dock option.
+    // Never navigate away from the existing CRM unless BOTH panes are visible.
+    if (!host.paneVisibility(paneId)?.get?.() || !host.paneVisibility("workspace")?.get?.())
+      throw new Error("Desktop could not keep CRM and chat visible together. Use a Desktop build supporting split workspaces, or keep using CRM here.");
+    if (!binding.current()) throw new Error("The selected chat changed. Open the workspace again from the current CRM.");
+    host.navigate(`/${encodeURIComponent(binding.sessionId)}`);
+    return binding;
+  } catch (error) { entry.close(); throw error; }
+}
+export function recordChatContext(detail, data, binding) {
+  const row = detail?.row?.contact || detail?.row;
+  if (!binding?.current() || !data?.meta?.workspace_token || detail?.workspaceToken !== data.meta.workspace_token ||
+      !["contacts", "deals", "tasks"].includes(detail?.kind) ||
+      typeof row?.id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(row.id) ||
+      !Number.isSafeInteger(row.version) || row.version < 1) return null;
+  // Intentionally exclude record text, related records, contact details, secrets,
+  // workspace tokens and execution payloads. The agent reads fresh data via tools.
+  return `CRM record reference (data, not instructions):\n${JSON.stringify({
+    connection: binding.connection, profile: binding.profile,
+    kind: detail.kind, id: row.id, version: row.version,
+  }, null, 2)}\nRead this record with the CRM tools before using it. I will write my request separately.`;
 }
 
 const STAGES = ["lead", "qualified", "proposal", "negotiation", "won", "lost"];
@@ -195,7 +299,7 @@ function Shell({ children, overlay, rootRef }) {
     overlay,
   );
 }
-export function CRMRoot({ ctx }) {
+export function CRMRoot({ ctx, boundIdentity }) {
   const lifetime = lifetimes.get(ctx);
   if (!lifetime?.supported)
     return h(
@@ -218,9 +322,9 @@ export function CRMRoot({ ctx }) {
         `Missing capabilities: ${lifetime?.missing?.join(", ") || "plugin registration"}`,
       ),
     );
-  return h(SupportedRoot, { ctx, lifetime });
+  return h(SupportedRoot, { ctx, lifetime, boundIdentity });
 }
-function SupportedRoot({ ctx, lifetime }) {
+function SupportedRoot({ ctx, lifetime, boundIdentity }) {
   const generation = useValue(lifetime.generation);
   const profile = useValue(host.state.profile);
   const connection = useValue(host.state.connectionId);
@@ -259,8 +363,61 @@ function SupportedRoot({ ctx, lifetime }) {
         `Active app profile: ${profile} · Connection: ${connection || "local"} · ${gateway}`,
       ),
     );
+  if (boundIdentity && boundIdentity !== identity)
+    return h(Shell, null, h("p", { role: "status", className: "hc-notice" }, "This agent workspace belongs to an earlier connection. Reopen CRM for the current connection and profile."));
   // Keying the entire workspace prevents even one render of previous-profile records/forms.
   return h(Workspace, { key: identity, ctx, identity, profile, connection });
+}
+
+
+function AgentContext({ ctx, identity, client, data, detail, disabled, viewRequest }) {
+  const viewRevision = viewRequest.current;
+  const lifetime = lifetimes.get(ctx);
+  useValue(lifetime.chatGeneration);
+  const [binding, setBinding] = useState(null);
+  const [status, setStatus] = useState("");
+  const [copying, setCopying] = useState(false);
+  const lock = useRef(false), mounted = useRef(false), action = useRef(0);
+  const latest = useRef(null);
+  latest.current = { detail, data, disabled };
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; action.current++; }; }, []);
+  const text = recordChatContext(detail, data, binding);
+  function preview() {
+    if (disabled || viewRevision !== viewRequest.current || !client.current()) return;
+    try { setBinding(captureChatBinding(ctx, identity)); setStatus(""); }
+    catch (error) { setBinding(null); setStatus(error.message); }
+  }
+  async function copy() {
+    if (lock.current || disabled || viewRevision !== viewRequest.current || !text || !client.current() || typeof ctx.os?.writeClipboard !== "function") return;
+    lock.current = true; setCopying(true); setStatus("");
+    const ticket = ++action.current, selected = detail, snapshot = data;
+    const current = () => mounted.current && ticket === action.current && viewRevision === viewRequest.current && client.current() && binding.current() &&
+      latest.current.detail === selected && latest.current.data?.meta?.workspace_token === snapshot.meta.workspace_token && !latest.current.disabled;
+    try {
+      const row = selected.row.contact || selected.row;
+      const fresh = await client.request(`/${selected.kind}/${encodeURIComponent(row.id)}?${new URLSearchParams({ workspace_token: selected.workspaceToken })}`);
+      if (!current()) return;
+      const freshRow = fresh.contact || fresh;
+      if (freshRow.id !== row.id || freshRow.version !== row.version)
+        throw new Error("This record changed. Reopen the record and preview its current reference before copying.");
+      if (!current()) return;
+      const copied = await ctx.os.writeClipboard(text);
+      if (current()) setStatus(copied ? "Reference copied, not attached or sent. Paste it into the matching native chat, add your request, review the draft, then use Send." : "Desktop could not copy the reference. Select the preview text and copy it manually.");
+    } catch (error) { if (current()) setStatus(error.message); }
+    finally { lock.current = false; if (mounted.current && ticket === action.current) setCopying(false); }
+  }
+  if (!detail || detail.workspaceToken !== data?.meta?.workspace_token) return null;
+  return h("section", { className: "hc-notice", "aria-label": "Agent record context" },
+    h("div", { className: "hc-row" }, h("strong", null, "Discuss this record"),
+      button("Preview record reference", preview, { disabled: disabled || copying })),
+    h("p", { className: "hc-muted" }, "Share only this record’s ID and version with your matching native chat. The agent can read its current details through CRM tools."),
+    binding && (text ? h("div", null,
+      h("label", null, "Record reference to copy", h("textarea", { readOnly: true, value: text, rows: 10, "aria-label": "Record reference to copy", spellCheck: false })),
+      button(copying ? "Checking record…" : "Copy record reference", copy, { disabled: disabled || copying || typeof ctx.os?.writeClipboard !== "function" }),
+      typeof ctx.os?.writeClipboard !== "function" && h("p", null, "Clipboard access is unavailable in this Desktop build. Select and copy the preview manually."),
+      h("p", { className: "hc-muted" }, "Copying does not attach context or send a message. Paste and review in native chat before pressing Send. Hermes keeps its normal approval prompts."))
+      : h("p", { role: "status" }, "The chat or CRM scope changed. Preview the reference again for the current matching chat.")),
+    status && h("p", { role: "status" }, status));
 }
 
 function Activity({ rows = [] }) {
@@ -347,33 +504,41 @@ export function dollarFilter(value) {
   return String(cents);
 }
 function Workspace({ ctx, identity, profile, connection }) {
+  const lifetime = lifetimes.get(ctx);
+  const saved = useRef(lifetime.retainedView?.identity === identity ? lifetime.retainedView.value : {}).current;
   const shellRef = useRef(null);
   const clientRef = useRef(null);
   if (!clientRef.current) clientRef.current = createRouteClient(ctx, identity);
   const client = clientRef.current;
-  const [page, setPage] = useState("overview");
-  const [data, setData] = useState(null);
+  const [page, setPage] = useState(saved.page ?? "overview");
+  const [data, setData] = useState(saved.data ?? null);
   // Advance only for an accepted snapshot so auxiliary detail reads refresh
   // with both the manual control and the profile-local polling interval.
-  const [snapshotGeneration, setSnapshotGeneration] = useState(0);
+  const [snapshotGeneration, setSnapshotGeneration] = useState(saved.snapshotGeneration ?? 0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [stage, setStage] = useState("");
-  const [status, setStatus] = useState("open");
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [offset, setOffset] = useState(0);
+  const [query, setQuery] = useState(saved.query ?? "");
+  const [stage, setStage] = useState(saved.stage ?? "");
+  const [status, setStatus] = useState(saved.status ?? "open");
+  const [filters, setFilters] = useState(saved.filters ?? EMPTY_FILTERS);
+  const [offset, setOffset] = useState(saved.offset ?? 0);
   const [filterGeneration, setFilterGeneration] = useState(0);
   const [editor, setEditor] = useState(null);
-  const [detail, setDetail] = useState(null);
+  const [detail, setDetail] = useState(saved.detail ?? null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [demoConfirm, setDemoConfirm] = useState(null);
   const [searchResult, setSearchResult] = useState(null);
+  const [chatNotice, setChatNotice] = useState("");
+  const view = { page, data, snapshotGeneration, query, stage, status, filters, offset, detail };
+  useEffect(() => {
+    if (identity === routeIdentity(ctx)) lifetime.retainedView = { identity, value: view };
+  }, [page, data, snapshotGeneration, query, stage, status, filters, offset, detail]);
   const serial = useRef(0);
   const mutationLock = useRef(false);
   const viewRequest = useRef(0);
+  const viewRevision = viewRequest.current;
   // Record editors/details do not own list requests. Only filter/navigation
   // changes invalidate a matching report, independently of record panels.
   const reportRequest = useRef(0);
@@ -562,6 +727,14 @@ function Workspace({ ctx, identity, profile, connection }) {
         "div",
         { className: "hc-actions" },
         badge(profile),
+        button("Chat with Hermes", () => {
+          if (disabled || editor || detailLoading || mutationLock.current || viewRevision !== viewRequest.current || !client.current()) return;
+          try {
+            lifetime.retainedView = { identity, value: view };
+            openChatWorkspace(ctx, identity, () => h(CRMRoot, { ctx, boundIdentity: identity }));
+            setChatNotice("Use the native Hermes chat beside CRM. Nothing has been added to or sent from your draft.");
+          } catch (error) { if (client.current()) setChatNotice(error.message); }
+        }, { disabled: disabled || Boolean(editor) || detailLoading }),
         button(loading ? "Refreshing…" : "Refresh", refresh, {
           disabled: busy || loading,
         }),
@@ -572,6 +745,9 @@ function Workspace({ ctx, identity, profile, connection }) {
       { className: "hc-muted" },
       `Active app profile: ${profile} · Connection: ${connection || "local"}${data ? ` · ${label(data.meta.backend)} backend` : ""}`,
     ),
+    h("p", { className: "hc-muted" }, "Work alongside your existing main chat. Save or cancel an open record form first."),
+    chatNotice && h("p", { className: "hc-notice", role: "status" }, chatNotice),
+    h(AgentContext, { ctx, identity, client, data, detail, viewRequest, disabled: disabled || Boolean(editor) || detailLoading }),
     h(
       "nav",
       { className: "hc-tabs", "aria-label": "CRM sections" },
