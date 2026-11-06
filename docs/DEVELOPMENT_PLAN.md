@@ -64,6 +64,8 @@ Multi-user auth, bulk import/export, email sync, attachments, custom schema buil
 - [x] Profile isolation and no silent database fallback tested
 - [x] PostgreSQL runtime contract verified on disposable PostgreSQL 17.11
 - [x] Scheduler claims distinguish due dates, job creation and actual execution
+- [x] Real one-shot scheduler execution and local outputs verified with deterministic loopback model responses
+- [ ] Real-model behavior, default tool discovery, visible reminder presentation and restart/failure recovery verified
 - [x] Native install and demo verified in isolated source build using file-URI installation
 - [ ] Secret/privacy review complete
 - [x] Repository owner verified; source prototype published at https://github.com/gptnius/hermes-crm

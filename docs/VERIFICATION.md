@@ -1,6 +1,6 @@
 # Verification report
 
-Verified November 6, 2026. This is a tested prototype, not a production release. Native Mac installation and core visual workflows passed on the exact source build below. Live scheduler firing, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
+Verified November 6, 2026. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
 ## Passed
 
@@ -41,7 +41,7 @@ Exact source: official Hermes commit 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19. T
 The three opt-in host tests are reproducible with HERMES_SOURCE pointing at the official checkout and its dependencies installed:
 `HERMES_SOURCE=/path/to/hermes-agent python -m pytest tests/test_desktop_host.py tests/test_hermes_host.py -q`.
 
-Automated host checks used isolated profile homes and no model calls. No cron jobs were created. Doctor/catalog loadability is not proof that a live reminder fires. Native host startup has a separate provider auto-discovery caveat described below.
+These automated host checks used isolated profile homes and no model calls or cron jobs. A separate real scheduler execution test is documented below; Doctor/catalog loadability alone is not proof that a reminder fires. Native host startup has a separate provider auto-discovery caveat.
 
 ### Native Desktop and standalone UI checks
 
@@ -70,23 +70,43 @@ Verified in the native window:
 
 The Mac run also passed 33 Python tests (the 30 domain/API plus three actual-host tests, not an additional 33 distinct contracts), Plugin Doctor's 14 registered tools, all 16 catalog checks, standalone/native smoke and routing suites, actual React 19.3.0 Strict Mode tests, syntax and whitespace checks.
 
-No working model provider was configured for this sandbox, and live cron execution was not attempted. Host provider auto-discovery nevertheless attempted a login refresh and received `invalid_grant`. No credentials were manually retrieved or copied. A fresh Hermes home is not sufficient to isolate all host credential discovery; see NATIVE_DESKTOP.md for safe testing guidance.
+During this native-window phase, no working model provider was configured and cron execution was not attempted. Host provider auto-discovery nevertheless attempted a login refresh and received `invalid_grant`. No credentials were manually retrieved or copied. A fresh Hermes home is not sufficient to isolate all host credential discovery; see NATIVE_DESKTOP.md for safe testing guidance. The later scheduler test used a separate guarded, disposable profile and a keyless loopback endpoint.
+
+### Real scheduler execution with deterministic local model responses
+
+Passed November 6, 2026 on macOS against CRM commit `e3daa0bad315bef4d996b900848e11c600e408a4` and Hermes host commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`.
+
+Execution used real plugin discovery and the native `crm_followup_schedule` handler, actual `ctx.dispatch_tool('cronjob_manage', ...)` registration, `InProcessCronScheduler` with one-second ticks, real due-date selection and fire claims, canonical `SessionAuthority` admission, and `AIAgent`. The streamed tool call reached the actual `crm_task_get` handler and database. The scheduler, clock, resolver, admission, CRM handlers, database and agent loop were not mocked.
+
+Only the model endpoint was synthetic. A keyless loopback HTTP server emitted deterministic streaming responses: first a request to read the scheduled task, then a response based on the returned task data. This proves execution and data wiring, not model reasoning, instruction-following quality or prompt-injection resistance.
+
+Two future one-shot jobs were created through the real CRM scheduling tool:
+- One task remained open. After its due instant, the result contained the internal reminder and due date.
+- The other task was completed after scheduling but before firing. Its result reported no action needed.
+
+Neither job made model requests before its due time. Each fired after the real due instant, performed one real CRM read and made exactly two loopback model HTTP requests. Three additional scheduler ticks produced no further model requests or duplicate execution rows. This is bounded duplicate-execution evidence, not a guarantee across restarts or failures.
+
+Both host execution-ledger rows recorded a scheduled instant, source `builtin`, status `completed` and no error. Both persisted host jobs finished completed, disabled and with last status `ok`. Local output files contained the expected open/completed responses. The delivery outcome `suppressed` means external transport was not used for `deliver='local'`; it does not mean local output persistence failed. No visible Desktop notification, chat presentation or external delivery was tested.
+
+The stored allowlist was `['crm_read', 'no_mcp']`. The advertised tools were exactly `crm_contact_get`, `crm_contact_list`, `crm_deal_get`, `crm_deal_list`, `crm_overview`, `crm_task_get` and `crm_task_list`. Deferred tool-schema discovery was explicitly disabled with `tools.tool_search.enabled='off'` for direct inspection. No MCP servers were configured in this run. Default deferred discovery and a configured-MCP live run are therefore not covered; exclusion of configured MCP tools was checked separately by the actual-host resolver test above.
+
+The run used no real provider credentials, account login, external service or external message. A process-local audit guard allowed socket connections only to the exact test endpoint and denied real credential/profile reads and child application/provider launches; no disallowed network attempts were recorded. Cleanup verified zero enabled jobs in disposable test homes, exited test processes and closed test endpoints. Successful jobs disabled themselves; interrupted harness-development jobs were paused through the host API. Existing Desktop/profile state, production/VPS state and repository files were unchanged. Private test logs, databases and outputs are not included in this source package.
 
 ## Not completed
 
 - Broader native accessibility, keyboard/focus, responsive-layout and cross-platform QA beyond the Mac workflows above. Standalone desktop/mobile browser QA also remains incomplete; the earlier cloud browser restrictions were not bypassed.
-- A real Hermes scheduler create → gateway execution → local delivery cycle. Payload/state/host restriction tests pass, but no live job has been created.
+- Real-model scheduled reasoning, default deferred-tool discovery, a configured-MCP live run, visible Desktop reminder presentation, external delivery, restart recovery and live failure reconciliation. The real scheduler/local-output test above does not establish these behaviors. External outreach remains outside this plugin's scope.
 - Hosted Supabase connectivity, network latency/failure behavior and deployment security.
 - Catalog PR, social post, contest form or production deployment.
 
 ## Source prototype publication
 
-The source prototype is public at https://github.com/gptnius/hermes-crm. Its initial published commit is 1c70b16f09dfb534109abb3406d35e08c9f9085e; the compatibility/reconnect fix and native Mac test baseline is 8ab6f511899253235bc2d9e5432ef486fe95e0dc. Source publication is not completion of all runtime or contest milestones. Changes undergo independent review before publication.
+The source prototype is public at https://github.com/gptnius/hermes-crm. Its initial published commit is 1c70b16f09dfb534109abb3406d35e08c9f9085e; the native Mac workflow baseline is 8ab6f511899253235bc2d9e5432ef486fe95e0dc and the scheduler test baseline is e3daa0bad315bef4d996b900848e11c600e408a4. Source publication is not completion of all runtime or contest milestones. Changes undergo independent review before publication.
 
 ## Release gates still open
 
 1. Expand accessibility, keyboard/focus and responsive/cross-platform coverage beyond the verified native Mac workflows; complete standalone desktop/mobile QA.
-2. Exercise one synthetic internal follow-up in an isolated real Hermes gateway, including failure reconciliation.
+2. Extend scheduler coverage to an authorized real model, default tool discovery, restart/failure recovery and any intended human-visible reminder surface. Keep external outreach excluded.
 3. Complete source-distribution review and pin the reviewed commit before publishing each update.
 4. Complete the runtime gates before calling this a fully validated release or preparing any authorized contest submission. A clearly labeled source prototype can remain public while those gates are open.
 

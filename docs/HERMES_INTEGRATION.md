@@ -34,7 +34,9 @@ The adapter targets the pinned source contract and does not pretend to support o
 
 Hermes can save a job but fail scheduler registration. Its result may contain success=false, job_id, job_saved=true, scheduler_registered=false and retry_create=false. The CRM preserves the ID and marks uncertain. A generic error can also arise after persistence and is not proof no job exists.
 
-No jobs are installed at registration. No new credentials, LLM providers, subscriptions or remote connections are created. Scheduled prompts can only read CRM records, prepare local reminders and check current completion state. They do not contact third parties.
+No jobs are installed at registration. The plugin does not create credentials, configure model providers or implement external outreach. Scheduling requests the crm_read toolset plus no_mcp and local delivery. Enforcement evidence is limited to the configurations documented below; a configured model provider may receive task data.
+
+A controlled test exercised actual registration, due-time firing, canonical admission, AIAgent, CRM reads, execution-ledger completion and local output persistence. Its only synthetic component was a deterministic loopback model endpoint. Deferred discovery was disabled, no MCP servers were configured, and no Desktop notification, external delivery, real-model reasoning or restart recovery was tested. See VERIFICATION.md rather than treating this as unrestricted end-to-end validation.
 
 ## Native Desktop
 

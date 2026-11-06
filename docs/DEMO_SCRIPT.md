@@ -10,7 +10,7 @@ This is a rehearsal outline, not a recorded or posted demo. Use only a clean syn
 
 43–58 seconds: Ask the existing Hermes agent to move the deal to proposal using its latest version. Refresh the UI and show the pipeline/weighted forecast change.
 
-58–73 seconds: Explicitly schedule the follow-up as a one-shot local Hermes reminder. Show the returned job ID and honest scheduled status. Say the gateway must be running; do not imply the task already fired. This segment requires the pending live scheduler verification first.
+58–73 seconds: Explicitly schedule the follow-up as a one-shot local Hermes reminder. Show the returned job ID and honest scheduled status. Registration alone does not prove execution. If showing the verified scheduler run and saved local output, label its model endpoint as deterministic and loopback-only. Do not imply that a real model or a visible Desktop notification was tested.
 
 73–80 seconds: Show the portability/test summary: SQLite default, explicit PostgreSQL, active-profile isolation, local-first operation. Finish with a clear prototype label and repository link only once the repository has been reviewed and published.
 

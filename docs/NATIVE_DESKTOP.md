@@ -42,7 +42,9 @@ An empty workspace offers Explore demo data. It requires a second explicit confi
 
 Actual pinned Hermes server tests exercise unified component discovery, Python import gates, real authentication, shared native-tool/REST records, optimistic conflicts, workspace tokens, runtime disablement and secondary-profile host IPC. Both in_process and host isolation modes are covered with temporary profiles.
 
-Native JavaScript checks cover SDK registration, scoped transport, lifecycle and rendered interactions. A separate genuine Mac native-window run on the pinned source build also verified installation, rendering, contact editing, registered-tool/desktop record interchange, task completion, pipeline drill-through and a new empty secondary profile. Dashboard and contact-detail screenshots contain synthetic data only. This is core workflow coverage, not a complete accessibility, responsive-layout or cross-platform audit. A live gateway reminder firing remains unverified. See VERIFICATION.md for exact commits and results.
+Native JavaScript checks cover SDK registration, scoped transport, lifecycle and rendered interactions. A separate genuine Mac native-window run on the pinned source build also verified installation, rendering, contact editing, registered-tool/desktop record interchange, task completion, pipeline drill-through and a new empty secondary profile. Dashboard and contact-detail screenshots contain synthetic data only. This is core workflow coverage, not a complete accessibility, responsive-layout or cross-platform audit.
+
+A later guarded test verified real one-shot scheduler fires through the actual agent loop and CRM read handler, with expected local outputs for open and completed tasks. Only the model endpoint was deterministic and loopback-only. That run was not through the visible Desktop window and does not verify Desktop notifications, real-model behavior, default deferred-tool discovery or restart recovery. See VERIFICATION.md for exact commits, tool restrictions and cleanup evidence.
 
 ## Isolated testing and provider discovery
 

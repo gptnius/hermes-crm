@@ -68,6 +68,8 @@ Try in an interactive Hermes session:
 
 The agent must resolve ambiguous people and times rather than guess. Scheduling is a separate explicit operation from saving a due date. CRM tools never send an email or other external message.
 
+Real one-shot scheduler execution, CRM reads and saved local outputs passed a controlled test using deterministic loopback model responses. Real-model reasoning, visible Desktop reminders, default deferred-tool discovery and restart recovery remain unverified. See the verification report for the exact test scope.
+
 ### Desktop and agent use the same records
 
 The native pane calls the plugin namespace through ctx.rest; Hermes owns authentication and profile routing. Native REST and tool handlers share the same per-call storage factory. A workspace token and activation-epoch checks reject stale cross-profile writes.

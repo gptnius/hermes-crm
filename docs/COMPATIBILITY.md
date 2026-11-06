@@ -30,7 +30,7 @@ Isolated probes found that its nonempty `crm_read` plus `no_mcp` scheduler allow
 
 ## Validation versus previews
 
-An isolated UI preview can use synthetic SDK state and sample records to show the actual component layout. It does not prove that an older installed Desktop supports the required APIs. A later native Mac run did verify installation, rendering and core CRM workflows on the pinned source build, as recorded in VERIFICATION.md. Broader accessibility/responsive coverage and live reminder execution remain open. Any app or backend upgrade must be handled separately; this plugin never upgrades the host itself.
+An isolated UI preview can use synthetic SDK state and sample records to show the actual component layout. It does not prove that an older installed Desktop supports the required APIs. A later native Mac run verified installation, rendering and core CRM workflows on the pinned source build. Real scheduler execution and local outputs were subsequently verified with deterministic loopback model responses. Broader accessibility/responsive coverage, real-model behavior, visible reminder presentation, default deferred-tool discovery and restart recovery remain open; see VERIFICATION.md. Any app or backend upgrade must be handled separately; this plugin never upgrades the host itself.
 
 Official sources:
 - https://github.com/NousResearch/hermes-agent/tree/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
