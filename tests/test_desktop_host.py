@@ -96,6 +96,8 @@ with patch.object(socket, 'create_connection', deny_network), \
         return response.json()
 
     assert client.get(prefix + '/meta').status_code == 401
+    assert client.get(prefix + '/work', params={'workspace_token': 'not-authentication'}).status_code == 401
+    assert client.get(prefix + '/work/not-an-assignment', params={'workspace_token': 'not-authentication'}).status_code == 401
     assert client.post(prefix + '/contacts', json={}).status_code == 401
     meta = request('GET', '/meta')
     token = meta['workspace_token']
@@ -119,6 +121,26 @@ with patch.object(socket, 'create_connection', deny_network), \
     task_updated = request('PATCH', '/tasks/' + task['id'], json={
         'workspace_token': token, 'data': {'version': task['version'], 'status': 'done'}})
     assert tool('crm_task_get', {'id': task['id']})['status'] == 'done'
+    # Intent creation uses a real registered tool, not REST or a borrowed context.
+    # History must resolve the same workspace AND profile string in both adapters.
+    work_task = tool('crm_task_create', {
+        'title': 'Synthetic native-work analysis', 'due_at': '2099-01-02T00:00:00Z'})
+    work = tool('crm_work_create', {
+        'task_id': work_task['id'], 'human_owner': 'Synthetic Native Owner',
+        'prompt': 'Summarize this existing CRM task using internal records only.',
+        'success_criteria': 'One concise internal summary for human review.',
+        'run_at': '2099-01-01T00:00:00Z', 'idempotency_key': 'native-host-work-intent'})
+    assert work['state'] == 'pending' and work['job_id'] is None, work
+    assert work['workspace'] == token and work['profile'] == meta['profile'], (work, meta)
+    assert request('GET', '/work', params={'workspace_token': token}) == [work]
+    assert request('GET', '/work/' + work['id'], params={'workspace_token': token}) == work
+    assert request('GET', '/work', params={'workspace_token': token, 'task_id': work_task['id']}) == [work]
+    assert tool('crm_work_get', {'assignment_id': work['id']}) == work
+    assert tool('crm_work_list', {'task_id': work_task['id']}) == [work]
+    for work_path in ('/work', '/work/' + work['id']):
+        request('GET', work_path, 422)
+        request('GET', work_path, 409, params={'workspace_token': 'stale-profile-token'})
+    assert not list(home.rglob('jobs.json')), 'Saving intent and reading history must not schedule'
     assert request('GET', '/overview')
     # The registered agent report and REST report share filters and aggregates.
     report_filters = {'stage': 'proposal', 'contact_type': 'lead', 'followup': 'missing',
@@ -134,6 +156,10 @@ with patch.object(socket, 'create_connection', deny_network), \
             params={**report_filters, 'workspace_token': token, 'profile': profile_alias}) == report
         assert request('GET', '/contacts',
             params={'workspace_token': token, 'stage': 'proposal', 'profile': profile_alias})[0]['id'] == contact_id
+        assert request('GET', '/work',
+            params={'workspace_token': token, 'profile': profile_alias}) == [work]
+        assert request('GET', '/work/' + work['id'],
+            params={'workspace_token': token, 'profile': profile_alias}) == work
     request('GET', '/reports/contacts', 409,
             params={**report_filters, 'workspace_token': 'stale-profile-token'})
 
@@ -149,6 +175,14 @@ with patch.object(socket, 'create_connection', deny_network), \
     # Secondary requests use the real host profile router / private plugin-host IPC.
     other_meta = request('GET', '/meta?profile=crm-test-other')
     assert other_meta['workspace_token'] != token
+    other_work_scope = {'workspace_token': other_meta['workspace_token'], 'profile': 'crm-test-other'}
+    assert request('GET', '/work', params=other_work_scope) == []
+    request('GET', '/work/' + work['id'], 404, params=other_work_scope)
+    for work_path in ('/work', '/work/' + work['id']):
+        request('GET', work_path, 409, params={**other_work_scope, 'workspace_token': token})
+        request('GET', work_path, 409, params={'workspace_token': other_meta['workspace_token']})
+    assert request('GET', '/work', params={'workspace_token': token}) == [work]
+    assert request('GET', '/work/' + work['id'], params={'workspace_token': token}) == work
     request('POST', '/contacts?profile=crm-test-other', 409,
             json={'workspace_token': token, 'data': {'name': 'Cross-profile stale'}})
     other_contact = request('POST', '/contacts?profile=crm-test-other', 201, json={
@@ -183,5 +217,5 @@ with patch.object(socket, 'create_connection', deny_network), \
     request('GET', '/meta?profile=crm-test-other', 404)
     request('GET', '/meta')
     assert not list(home.rglob('jobs.json'))
-    print('PASS native host: real discovery, allowlist, project refusal, mount, auth, CRUD, tools, stale versions, stale workspace, runtime disable, filtered report/tool parity, secondary-profile report token and IPC isolation')
+    print('PASS native host: real discovery, allowlist, project refusal, mount, auth, CRUD, tools, stale versions, stale workspace, runtime disable, filtered report/tool parity, registered work intent/history parity, secondary-profile report/work token and IPC isolation; no jobs or model execution')
 '''

@@ -6,10 +6,11 @@ profile/secret scope. Synchronous handlers run in its worker pool, not event loo
 from contextlib import contextmanager
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .domain import CRMError, CONTACT_REPORT_FILTERS, LIST_FILTERS, validate_query
+from .native_work import NativeWorkStore
 from .runtime import open_profile_crm
 
 router = APIRouter()
@@ -105,6 +106,29 @@ def contact_report(request: Request, q: str = '', stage: str | None = None, cont
         validate_query(request.query_params, CONTACT_REPORT_FILTERS | {'workspace_token', 'profile'})
         return crm.contact_report(q=q, stage=stage, contact_type=contact_type, company=company,
                                   email=email, followup=followup, limit=limit, offset=offset)
+
+
+@router.get('/work')
+def work_history(request: Request,
+                 workspace_token: str = Query(..., min_length=1, max_length=80),
+                 task_id: str | None = Query(None, min_length=1, max_length=36),
+                 limit: int = Query(100, ge=1, le=100)):
+    """Local assignment observations only; REST never receives a tool context."""
+    with service() as crm:
+        # The host already resolved profile routing before calling this handler.
+        # A query parameter is not authority to select another CRM database.
+        validate_query(request.query_params, {'workspace_token', 'profile', 'task_id', 'limit'})
+        require_workspace(crm, workspace_token)
+        return NativeWorkStore(crm).list(task_id=task_id, limit=limit)
+
+
+@router.get('/work/{assignment_id}')
+def work_detail(request: Request, assignment_id: str = Path(..., min_length=1, max_length=36),
+                workspace_token: str = Query(..., min_length=1, max_length=80)):
+    with service() as crm:
+        validate_query(request.query_params, {'workspace_token', 'profile'})
+        require_workspace(crm, workspace_token)
+        return NativeWorkStore(crm).get(assignment_id)
 
 
 @router.get('/{kind}')

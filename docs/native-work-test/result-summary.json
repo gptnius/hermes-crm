@@ -1,0 +1,138 @@
+{
+  "pytest": "2 passed in 41.16s",
+  "fixture_sha256": "4ff3de7608ecab41c6e9b147c2f6f908285aa808b59fa8539eb1fa596fb486c6",
+  "unchanged_guard_from_reviewed_release": true,
+  "cases": [
+    {
+      "isolation": "in_process",
+      "overall": "passed",
+      "streaming_model_requests": 7,
+      "terminal_status": "completed",
+      "exact_canonical_receipt_verified": true,
+      "scheduled_discovery": {
+        "search_catalog": [
+          "crm_contact_get",
+          "crm_contact_list",
+          "crm_contact_report",
+          "crm_deal_get",
+          "crm_deal_list",
+          "crm_overview",
+          "crm_task_get",
+          "crm_task_list",
+          "crm_work_get",
+          "crm_work_list",
+          "crm_work_report"
+        ],
+        "total_available": 11,
+        "forbidden_descriptions_unavailable": [
+          "crm_task_update",
+          "crm_work_create",
+          "crm_work_schedule",
+          "cronjob_manage",
+          "delegate_task",
+          "send_message"
+        ]
+      },
+      "cancellation_before_due_verified": true,
+      "all_model_requests_at_or_after_due": true,
+      "ledger_started_at_or_after_due": true,
+      "ledger_start_delay_seconds": 0.026728,
+      "model_request_delay_seconds": [
+        1.336764,
+        1.429002,
+        1.452118,
+        1.483888,
+        1.513152,
+        1.537538,
+        1.568649
+      ],
+      "no_duplicates": true,
+      "bootstrap_invalid_hash_parent_and_child_exit": 97,
+      "ready_markers": 1,
+      "forbidden_audit_events": 0,
+      "cleanup": {
+        "enabled_jobs": 0,
+        "scheduler_stopped": true,
+        "plugin_host_stopped": true,
+        "endpoint_stopped": true,
+        "exact_fixture_pids_absent": true,
+        "exact_endpoint_closed": true
+      },
+      "tested_plugin_sha256": {
+        "hermes_crm/native_work.py": "82737c7e26521f5181b093a56b6afdf261d943111b6b62607b70b0db5ab9868c",
+        "hermes_crm/plugin.py": "a5b0ec8d031690a45242f02c3b882b9361bc5768b9b22afc16991d609ba52708",
+        "hermes_crm/native_api.py": "8a56ab2d8315f8f2379292ea0b9cafd74dcd2eb6c29488141c32f08b34f2cb79",
+        "plugin.yaml": "995467f096214e37c6125f9848ab8cd83839d62b4d19cea8cc82173b6f113d21"
+      }
+    },
+    {
+      "isolation": "host",
+      "overall": "passed",
+      "streaming_model_requests": 7,
+      "terminal_status": "completed",
+      "exact_canonical_receipt_verified": true,
+      "scheduled_discovery": {
+        "search_catalog": [
+          "crm_contact_get",
+          "crm_contact_list",
+          "crm_contact_report",
+          "crm_deal_get",
+          "crm_deal_list",
+          "crm_overview",
+          "crm_task_get",
+          "crm_task_list",
+          "crm_work_get",
+          "crm_work_list",
+          "crm_work_report"
+        ],
+        "total_available": 11,
+        "forbidden_descriptions_unavailable": [
+          "crm_task_update",
+          "crm_work_create",
+          "crm_work_schedule",
+          "cronjob_manage",
+          "delegate_task",
+          "send_message"
+        ]
+      },
+      "cancellation_before_due_verified": true,
+      "all_model_requests_at_or_after_due": true,
+      "ledger_started_at_or_after_due": true,
+      "ledger_start_delay_seconds": 0.046211,
+      "model_request_delay_seconds": [
+        1.251782,
+        1.326881,
+        1.347142,
+        1.375952,
+        1.394397,
+        1.414192,
+        1.443782
+      ],
+      "no_duplicates": true,
+      "bootstrap_invalid_hash_parent_and_child_exit": 97,
+      "ready_markers": 2,
+      "forbidden_audit_events": 0,
+      "cleanup": {
+        "enabled_jobs": 0,
+        "scheduler_stopped": true,
+        "plugin_host_stopped": true,
+        "endpoint_stopped": true,
+        "exact_fixture_pids_absent": true,
+        "exact_endpoint_closed": true
+      },
+      "tested_plugin_sha256": {
+        "hermes_crm/native_work.py": "82737c7e26521f5181b093a56b6afdf261d943111b6b62607b70b0db5ab9868c",
+        "hermes_crm/plugin.py": "a5b0ec8d031690a45242f02c3b882b9361bc5768b9b22afc16991d609ba52708",
+        "hermes_crm/native_api.py": "8a56ab2d8315f8f2379292ea0b9cafd74dcd2eb6c29488141c32f08b34f2cb79",
+        "plugin.yaml": "995467f096214e37c6125f9848ab8cd83839d62b4d19cea8cc82173b6f113d21"
+      }
+    }
+  ],
+  "previous_experiment": "Earlier Python3.12 experiment remains failed overall due to denied audit events; not included in passing claims.",
+  "proof_limits": [
+    "No live-model reasoning quality",
+    "No restart/crash recovery",
+    "No visible Desktop notification",
+    "No changed/completed-task E2E guard; separate contract tests cover those cases"
+  ]
+}

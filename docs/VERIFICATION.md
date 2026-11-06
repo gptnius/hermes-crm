@@ -2,9 +2,33 @@
 
 Verified November 6, 2026. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
-## Report/filter increment
+## Native assigned-work increment
 
-The latest source adds Stage versus Contact type terminology, a six-stage dashboard value donut, unique-contact drillthrough, missing/overdue lead follow-up presets and server-side combined filters. Contact reports return stable pages and true filtered totals beyond 500 records. These changes are separate from the historical native Mac and scheduler runs below; new chart/filter workflows have not yet been visually checked in a native window. Direct agent assignments/execution are not part of this increment.
+The current source adds future one-shot assignments through real active Hermes tool context, using paused create, exact durable binding and separate resume. Seven new tools bring the registered total to 22; the ordinary `crm_read` inventory remains eight. Assignment reads, scheduling and the trusted-context report writer have separate toolsets. There is no direct Desktop scheduling endpoint or Run now button, and reports do not complete business tasks. See NATIVE_ASSIGNED_WORK.md for the exact contract.
+
+- The full default Python suite passes: 300 tests passed, 222 skipped. Skips are explicit opt-in host, PostgreSQL or guarded-run tests, not successful executions of those cases.
+- Native-work domain and adapter suites pass 144 tests. Actual PostgreSQL 17.11 passes 86 native-work contracts, including schema constraints and both crash-boundary regressions. Disposable schemas were removed and the server stopped.
+- Two actual pinned-host contract tests cover in-process and hosted plugin modes: real registry dispatch, paused create/bind/resume, resolver scope, fire claims, running-ledger compare-and-swap and trusted report context. They reject ordinary/delegated/forged reports and cover unknown outcomes without creating replacement jobs. Those tests do not run a model turn.
+- Both actual Desktop backend modes verify that tool-created intent is readable through authenticated assignment-history routes, preserving workspace/profile tokens, serving-profile aliases and secondary-profile isolation.
+- Guarded scheduler/agent execution with SQLite passes both modes on Linux x86_64, CPython 3.14.9+20261021, OpenAI 2.54.0 and urllib3 2.8.0: 2 tests passed. The official host is the exact pinned revision below. Runtime/archive, host locks, probe source hashes, installed versions and portable setup instructions are recorded in [the reproduction bundle](native-work-test/REPRODUCE.md). The host's intentional Pillow 13.0.0 security override remains in its frozen dependency closure; its own compatibility check reports no unexpected mismatches.
+
+The guarded test setup invokes real registered scheduling handlers with a real active-agent/session context, verifies paused create/bind/resume, then lets the real clock and InProcessCronScheduler fire the job. It does not test a model choosing to create a schedule or an interactive approval dialog. The scheduled run enters actual canonical admission and AIAgent. Only its keyless loopback model endpoint is synthetic; seven streaming responses per mode drive real default tool search/description, assignment/task/contact reads and authenticated reporting.
+
+The observed default discovery catalog contains exactly the 11 permitted scheduled tools; six forbidden descriptions are rejected. The test correlates the exact request, principal, session, admission, policy, stored successful cron result, execution ledger and report identity. Local output contains the data-derived synthetic report. The report remains awaiting human review and the business task remains open. The real ledger start and every model-request receive timestamp are at or after the approved due instant; extra scheduler ticks add no execution, report or model request. A second real future assignment is cancelled before due and never executes.
+
+Guard bootstrap failure is fatal, not a swallowed sitecustomize warning. Corrupted-hash negative startup tests stop both the runner and official plugin child before application work; post-hook ready markers are required. The original home is denied entirely, and only the exact model endpoint plus narrowly source-pinned benign probes are allowed. Both final runs recorded zero forbidden audit events and cleaned up all disposable jobs, scheduler threads, model endpoints and hosted plugin processes. Generated profiles, logs, databases and evidence are not shipped.
+
+This verifies the bounded internal execution/data path. It does not verify real-model quality, prompt-injection resistance, visible Desktop presentation, external delivery, restart recovery or live failure reconciliation. No MCP server was configured in this run; configured-MCP exclusion remains a separate resolver test. It is not a general guarantee that future host versions or changed tool implementations preserve the same capability boundary.
+
+## Native record-form increment
+
+The native record view now groups identity and key properties, real edit/related-record actions, upcoming work, the CRM audit timeline and related deals. Create/edit uses a pane-local drawer with persistent labels and grouped fields. Task details include read-only assignment history; record audit remains distinct from sent/received email history. No email/chat sending control or provider integration is added.
+
+Real React and SDK fixtures cover field validation, values and exact unchanged timestamps, linked-ID retention, duplicate saves, dismissed/stale callbacks and profile/reconnect safety. Independent review found and fixed local-domain email validation and assignment-history refresh issues. Expanded reports now stay open through polling and refresh errors, with explicit last-observation notices rather than false freshness. All four UI suites and the 25-test experimental bridge suite pass; independent re-review found no remaining actionable defects. React checks also pass in UTC and America/New_York. These component tests do not establish native pixel layout, real browser disclosure/focus/inert behavior, scrolling, contrast or narrow-pane usability. Those are still release gates.
+
+## Earlier report/filter increment
+
+This increment added Stage versus Contact type terminology, a six-stage dashboard value donut, unique-contact drillthrough, missing/overdue lead follow-up presets and server-side combined filters. Contact reports return stable pages and true filtered totals beyond 500 records. These changes are separate from the historical native Mac and scheduler runs below; new chart/filter workflows have not yet been visually checked in a native window. Direct agent assignments/execution were not part of this increment.
 
 Verification for this increment:
 - SQLite/domain, standalone/native API and report contracts pass, including unique counts across multiple deals, indirect task links, literal wildcard search, combined filters, strict validation, cent ranges and timezone boundaries.
@@ -13,7 +37,7 @@ Verification for this increment:
 - All four JavaScript suites pass: standalone VM, native SDK smoke, routing, and real React 19.3.0 Strict Mode. Added cases cover zero/single/multiple chart segments, hover/focus/keyboard drillthrough, unique-contact versus deal counts, server pagination/filter reset, stale responses, cents and preservation of linked IDs outside bounded form choices.
 - Independent review found and fixed a report/editor race: cancelling a new-contact form no longer discards a still-current pending report response. Its regression failed before the fix and passes afterward.
 
-Run `python -m pytest tests/test_crm.py tests/test_native_api.py tests/test_reports.py -q`, plus the opt-in host/PostgreSQL and JavaScript commands below. New registered-tool count is 15, including eight read tools; the older Doctor and live-scheduler counts below remain historical evidence, not a fresh run of those checks.
+Run `python -m pytest tests/test_crm.py tests/test_native_api.py tests/test_reports.py -q`, plus the opt-in host/PostgreSQL and JavaScript commands below. This increment registered 15 tools, including eight read tools; the older Doctor and live-scheduler counts below remain historical evidence, not a fresh run of those checks.
 
 ## Earlier verified baseline
 
@@ -108,7 +132,7 @@ The run used no real provider credentials, account login, external service or ex
 ## Not completed
 
 - Broader native accessibility, keyboard/focus, responsive-layout and cross-platform QA beyond the Mac workflows above. Standalone desktop/mobile browser QA also remains incomplete; the earlier cloud browser restrictions were not bypassed.
-- Real-model scheduled reasoning, default deferred-tool discovery, a configured-MCP live run, visible Desktop reminder presentation, external delivery, restart recovery and live failure reconciliation. The real scheduler/local-output test above does not establish these behaviors. External outreach remains outside this plugin's scope.
+- Real-model scheduled reasoning, a configured-MCP live run, visible Desktop reminder presentation, external delivery, restart recovery and live failure reconciliation. Default deferred discovery passed the newer bounded assigned-work fixture, not a real-model conversation. External outreach remains outside this plugin's scope.
 - Hosted Supabase connectivity, network latency/failure behavior and deployment security.
 - Catalog PR, social post, contest form or production deployment.
 
@@ -119,7 +143,7 @@ The source prototype is public at https://github.com/gptnius/hermes-crm. Its ini
 ## Release gates still open
 
 1. Visually verify the new chart/filter/report workflows in the native window. Expand accessibility, keyboard/focus and responsive/cross-platform coverage beyond the earlier verified Mac workflows; complete standalone desktop/mobile QA.
-2. Extend scheduler coverage to an authorized real model, default tool discovery, restart/failure recovery and any intended human-visible reminder surface. Keep external outreach excluded.
+2. Extend scheduler coverage to an authorized real model, restart/failure recovery and any intended human-visible reminder surface. The bounded assigned-work fixture covers default tool discovery; a configured-MCP live run remains separate. Keep external outreach excluded.
 3. Complete source-distribution review and pin the reviewed commit before publishing each update.
 4. Complete the runtime gates before calling this a fully validated release or preparing any authorized contest submission. A clearly labeled source prototype can remain public while those gates are open.
 

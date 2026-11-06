@@ -155,8 +155,8 @@ export function createPayload(data, idempotencyKey) {
 }
 
 const CSS = `
-.hermes-crm-native{height:100%;overflow:auto;container-type:inline-size;background:var(--ui-bg-editor);color:var(--ui-text-primary);font:13px/1.5 system-ui,sans-serif}
-.hermes-crm-native *{box-sizing:border-box}.hermes-crm-native .hc-wrap{max-width:1500px;margin:auto;padding:28px}
+.hermes-crm-native{height:100%;min-height:0;position:relative;overflow:hidden;container-type:inline-size;background:var(--ui-bg-editor);color:var(--ui-text-primary);font:13px/1.5 system-ui,sans-serif}
+.hermes-crm-native *{box-sizing:border-box}.hermes-crm-native .hc-wrap{height:100%;overflow:auto;max-width:1500px;margin:auto;padding:28px;scrollbar-gutter:stable}.hermes-crm-native .hc-wrap[inert]{overflow:hidden}
 .hermes-crm-native h1{font-size:29px;letter-spacing:-1px;line-height:1.2;margin:4px 0 9px}.hermes-crm-native h2{font-size:17px;margin:0 0 14px}.hermes-crm-native h3{font-size:14px;margin:0}
 .hermes-crm-native p{margin:6px 0 14px}.hermes-crm-native .hc-muted{color:var(--ui-text-secondary)}.hermes-crm-native .hc-eyebrow{font-size:10px;letter-spacing:2px;font-weight:700;color:var(--ui-text-tertiary)}
 .hermes-crm-native .hc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hermes-crm-native .hc-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -171,16 +171,28 @@ const CSS = `
 .hermes-crm-native .hc-board{display:grid;grid-template-columns:repeat(6,minmax(210px,1fr));gap:12px;overflow:auto;padding:18px 0}.hermes-crm-native .hc-column{border-radius:12px;background:var(--ui-row-hover-background);padding:12px;min-height:250px}.hermes-crm-native .hc-column>header{margin-bottom:14px}.hermes-crm-native .hc-deal{display:block;width:100%;margin:9px 0;background:var(--ui-bg-elevated,var(--ui-bg-editor));padding:15px}.hermes-crm-native .hc-deal strong{display:block;margin:12px 0}
 .hermes-crm-native .hc-empty{text-align:center;padding:42px 18px;color:var(--ui-text-secondary);border:1px dashed var(--ui-stroke-primary);border-radius:12px}.hermes-crm-native .hc-notice{padding:14px;border:1px solid var(--ui-stroke-primary);border-left:3px solid var(--ui-accent);border-radius:8px;margin:14px 0;overflow-wrap:anywhere}
 .hermes-crm-native .hc-editor{border:1px solid var(--ui-accent);border-radius:12px;padding:22px;margin:18px 0}.hermes-crm-native .hc-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.hermes-crm-native label{display:flex;flex-direction:column;gap:5px}.hermes-crm-native textarea{min-height:90px;resize:vertical}.hermes-crm-native .hc-wide{grid-column:1/-1}.hermes-crm-native .hc-details{white-space:pre-wrap;overflow-wrap:anywhere}.hermes-crm-native .hc-footer{margin-top:26px;border-top:1px solid var(--ui-stroke-primary);padding-top:14px;font-size:11px;color:var(--ui-text-tertiary)}
+/* Record workspaces and pane-scoped drawers share the host theme. */
+.hermes-crm-native [hidden]{display:none!important}.hermes-crm-native .hc-record{margin:18px 0;min-width:0}.hermes-crm-native .hc-record-header{padding:22px;border:1px solid var(--ui-stroke-primary);border-radius:12px;background:var(--ui-bg-elevated,var(--ui-bg-editor))}
+.hermes-crm-native .hc-identity{display:flex;align-items:center;gap:14px;min-width:0}.hermes-crm-native .hc-identity>div:last-child{min-width:0}.hermes-crm-native .hc-identity h2{font-size:24px;letter-spacing:-.5px;line-height:1.25;margin:4px 0;overflow-wrap:anywhere}.hermes-crm-native .hc-avatar{width:48px;height:48px;flex-shrink:0;display:grid;place-items:center;border-radius:12px;background:var(--ui-row-hover-background);color:var(--ui-accent);font-size:18px;font-weight:700}
+.hermes-crm-native .hc-record-actions{margin-top:18px;padding-top:16px;border-top:1px solid var(--ui-stroke-primary)}.hermes-crm-native .hc-record-layout{display:grid;grid-template-columns:minmax(210px,.8fr) minmax(280px,1.5fr) minmax(210px,.85fr);align-items:start;gap:16px;margin-top:16px}.hermes-crm-native .hc-record-layout>*{min-width:0}.hermes-crm-native .hc-stack{display:grid;gap:16px}.hermes-crm-native .hc-section-title{margin-bottom:14px}.hermes-crm-native .hc-section-title h3{font-size:14px}
+.hermes-crm-native .hc-properties{margin:0;display:grid;gap:15px}.hermes-crm-native .hc-properties dt{font-size:11px;color:var(--ui-text-secondary);margin-bottom:3px}.hermes-crm-native .hc-properties dd{margin:0;overflow-wrap:anywhere}.hermes-crm-native .hc-properties.hc-inline-properties{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:20px;padding-top:16px;border-top:1px solid var(--ui-stroke-primary)}
+.hermes-crm-native .hc-timeline{list-style:none;margin:0;padding:0}.hermes-crm-native .hc-timeline>li{position:relative;padding:0 0 22px 23px;border-left:1px solid var(--ui-stroke-primary);margin-left:5px;overflow-wrap:anywhere}.hermes-crm-native .hc-timeline>li:last-child{padding-bottom:0;border-left-color:transparent}.hermes-crm-native .hc-timeline>li:before{content:"";position:absolute;width:9px;height:9px;border:2px solid var(--ui-bg-elevated,var(--ui-bg-editor));background:var(--ui-accent);border-radius:50%;top:5px;left:-5px}.hermes-crm-native .hc-timeline p{margin:4px 0}.hermes-crm-native .hc-related{display:grid;gap:10px}.hermes-crm-native .hc-related button{width:100%;display:block;padding:13px;overflow-wrap:anywhere}.hermes-crm-native .hc-related strong{font-size:13px;letter-spacing:0;margin:0 0 4px}.hermes-crm-native .hc-related small{display:block;margin-top:5px;color:var(--ui-text-secondary)}.hermes-crm-native .hc-record-meta{font-size:11px;color:var(--ui-text-tertiary);overflow-wrap:anywhere;margin-top:18px}
+.hermes-crm-native .hc-stage-path{list-style:none;display:flex;gap:5px;margin:20px 0 0;padding:0;flex-wrap:wrap}.hermes-crm-native .hc-stage-path li{flex:1;min-width:85px;padding:7px 10px;text-align:center;border-radius:6px;border:1px solid var(--ui-stroke-primary);color:var(--ui-text-secondary);font-size:11px}.hermes-crm-native .hc-stage-path li[aria-current=step]{border-color:var(--ui-accent);background:var(--ui-row-hover-background);color:var(--ui-accent);font-weight:700}
+.hermes-crm-native .hc-overlay{position:absolute;inset:0;z-index:10;background:rgb(0 0 0 / .32);display:flex;justify-content:flex-end;min-height:0}.hermes-crm-native .hc-drawer{width:min(600px,100%);height:100%;min-height:0;display:flex;flex-direction:column;background:var(--ui-bg-editor);border-left:1px solid var(--ui-stroke-primary);box-shadow:-12px 0 36px rgb(0 0 0 / .18)}
+.hermes-crm-native .hc-drawer-header{padding:22px 24px 18px;border-bottom:1px solid var(--ui-stroke-primary);flex-shrink:0}.hermes-crm-native .hc-drawer-header h2{font-size:21px;margin:4px 0}.hermes-crm-native .hc-drawer-header p{margin:8px 0 0}.hermes-crm-native .hc-editor{display:flex;flex-direction:column;border:0;border-radius:0;padding:0;margin:0;flex:1;min-height:0}.hermes-crm-native .hc-editor-body{overflow:auto;overscroll-behavior:contain;flex:1;min-height:0;padding:22px 24px}.hermes-crm-native .hc-form-section{border:0;margin:0 0 24px;padding:0;min-width:0}.hermes-crm-native .hc-form-section:last-child{margin-bottom:0}.hermes-crm-native .hc-form-section legend{font-size:13px;font-weight:700;padding:0;margin:0 0 12px}.hermes-crm-native .hc-form-section p{font-size:12px;margin:0 0 14px}.hermes-crm-native .hc-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:17px 14px}.hermes-crm-native .hc-fields label{font-size:12px;font-weight:600;min-width:0}.hermes-crm-native .hc-fields input,.hermes-crm-native .hc-fields select,.hermes-crm-native .hc-fields textarea{width:100%;min-width:0;font-size:13px;font-weight:400;padding:10px 12px}.hermes-crm-native .hc-field-hint{font-size:11px;font-weight:400;color:var(--ui-text-secondary)}.hermes-crm-native .hc-required{color:var(--ui-accent)}.hermes-crm-native .hc-editor-footer{padding:16px 24px;border-top:1px solid var(--ui-stroke-primary);background:var(--ui-bg-elevated,var(--ui-bg-editor));flex-shrink:0}.hermes-crm-native .hc-editor-footer .hc-notice{margin:0 0 14px}.hermes-crm-native .hc-work-item{border-top:1px solid var(--ui-stroke-primary);padding-top:15px;margin-top:15px}.hermes-crm-native .hc-work-item summary{cursor:pointer;font-weight:600}.hermes-crm-native .hc-work-item .hc-properties{margin:14px 0}.hermes-crm-native .hc-work-item .hc-notice{font-size:12px}
+@container(max-width:1050px){.hermes-crm-native .hc-record-layout{grid-template-columns:minmax(200px,.8fr) minmax(260px,1.4fr)}.hermes-crm-native .hc-record-related{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container(max-width:640px){.hermes-crm-native .hc-record-layout{grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-record-related{grid-column:auto;grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-inline-properties{grid-template-columns:minmax(0,1fr)!important}.hermes-crm-native .hc-record-header{padding:18px}.hermes-crm-native .hc-drawer-header,.hermes-crm-native .hc-editor-body{padding:18px}.hermes-crm-native .hc-editor-footer{padding:14px 18px}}
 @container(max-width:850px){.hermes-crm-native .hc-grid{grid-template-columns:1fr 1fr}.hermes-crm-native .hc-two{grid-template-columns:1fr}.hermes-crm-native .hc-wrap{padding:18px}}
 @container(max-width:480px){.hermes-crm-native .hc-grid,.hermes-crm-native .hc-fields{grid-template-columns:1fr}.hermes-crm-native .hc-bar-row{grid-template-columns:85px 1fr 70px}.hermes-crm-native h1{font-size:24px}}
 `;
 
-function Shell({ children }) {
+function Shell({ children, overlay, rootRef }) {
   return h(
     "section",
-    { className: "hermes-crm-native", "aria-label": "Hermes CRM" },
+    { className: "hermes-crm-native", "aria-label": "Hermes CRM", ref: rootRef },
     h("style", null, CSS),
-    h("div", { className: "hc-wrap" }, children),
+    h("div", { className: "hc-wrap", inert: overlay ? true : undefined }, children),
+    overlay,
   );
 }
 export function CRMRoot({ ctx }) {
@@ -335,11 +347,15 @@ export function dollarFilter(value) {
   return String(cents);
 }
 function Workspace({ ctx, identity, profile, connection }) {
+  const shellRef = useRef(null);
   const clientRef = useRef(null);
   if (!clientRef.current) clientRef.current = createRouteClient(ctx, identity);
   const client = clientRef.current;
   const [page, setPage] = useState("overview");
   const [data, setData] = useState(null);
+  // Advance only for an accepted snapshot so auxiliary detail reads refresh
+  // with both the manual control and the profile-local polling interval.
+  const [snapshotGeneration, setSnapshotGeneration] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -351,6 +367,7 @@ function Workspace({ ctx, identity, profile, connection }) {
   const [filterGeneration, setFilterGeneration] = useState(0);
   const [editor, setEditor] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [demoConfirm, setDemoConfirm] = useState(null);
   const [searchResult, setSearchResult] = useState(null);
@@ -367,6 +384,7 @@ function Workspace({ ctx, identity, profile, connection }) {
       const snapshot = await client.request("/snapshot");
       if (client.current() && ticket === serial.current) {
         setData(snapshot);
+        setSnapshotGeneration(value => value + 1);
         setError("");
       }
     } catch (e) {
@@ -427,7 +445,7 @@ function Workspace({ ctx, identity, profile, connection }) {
     viewRequest.current++;
     reportRequest.current++;
     setFilterGeneration(value => value + 1);
-    setDetail(null); setEditor(null); setOffset(0); setError("");
+    setDetail(null); setDetailLoading(false); setEditor(null); setOffset(0); setError("");
   }
   function changeFilter(name, value) {
     invalidateView(); setFilters(old => ({ ...old, [name]: value }));
@@ -449,6 +467,7 @@ function Workspace({ ctx, identity, profile, connection }) {
       setNotice("Saved to this agent’s CRM.");
       setEditor(null);
       setDetail(null);
+      setDetailLoading(false);
       setDemoConfirm(false);
       await refresh();
       return true;
@@ -467,6 +486,9 @@ function Workspace({ ctx, identity, profile, connection }) {
     const viewTicket = ++viewRequest.current;
     const workspaceToken = data.meta.workspace_token;
     setError("");
+    setDetail(null);
+    setEditor(null);
+    setDetailLoading(true);
     try {
       const row = await client.request(
         `/${kind}/${encodeURIComponent(id)}?${new URLSearchParams({ workspace_token: workspaceToken })}`,
@@ -476,17 +498,27 @@ function Workspace({ ctx, identity, profile, connection }) {
     } catch (e) {
       if (client.current() && viewTicket === viewRequest.current)
         setError(e.message);
+    } finally {
+      if (client.current() && viewTicket === viewRequest.current) setDetailLoading(false);
     }
   }
-  function edit(kind, row = null, workspaceToken = data.meta.workspace_token) {
+  function closeDetail() {
+    viewRequest.current++;
+    setDetailLoading(false);
+    setDetail(null);
+  }
+  function edit(kind, row = null, workspaceToken = data.meta.workspace_token, initial = {}) {
     viewRequest.current++;
     setEditor({
       kind,
       row,
       key: crypto.randomUUID(),
       workspaceToken,
+      initial,
+      returnFocus: shellRef.current?.ownerDocument.activeElement,
     });
-    setDetail(null);
+    setDetailLoading(false);
+    setError("");
   }
   const heading = {
     overview: [
@@ -499,13 +531,23 @@ function Workspace({ ctx, identity, profile, connection }) {
     ],
     pipeline: ["Deal pipeline", "Move the right opportunities forward."],
     tasks: ["Follow-ups", "Keep your promises. Make the next step clear."],
-    activity: ["Activity", "A shared record of human and agent work."],
+    activity: ["Activity", "CRM record changes by people and agents. Mailbox history is not synced."],
   }[page];
   const overview = data?.overview;
   const disabled = busy || loading || !data || !client.current();
   return h(
     Shell,
-    null,
+    { rootRef: shellRef, overlay: editor && data ? h(Editor, {
+      key: editor.key, editor, data, busy: disabled, error,
+      cancel: () => { setEditor(null); setError(""); },
+      save: (values) => write(
+        `/${editor.kind}${editor.row ? "/" + encodeURIComponent(editor.row.id) : ""}`,
+        { method: editor.row ? "PATCH" : "POST", body: {
+          ...(editor.row ? { data: { ...values, version: editor.row.version } } : createPayload(values, editor.key)),
+          workspace_token: editor.workspaceToken,
+        } },
+      ),
+    }) : null },
     h(
       "header",
       { className: "hc-row" },
@@ -541,7 +583,7 @@ function Workspace({ ctx, identity, profile, connection }) {
         }),
       ),
     ),
-    error &&
+    error && !editor &&
       h(
         "div",
         { role: "alert", className: "hc-notice" },
@@ -568,54 +610,17 @@ function Workspace({ ctx, identity, profile, connection }) {
             { className: "hc-notice" },
             "Demo workspace · These records are synthetic.",
           ),
-        editor &&
-          h(Editor, {
-            key: editor.key,
-            editor,
-            data,
-            busy: disabled,
-            cancel: () => setEditor(null),
-            save: (values) =>
-              write(
-                `/${editor.kind}${editor.row ? "/" + encodeURIComponent(editor.row.id) : ""}`,
-                {
-                  method: editor.row ? "PATCH" : "POST",
-                  body: {
-                    ...(editor.row
-                      ? { data: { ...values, version: editor.row.version } }
-                      : createPayload(values, editor.key)),
-                    workspace_token: editor.workspaceToken,
-                  },
-                },
-              ),
-          }),
-        detail &&
-          detail.workspaceToken === data.meta.workspace_token &&
-          h(
-            "section",
-            { className: "hc-editor" },
-            h(
-              "div",
-              { className: "hc-row" },
-              h("h2", null, "Record details"),
-              h(
-                "div",
-                { className: "hc-actions" },
-                button(
-                  "Edit",
-                  () =>
-                    edit(
-                      detail.kind,
-                      detail.row.contact || detail.row,
-                      detail.workspaceToken,
-                    ),
-                  { disabled },
-                ),
-                button("Close", () => setDetail(null)),
-              ),
-            ),
-            h(Detail, { detail }),
-          ),
+        detailLoading && h("div", { className: "hc-notice", role: "status" },
+          h("div", { className: "hc-row" }, "Loading record…", button("Cancel loading", closeDetail))),
+        detail && detail.workspaceToken === data.meta.workspace_token && h(Detail, {
+          key: `${detail.kind}:${(detail.row.contact || detail.row).id}`,
+          detail, data, disabled, client, snapshotGeneration,
+          close: closeDetail,
+          edit: () => edit(detail.kind, detail.row.contact || detail.row, detail.workspaceToken),
+          open,
+          create: (kind, initial) => edit(kind, null, detail.workspaceToken, initial),
+        }),
+        h("div", { hidden: Boolean(detail && detail.workspaceToken === data.meta.workspace_token) },
         page === "overview" &&
           h(
             "div",
@@ -835,8 +840,8 @@ function Workspace({ ctx, identity, profile, connection }) {
         page === "contacts" && searchReady && h("div", { className: "hc-row", style: { marginTop: 18 } },
           h("p", { role: "status" }, `${stage === "unassigned" ? "Contacts without linked deals · " : stage ? `Contacts linked to ${label(stage)} stage · ` : filters.followup ? `${filters.contact_type === "lead" ? "Lead attention" : "Contacts"} · ${label(filters.followup)} follow-up · ` : ""}${searchResult.total} matching contacts · ${searchResult.total ? offset + 1 : 0}–${offset + searchRows().length} shown`),
           h("div", { className: "hc-actions" },
-            button("Previous", () => { viewRequest.current++; reportRequest.current++; setDetail(null); setEditor(null); setOffset(Math.max(0, offset - 50)); }, { disabled: offset === 0 }),
-            button("Next", () => { viewRequest.current++; reportRequest.current++; setDetail(null); setEditor(null); setOffset(offset + 50); }, { disabled: offset + searchRows().length >= searchResult.total }))),
+            button("Previous", () => { closeDetail(); reportRequest.current++; setEditor(null); setOffset(Math.max(0, offset - 50)); }, { disabled: offset === 0 }),
+            button("Next", () => { closeDetail(); reportRequest.current++; setEditor(null); setOffset(offset + 50); }, { disabled: offset + searchRows().length >= searchResult.total }))),
         page === "contacts" &&
           searchReady &&
           h(
@@ -977,6 +982,7 @@ function Workspace({ ctx, identity, profile, connection }) {
               h(Empty, null, "No matching follow-ups. You’re clear for now."),
           ),
         page === "activity" && h(Activity, { rows: data.activity }),
+        ),
       ),
     h(
       "footer",
@@ -986,277 +992,294 @@ function Workspace({ ctx, identity, profile, connection }) {
   );
 }
 
-function Detail({ detail }) {
+function Properties({ rows, inline = false }) {
+  return h("dl", { className: `hc-properties${inline ? " hc-inline-properties" : ""}` },
+    rows.map(([title, value]) => h("div", { key: title },
+      h("dt", null, title), h("dd", null, value === "" || value == null ? "Not set" : value))));
+}
+function RecordSection({ title, action, children, className = "" }) {
+  return h("section", { className: `hc-card ${className}`, "aria-label": title },
+    h("div", { className: "hc-row hc-section-title" }, h("h3", null, title), action), children);
+}
+function Timeline({ rows }) {
+  return rows.length ? h("ol", { className: "hc-timeline", "aria-label": "CRM activity timeline" },
+    rows.map(row => h("li", { key: row.id },
+      h("div", { className: "hc-row" }, h("b", null, label(row.action)),
+        h("time", { dateTime: row.created_at, title: row.created_at, className: "hc-muted" }, date(row.created_at))),
+      h("p", null, row.summary), h("small", { className: "hc-muted" }, `Recorded by ${row.actor}`))))
+    : h("p", { className: "hc-muted" }, "No CRM changes in the available history.");
+}
+function AssignedWork({ client, task, workspaceToken, snapshotGeneration }) {
+  const [result, setResult] = useState(null);
+  const [failure, setFailure] = useState(null);
+  const [reload, setReload] = useState(0);
+  const [expanded, setExpanded] = useState({});
+  const scope = { client, taskId: task.id, workspaceToken, snapshotGeneration, reload };
+  const sameTarget = value => value && value.client === client && value.taskId === task.id && value.workspaceToken === workspaceToken;
+  const current = value => sameTarget(value) && value.snapshotGeneration === snapshotGeneration && value.reload === reload;
+  const history = sameTarget(result) ? result.rows : null;
+  const error = current(failure) ? failure.message : "";
+  const refreshing = !current(result) && !error;
+  const stale = history !== null && !current(result);
+  useEffect(() => {
+    let live = true;
+    // Keep keyed reports mounted while refreshing so open panels and reading
+    // position survive polling. Their observation age remains explicit below.
+    client.request(`/work?${new URLSearchParams({ task_id: task.id, workspace_token: workspaceToken, limit: "100" })}`)
+      .then(rows => {
+        if (!Array.isArray(rows)) throw new Error("The backend did not return a supported history response.");
+        if (live && client.current()) {
+          setResult({ ...scope, rows });
+          setFailure(null);
+        }
+      }).catch(e => { if (live && client.current()) setFailure({ ...scope, message: e.message }); });
+    return () => { live = false; };
+  }, [client, task.id, workspaceToken, snapshotGeneration, reload]);
+  return h(RecordSection, { title: "Assigned agent work" },
+    h("p", { className: "hc-muted" }, "Read-only assignment history. Registration does not prove execution. Agent reports require human review and do not complete this follow-up."),
+    error && h("div", { role: "status", className: "hc-notice" },
+      h("p", null, history === null
+        ? "Assigned-work history is unavailable. This does not mean no assignments exist."
+        : "Assigned-work history could not be refreshed. Showing the last successful observations, which may be out of date."),
+      h("p", null, error), button("Retry history", () => setReload(n => n + 1))),
+    refreshing && h("p", { role: "status", className: "hc-muted" }, history === null
+      ? "Loading assigned-work history…"
+      : "Refreshing assigned-work history… Showing the last successful observations until this check completes."),
+    history !== null && (history.length ? h("div", { "aria-busy": refreshing },
+        h("p", { className: "hc-muted" }, `${history.length} assignments shown · up to the first 100 registered assignments.`),
+        history.map(work => h("details", { className: "hc-work-item", key: work.id,
+          open: Boolean(expanded[work.id]),
+          onToggle: event => {
+            const open = event.currentTarget.open;
+            setExpanded(previous => previous[work.id] === open ? previous : { ...previous, [work.id]: open });
+          },
+        },
+          h("summary", null, `${label(work.state)} · ${date(work.payload?.run_at)}`),
+          h(Properties, { rows: [
+            ["Human owner", work.payload?.human_owner], ["Requested run", date(work.payload?.run_at)],
+            ["Assignment ID", work.id], ["Native job ID", work.job_id],
+            ["Observation", label(work.reason)], ["Source task", work.source_task_current
+              ? stale ? "Current at last successful refresh; not reverified" : "Current"
+              : "Changed since assignment"],
+          ] }),
+          h("h3", null, "Assignment"), h("p", { className: "hc-details" }, work.payload?.prompt || "Not recorded"),
+          h("h3", null, "Success criteria"), h("p", { className: "hc-details" }, work.payload?.success_criteria || "Not recorded"),
+          h("h3", null, "Agent reports"),
+          (work.reports || []).length ? work.reports.map(report => h("div", { key: report.id, className: "hc-notice" },
+            h("b", null, `Agent reported: ${label(report.outcome)}`),
+            h("p", null, `${label(report.review_status || "awaiting_human_review")} · ${date(report.created_at)}`),
+            h("p", { className: "hc-details" }, report.summary),
+            h("small", { className: "hc-muted" }, "Host terminal success has not been verified by this record.")))
+            : h("p", { className: "hc-muted" }, "No agent report recorded."),
+          h("h3", null, "Recorded observations"),
+          h("ol", { className: "hc-timeline" }, (work.events || []).map(event => h("li", { key: event.id },
+            h("b", null, label(event.kind)), h("p", { className: "hc-muted" }, date(event.created_at))))))))
+        : h("p", { className: "hc-muted" }, stale
+          ? "The last successful history check found no assignments; this has not been reverified."
+          : "No native assignments are recorded for this follow-up.")));
+}
+function Detail({ detail, data, disabled, client, snapshotGeneration, close, edit, open, create }) {
   const row = detail.row.contact || detail.row;
-  return h(
-    "div",
-    null,
-    h("h2", null, row.name || row.title),
-    h("p", { className: "hc-muted" }, `ID: ${row.id} · Version ${row.version}`),
-    Object.entries(row)
-      .filter(
-        ([key]) => !["id", "version", "name", "title", "notes"].includes(key),
-      )
-      .map(([key, value]) =>
-        h(
-          "p",
-          { key },
-          h("strong", null, `${key === "lifecycle" ? "Contact type" : label(key)}: `),
-          value == null
-            ? "Not set"
-            : key === "value"
-              ? money(value)
-              : String(value),
-        ),
-      ),
-    h("p", { className: "hc-details" }, row.notes || "No notes yet."),
-    detail.kind === "contacts" &&
-      h(
-        "div",
-        null,
-        h("h3", null, "Related deals"),
-        detail.row.deals.map((d) =>
-          h(
-            "p",
-            { key: d.id },
-            `${d.title} · ${money(d.value)} · ${label(d.stage)}`,
-          ),
-        ),
-        h("h3", null, "Related follow-ups"),
-        detail.row.tasks.map((t) =>
-          h(
-            "p",
-            { key: t.id },
-            `${t.title} · ${label(t.status)} · ${date(t.due_at)}`,
-          ),
-        ),
-        h("h3", null, "Relationship activity"),
-        h(Activity, { rows: detail.row.activity }),
-      ),
-  );
+  const isContact = detail.kind === "contacts", isDeal = detail.kind === "deals";
+  const title = row.name || row.title;
+  const linkedContact = data.contacts.find(item => item.id === row.contact_id);
+  const linkedDeal = data.deals.find(item => item.id === row.deal_id);
+  const deals = isContact ? detail.row.deals : isDeal ? [row] : linkedDeal ? [linkedDeal] : [];
+  const tasks = isContact ? detail.row.tasks : isDeal ? data.tasks.filter(task => task.deal_id === row.id) : [];
+  const upcoming = tasks.filter(task => task.status === "open").slice().sort((a, b) => String(a.due_at).localeCompare(String(b.due_at)));
+  const activity = isContact ? detail.row.activity : data.activity.filter(item => item.entity_id === row.id);
+  const initialTask = isContact ? { contact_id: row.id } : isDeal ? { contact_id: row.contact_id, deal_id: row.id } : {};
+  const headingRef = useRef(null);
+  useEffect(() => { headingRef.current?.focus(); }, []);
+  const linkedButton = (kind, id, name) => id ? button(name || `Open linked ${kind === "contacts" ? "contact" : "deal"}`, () => open(kind, id), { disabled }) : "Not linked";
+  const facts = isContact ? [["Email", row.email], ["Company", row.company], ["Job title", row.title], ["Contact type", label(row.lifecycle)]]
+    : isDeal ? [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)], ["Deal value", money(row.value)], ["Stage", label(row.stage)], ["Probability", `${row.probability}%`], ["Expected close", row.close_date || "Not set"]]
+    : [["Due", h("time", { dateTime: row.due_at, title: row.due_at }, date(row.due_at))], ["Priority", label(row.priority)], ["Status", label(row.status)], ["Reminder registration", label(row.schedule_status)], ["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)], ["Deal", linkedButton("deals", row.deal_id, linkedDeal?.title)]];
+  return h("section", { className: "hc-record", "aria-label": "Record details" },
+    h("div", { className: "hc-record-header" },
+      h("div", { className: "hc-row" },
+        h("div", { className: "hc-identity" },
+          h("div", { className: "hc-avatar", "aria-hidden": true }, isContact ? title.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase() : isDeal ? "$" : "→"),
+          h("div", null, h("div", { className: "hc-eyebrow" }, isContact ? "CONTACT" : isDeal ? "DEAL" : "FOLLOW-UP"),
+            h("h2", { ref: headingRef, tabIndex: -1 }, title),
+            h("p", { className: "hc-muted" }, isContact ? [row.title, row.company].filter(Boolean).join(" at ") || "Relationship record" : isDeal ? linkedContact?.name || "Linked opportunity" : `${label(row.status)} · ${label(row.priority)} priority`))),
+        button("Close", close, { "aria-label": "Close record details" })),
+      h("div", { className: "hc-actions hc-record-actions" },
+        button("Edit", edit, { className: "hc-primary", disabled }),
+        (isContact || isDeal) && button("Create follow-up", () => create("tasks", initialTask), { disabled }),
+        isContact && button("Create deal", () => create("deals", { contact_id: row.id }), { disabled }),
+        badge(isContact ? `Contact type: ${label(row.lifecycle)}` : isDeal ? row.stage : row.status)),
+      isContact ? h(Properties, { inline: true, rows: [["Email", row.email], ["Company", row.company], ["Linked deal stages", [...new Set(deals.map(deal => label(deal.stage)))].join(", ") || "Unassigned"]] })
+        : isDeal ? h("ol", { className: "hc-stage-path", "aria-label": "Deal stage" }, STAGES.map(stage => h("li", { key: stage, "aria-current": row.stage === stage ? "step" : undefined }, label(stage))))
+          : h(Properties, { inline: true, rows: [["Due", date(row.due_at)], ["Reminder registration", label(row.schedule_status)], ["Record version", row.version]] })),
+    h("div", { className: "hc-record-layout" },
+      h("aside", { className: "hc-stack", "aria-label": "Record properties" },
+        h(RecordSection, { title: "About this record" }, h(Properties, { rows: facts }),
+          h("p", { className: "hc-record-meta" }, `ID: ${row.id} · Version ${row.version}`),
+          row.created_at && h("p", { className: "hc-record-meta" }, `Created ${date(row.created_at)}`),
+          row.updated_at && h("p", { className: "hc-record-meta" }, `Updated ${date(row.updated_at)}`)),
+        h(RecordSection, { title: "Notes" }, h("p", { className: "hc-details" }, row.notes || "No notes yet. Use Edit to add context."))),
+      h("section", { className: "hc-stack", "aria-label": "Record history and next steps" },
+        (isContact || isDeal) && h(RecordSection, { title: "Upcoming follow-ups", action: badge(upcoming.length) },
+          upcoming.length ? h("div", { className: "hc-related" }, upcoming.map(task => button(
+            h("div", null, h("b", null, task.title), h("small", null, `${date(task.due_at)} · ${label(task.priority)}`),
+              h("small", null, `Reminder registration: ${label(task.schedule_status)}`)),
+            () => open("tasks", task.id), { key: task.id, disabled })))
+            : h("p", { className: "hc-muted" }, "No open follow-ups in the available records. Create one to record the next step.")),
+        h(RecordSection, { title: "Activity timeline" },
+          h("p", { className: "hc-muted" }, "CRM record changes only. Sent and received emails are not synced here."),
+          h(Timeline, { rows: activity || [] }),
+          h("p", { className: "hc-record-meta" }, isContact ? "Up to 100 recent CRM changes for this contact and its linked records." : "Matching changes from the latest 100 workspace activity records.")),
+        !isContact && !isDeal && h(AssignedWork, { client, task: row, workspaceToken: detail.workspaceToken, snapshotGeneration })),
+      h("aside", { className: "hc-stack hc-record-related", "aria-label": "Related records" },
+        h(RecordSection, { title: isDeal ? "Linked contact" : "Related deals", action: isContact ? badge(deals.length) : null },
+          isDeal ? h(Properties, { rows: [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)]] })
+            : deals.length ? h("div", { className: "hc-related" }, deals.map(deal => button(
+              h("div", null, h("b", null, deal.title), h("small", null, `${money(deal.value)} · ${label(deal.stage)}`)),
+              () => open("deals", deal.id), { key: deal.id, disabled })))
+              : row.deal_id ? linkedButton("deals", row.deal_id, null) : h("p", { className: "hc-muted" }, "No linked deals.")),
+        (isContact || isDeal) && h(RecordSection, { title: "Completed follow-ups" },
+          tasks.some(task => task.status === "done") ? h("div", { className: "hc-related" }, tasks.filter(task => task.status === "done").map(task => button(
+            h("div", null, h("b", null, task.title), h("small", null, date(task.due_at))),
+            () => open("tasks", task.id), { key: task.id, disabled }))) : h("p", { className: "hc-muted" }, "No completed follow-ups in the available records.")),
+        h("p", { className: "hc-record-meta" }, "Related record lists show up to 500 loaded records. Contact type and deal stage are separate fields."))));
 }
 
-function Editor({ editor, data, busy, save, cancel }) {
+// Use only elements in this pane. The host page's body, scroll, and global
+// listeners are untouched; inert isolates the underlying CRM workspace.
+function Drawer({ title, subtitle, busy, cancel, children, returnFocus }) {
+  const panel = useRef(null);
+  useEffect(() => {
+    const node = panel.current;
+    if (!node) return;
+    const previous = returnFocus || node.ownerDocument.activeElement;
+    (node.querySelector("[data-autofocus]") || node).focus();
+    return () => {
+      if (previous?.isConnected && !previous.closest?.("[inert]")) previous.focus();
+    };
+  }, []);
+  function onKeyDown(event) {
+    if (event.key === "Escape") {
+      event.preventDefault(); event.stopPropagation();
+      if (!busy) cancel();
+    }
+    if (event.key !== "Tab") return;
+    const nodes = [...(panel.current?.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex='0']") || [])];
+    const first = nodes[0], last = nodes[nodes.length - 1];
+    const active = panel.current?.ownerDocument.activeElement;
+    if (!first) { event.preventDefault(); panel.current?.focus(); }
+    else if (event.shiftKey && (active === first || active === panel.current)) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && (active === last || active === panel.current)) { event.preventDefault(); first.focus(); }
+  }
+  return h("div", { className: "hc-overlay" },
+    h("section", { className: "hc-drawer", role: "dialog", "aria-modal": true, "aria-label": title, tabIndex: -1, ref: panel, onKeyDown },
+      h("header", { className: "hc-drawer-header" },
+        h("div", { className: "hc-row" }, h("div", null, h("div", { className: "hc-eyebrow" }, "HERMES / CRM"), h("h2", null, title)),
+          button("Close", cancel, { disabled: busy, "aria-label": "Close form" })),
+        h("p", { className: "hc-muted" }, subtitle)), children));
+}
+
+function Editor({ editor, data, busy, error, save, cancel }) {
   const { kind, row } = editor;
   const [values, setValues] = useState(() => {
-    const keys =
-      kind === "contacts"
-        ? ["name", "email", "company", "title", "lifecycle", "notes"]
-        : kind === "deals"
-          ? [
-              "title",
-              "contact_id",
-              "value",
-              "stage",
-              "probability",
-              "close_date",
-              "notes",
-            ]
-          : [
-              "title",
-              "contact_id",
-              "deal_id",
-              "due_at",
-              "priority",
-              "status",
-              "notes",
-            ];
-    const defaults = {
-      lifecycle: "lead",
-      stage: "lead",
-      probability: 10,
-      priority: "normal",
-      status: "open",
-      value: 0,
-    };
-    return Object.fromEntries(
-      keys.map((key) => [
-        key,
-        key === "value"
-          ? String((row?.value || 0) / 100)
-          : key === "due_at" && row?.due_at
-            ? new Date(
-                new Date(row.due_at).getTime() -
-                  new Date(row.due_at).getTimezoneOffset() * 60000,
-              )
-                .toISOString()
-                .slice(0, 16)
-            : (row?.[key] ?? defaults[key] ?? ""),
-      ]),
-    );
+    const keys = kind === "contacts" ? ["name", "email", "company", "title", "lifecycle", "notes"]
+      : kind === "deals" ? ["title", "contact_id", "value", "stage", "probability", "close_date", "notes"]
+        : ["title", "contact_id", "deal_id", "due_at", "priority", "status", "notes"];
+    const defaults = { lifecycle: "lead", stage: "lead", probability: 10, priority: "normal", status: "open", value: 0, ...editor.initial };
+    return Object.fromEntries(keys.map(key => [key,
+      key === "value" ? String((row?.value || 0) / 100)
+        : key === "due_at" && row?.due_at ? new Date(new Date(row.due_at).getTime() - new Date(row.due_at).getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+          : (row?.[key] ?? defaults[key] ?? "")]));
   });
   const initialDueInput = useRef(values.due_at);
   const [validation, setValidation] = useState("");
+  const [invalidField, setInvalidField] = useState("");
+  const formRef = useRef(null);
+  // Prevent callbacks retained from dismissed/replaced editors from writing.
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  function dismiss() { if (busy) return; active.current = false; cancel(); }
   function update(key, value) {
-    setValues((old) => ({
-      ...old,
-      [key]: value,
-      ...(key === "stage"
-        ? { probability: PROBABILITY[STAGES.indexOf(value)] }
-        : {}),
+    setValues(old => ({ ...old, [key]: value,
+      ...(key === "stage" ? { probability: PROBABILITY[STAGES.indexOf(value)] } : {}),
     }));
+    if (invalidField === key) { setInvalidField(""); setValidation(""); }
   }
-  const field = (key, title, type = "text", options = null) =>
-    h(
-      "label",
-      { key, className: key === "notes" ? "hc-wide" : undefined },
-      title,
-      options
-        ? h(
-            "select",
-            {
-              value: values[key],
-              onChange: (e) => update(key, e.target.value),
-              required: key === "contact_id" && kind === "deals",
-            },
-            (values[key] && !options.some(([value]) => String(value) === String(values[key]))
-              ? [...options, [values[key], `Current selection (${values[key]}) · outside loaded choices`]] : options).map(([value, text]) =>
-              h("option", { key: value, value }, text),
-            ),
-          )
-        : h(key === "notes" ? "textarea" : "input", {
-            type: key === "notes" ? undefined : type,
-            value: values[key],
-            onChange: (e) => update(key, e.target.value),
-            required:
-              key === "name" ||
-              key === "due_at" ||
-              (key === "title" && kind !== "contacts"),
-            autoFocus: key === (kind === "contacts" ? "name" : "title"),
-            maxLength:
-              key === "notes"
-                ? 10000
-                : key === "email"
-                  ? 254
-                  : key === "title"
-                    ? kind === "contacts"
-                      ? 160
-                      : 200
-                    : 160,
-            min: type === "number" ? 0 : undefined,
-            max:
-              key === "probability"
-                ? 100
-                : key === "value"
-                  ? 20000000
-                  : undefined,
-            step: key === "value" ? ".01" : type === "number" ? "1" : undefined,
-          }),
-    );
+  function fail(key, message) {
+    setInvalidField(key); setValidation(message);
+    formRef.current?.querySelector(`[name="${key}"]`)?.focus();
+  }
+  const selectOptions = items => items.map(value => [value, label(value)]);
+  const field = (key, title, type = "text", options = null, hint = "", wide = false) => {
+    const required = key === "name" || key === "due_at" || (key === "title" && kind !== "contacts") || (key === "contact_id" && kind === "deals");
+    const props = { name: key, value: values[key], onChange: e => update(key, e.target.value), required, disabled: busy,
+      "aria-invalid": invalidField === key ? true : undefined,
+      "aria-describedby": invalidField === key ? `${editor.key}-validation` : hint ? `${editor.key}-${key}-hint` : undefined };
+    return h("label", { key, className: wide || key === "notes" || key === "name" || (key === "title" && kind !== "contacts") ? "hc-wide" : undefined },
+      h("span", null, title, required && h("span", { className: "hc-required", "aria-hidden": true }, " *")),
+      options ? h("select", props,
+        (values[key] && !options.some(([value]) => String(value) === String(values[key]))
+          ? [...options, [values[key], `Current selection (${values[key]}) · outside loaded choices`]] : options)
+          .map(([value, text]) => h("option", { key: value, value }, text)))
+        : h(key === "notes" ? "textarea" : "input", { ...props, type: key === "notes" ? undefined : type,
+          "data-autofocus": key === (kind === "contacts" ? "name" : "title") ? true : undefined,
+          placeholder: key === "notes" ? "Useful context for the next conversation…" : undefined,
+          maxLength: key === "notes" ? 10000 : key === "email" ? 254 : key === "title" && kind !== "contacts" ? 200 : 160,
+          min: type === "number" ? 0 : undefined, max: key === "probability" ? 100 : key === "value" ? 20000000 : undefined,
+          step: key === "value" ? ".01" : type === "number" ? "1" : undefined,
+        }),
+      hint && h("span", { id: `${editor.key}-${key}-hint`, className: "hc-field-hint" }, hint));
+  };
   async function submit(event) {
     event.preventDefault();
-    setValidation("");
+    if (!active.current || busy) return;
+    setValidation(""); setInvalidField("");
     const payload = { ...values };
+    const titleKey = kind === "contacts" ? "name" : "title";
+    if (!String(payload[titleKey]).trim()) return fail(titleKey, kind === "contacts" ? "Enter the contact’s full name." : "Enter a title for this record.");
+    // Local domains are supported. Native type=email handles browser syntax.
+    if (kind === "contacts" && payload.email && !/^[^\s@]+@[^\s@]+$/.test(payload.email)) return fail("email", "Enter a valid email address, or leave email blank.");
     if (kind === "deals") {
-      payload.value = Math.round(Number(payload.value) * 100);
+      if (!payload.contact_id) return fail("contact_id", "Choose the contact for this deal.");
+      try { payload.value = Number(dollarFilter(payload.value)); }
+      catch (e) { return fail("value", e.message); }
+      if (payload.value === "" || String(values.value).trim() === "") return fail("value", "Enter a deal value, or use 0 when it is not known yet.");
       payload.probability = Number(payload.probability);
-      payload.currency = "USD";
-      payload.close_date ||= null;
+      if (values.probability === "" || !Number.isInteger(payload.probability) || payload.probability < 0 || payload.probability > 100) return fail("probability", "Probability must be a whole number from 0 to 100.");
+      payload.currency = "USD"; payload.close_date ||= null;
     }
     if (kind === "tasks") {
-      if (!payload.due_at || Number.isNaN(new Date(payload.due_at).getTime())) {
-        setValidation("Choose a valid local due date and time.");
-        return;
-      }
-      payload.due_at =
-        row?.due_at && payload.due_at === initialDueInput.current
-          ? row.due_at
-          : new Date(payload.due_at).toISOString();
-      payload.contact_id ||= null;
-      payload.deal_id ||= null;
+      if (!payload.due_at || Number.isNaN(new Date(payload.due_at).getTime())) return fail("due_at", "Choose a valid local due date and time.");
+      payload.due_at = row?.due_at && payload.due_at === initialDueInput.current ? row.due_at : new Date(payload.due_at).toISOString();
+      payload.contact_id ||= null; payload.deal_id ||= null;
     }
     await save(payload);
   }
-  const selectOptions = (items) => items.map((x) => [x, label(x)]);
-  return h(
-    "form",
-    {
-      className: "hc-editor",
-      onSubmit: submit,
-      "aria-label": `${row ? "Edit" : "Create"} ${kind}`,
-    },
-    h(
-      "h2",
-      null,
-      `${row ? "Edit" : "New"} ${kind === "contacts" ? "contact" : kind === "deals" ? "deal" : "follow-up"}`,
-    ),
-    h(
-      "fieldset",
-      { disabled: busy, style: { border: 0, padding: 0, margin: 0 } },
-      h(
-        "div",
-        { className: "hc-fields" },
-        kind === "contacts"
-          ? [
-              field("name", "Full name"),
-              field("email", "Email", "email"),
-              field("company", "Company"),
-              field("title", "Job title"),
-              field(
-                "lifecycle",
-                "Contact type",
-                "text",
-                selectOptions(["lead", "customer", "partner"]),
-              ),
-            ]
-          : [
-              field("title", "Title"),
-              field(
-                "contact_id",
-                kind === "deals" ? "Contact (required)" : "Contact (optional)",
-                "text",
-                [
-                  ["", "Select a contact"],
-                  ...data.contacts.map((c) => [
-                    c.id,
-                    `${c.name} · ${c.company || c.email || c.id.slice(0, 8)}`,
-                  ]),
-                ],
-              ),
-            ],
-        kind === "deals" && [
-          field("value", "Deal value (USD)", "number"),
-          field("stage", "Stage", "text", selectOptions(STAGES)),
-          field("probability", "Probability (%)", "number"),
-          field("close_date", "Expected close", "date"),
-        ],
-        kind === "tasks" && [
-          field("deal_id", "Deal (optional)", "text", [
-            ["", "No deal"],
-            ...data.deals
-              .filter(
-                (d) => !values.contact_id || d.contact_id === values.contact_id,
-              )
-              .map((d) => [d.id, d.title]),
-          ]),
-          field(
-            "due_at",
-            "Due date and time (your local timezone)",
-            "datetime-local",
-          ),
-          field(
-            "priority",
-            "Priority",
-            "text",
-            selectOptions(["normal", "high"]),
-          ),
-          field("status", "Status", "text", selectOptions(["open", "done"])),
-        ],
-        field("notes", "Notes"),
-      ),
-      validation && h("p", { role: "alert" }, validation),
-      h(
-        "div",
-        { className: "hc-actions", style: { marginTop: 18 } },
-        h(
-          "button",
-          { type: "submit", className: "hc-primary" },
-          busy ? "Saving…" : "Save record",
-        ),
-        button("Cancel", cancel),
-      ),
-    ),
-  );
+  const section = (title, fields, description) => h("fieldset", { key: title, className: "hc-form-section", disabled: busy },
+    h("legend", null, title), description && h("p", { className: "hc-muted" }, description), h("div", { className: "hc-fields" }, fields));
+  const contactOptions = [["", kind === "deals" ? "Select a contact" : "No contact"], ...data.contacts.map(c => [c.id, `${c.name} · ${c.company || c.email || c.id.slice(0, 8)}`])];
+  const linkedFields = [field("contact_id", kind === "deals" ? "Contact (required)" : "Contact (optional)", "text", contactOptions, "Choices show up to 500 contacts. An existing link is retained even if it is not in this list.", true)];
+  if (kind === "tasks") linkedFields.push(field("deal_id", "Deal (optional)", "text", [["", "No deal"], ...data.deals.filter(deal => !values.contact_id || deal.contact_id === values.contact_id).map(deal => [deal.id, deal.title])], "Changing the contact does not silently clear an existing deal link.", true));
+  return h(Drawer, {
+    title: `${row ? "Edit" : "New"} ${kind === "contacts" ? "contact" : kind === "deals" ? "deal" : "follow-up"}`,
+    subtitle: `${row ? "Update the details for this record." : "Start with the essentials. You can add more context later."} Fields marked * are required.`,
+    busy, cancel: dismiss, returnFocus: editor.returnFocus,
+  }, h("form", { className: "hc-editor", ref: formRef, onSubmit: submit, "aria-label": `${row ? "Edit" : "Create"} ${kind}`, "aria-busy": busy },
+    h("div", { className: "hc-editor-body" },
+      kind === "contacts" ? [
+        section("Contact details", [field("name", "Full name"), field("email", "Email", "email", null, "Optional. Saving an email does not send a message or sync a mailbox.", true), field("company", "Company"), field("title", "Job title")]),
+        section("Relationship", [field("lifecycle", "Contact type", "text", selectOptions(["lead", "customer", "partner"]), "Contact type is separate from the stage of any linked deal.", true)]),
+      ] : [section(kind === "deals" ? "Opportunity" : "Follow-up details", [field("title", "Title")]),
+        section("Linked records", linkedFields),
+        kind === "deals" ? section("Pipeline details", [field("value", "Deal value (USD)", "number"), field("stage", "Stage", "text", selectOptions(STAGES)), field("probability", "Probability (%)", "number", null, "Changing stage sets a suggested probability. You can adjust it."), field("close_date", "Expected close", "date")])
+          : section("Timing and status", [field("due_at", "Due date and time (your local timezone)", "datetime-local", null, "Saving a follow-up does not schedule agent work or a reminder.", true), field("priority", "Priority", "text", selectOptions(["normal", "high"])), field("status", "Status", "text", selectOptions(["open", "done"]))]),
+      ],
+      section("Notes", [field("notes", "Notes", "text", null, "Context stored on this CRM record.")])),
+    h("footer", { className: "hc-editor-footer" },
+      (validation || error) && h("div", { id: `${editor.key}-validation`, role: "alert", className: "hc-notice" }, validation || error),
+      h("div", { className: "hc-row" }, h("small", { className: "hc-muted" }, row ? "Changes are checked against the saved version." : "Saved to this agent’s CRM."),
+        h("div", { className: "hc-actions" }, button("Cancel", dismiss, { disabled: busy }),
+          h("button", { type: "submit", className: "hc-primary", disabled: busy }, busy ? "Saving…" : "Save record"))))));
 }
 
 export default {

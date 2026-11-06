@@ -7,12 +7,13 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 ## What works
 
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
-- Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; create, edit and inspect linked records.
+- Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: six-stage value donut with keyboard/hover details, unique-contact drillthrough and preset missing/overdue follow-up reports.
 - Pipeline: six stages, integer-cent USD amounts, company/value filters and weighted forecast.
-- Follow-ups: timezone-aware due dates, priority, completion and activity history.
-- Native Hermes: 15 read/write tools, active-profile storage, optimistic version checks and idempotent creates.
-- Native scheduling: a one-shot local Hermes job for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
+- Follow-ups: timezone-aware due dates, priority, completion, activity history and read-only native-assignment results awaiting review.
+- Native Hermes: 22 tools across separate record, assigned-work and native-report permission sets, active-profile storage, optimistic version checks and idempotent creates.
+- Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
+- Assigned-work prototype: explicit active-agent paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded scheduled-agent tests with deterministic local model responses; real-model behavior remains unverified. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
 
 See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [the next-release agent-work roadmap](docs/NEXT_RELEASE_PLAN.md), [architecture and safety](docs/ARCHITECTURE.md), [Hermes integration](docs/HERMES_INTEGRATION.md) and [verification report](docs/VERIFICATION.md).
@@ -69,7 +70,7 @@ Try in an interactive Hermes session:
 
 The agent must resolve ambiguous people and times rather than guess. Scheduling is a separate explicit operation from saving a due date. CRM tools never send an email or other external message.
 
-Real one-shot scheduler execution, CRM reads and saved local outputs passed a controlled test using deterministic loopback model responses. Real-model reasoning, visible Desktop reminders, default deferred-tool discovery and restart recovery remain unverified. See the verification report for the exact test scope.
+Real one-shot scheduler execution, CRM reads and saved local outputs passed controlled tests using deterministic loopback model responses. The newer assigned-work tests also passed default deferred discovery and authenticated reporting in both plugin isolation modes. Test setup invokes registered scheduling handlers with a real active-agent context, rather than testing a model choosing to schedule or an interactive approval dialog. Real-model reasoning, visible Desktop reminders and restart recovery remain unverified. See the verification report for the exact test scope.
 
 ### Desktop and agent use the same records
 
@@ -105,7 +106,7 @@ Tests use temporary synthetic data. See docs/VERIFICATION.md for exact tested en
 
 ## Deliberate limits
 
-This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, imports, attachments, migrations from another CRM or background daemon. Contact reports use server pagination with filtered totals. Legacy lists, deal/task views and form choices are bounded at 500 records, and activity at 100; displayed deal-list totals cover returned records. This is a small-workspace prototype, not a large CRM data browser. Direct agent assignment/execution, custom saved views and a report/dashboard builder are not implemented. A future migration system is needed before changing a deployed schema. No public repository, catalog PR, contest entry or production deployment is created by running the app.
+This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, imports, attachments, migrations from another CRM or background daemon. Contact reports use server pagination with filtered totals. Legacy lists, deal/task views and form choices are bounded at 500 records, and activity at 100; displayed deal-list totals cover returned records. This is a small-workspace prototype, not a large CRM data browser. Direct Desktop submission remains disabled; native future assignments are a bounded, separately tested path. Custom saved views and a report/dashboard builder are not implemented. A future migration system is needed before changing a deployed schema. No public repository, catalog PR, contest entry or production deployment is created by running the app.
 
 ## License
 

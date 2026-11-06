@@ -18,6 +18,18 @@ assert.doesNotMatch(
   /\bfetch\s*\(|iframe|window\.|document\.|localhost|https?:\/\//,
 );
 assert.match(source, /workspace_token: editor.workspaceToken/);
+// Pane-local layout contracts. Pixel layout still requires a native browser run.
+assert.match(source, /\.hc-wrap\[inert\]\{overflow:hidden\}/);
+assert.match(source, /\.hc-overlay\{position:absolute;inset:0/);
+assert.match(source, /\.hc-drawer\{width:min\(600px,100%\);height:100%;min-height:0;display:flex;flex-direction:column/);
+assert.match(source, /\.hc-editor-body\{overflow:auto;overscroll-behavior:contain;flex:1;min-height:0/);
+assert.match(source, /\.hc-editor-footer\{[^}]*flex-shrink:0/);
+assert.match(source, /@container\(max-width:640px\).*hc-record-layout\{grid-template-columns:minmax\(0,1fr\)/);
+assert.match(source, /@container\(max-width:480px\).*hc-fields\{grid-template-columns:1fr\}/);
+assert.doesNotMatch(source, /body\.style|addEventListener|createPortal/);
+assert.match(source, /Sent and received emails are not synced here/);
+assert.match(source, /Contact type and deal stage are separate fields/);
+
 try {
   const styles = await readFile(
     `${process.env.HERMES_SOURCE || "/nonexistent-hermes-source"}/apps/desktop/src/styles.css`,

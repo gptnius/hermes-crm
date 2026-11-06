@@ -102,6 +102,9 @@ const task = {
   schedule_status: "scheduled",
   version: 4,
 };
+const deal = { id: "d1", title: "Example opportunity", contact_id: "c1", value: 25000,
+  currency: "USD", stage: "proposal", probability: 50, close_date: "2027-02-01", notes: "A real linked note", version: 2 };
+const relatedDeals = [], activityRows = [];
 const overview = {
   contacts: 1,
   open_deals: 0,
@@ -126,6 +129,8 @@ let reportTotal = 1;
 let delayReport = false, releaseReport;
 let delayDetail = false,
   releaseDetail;
+let workRows = [], workError = "", delayWork = false, releaseWork;
+let writeError = "", delayWrite = false, releaseWrite;
 const pluginDisposers = [];
 const ctx = {
   onDispose(fn) {
@@ -136,7 +141,13 @@ const ctx = {
     calls.push({ path, profile: profile.get(), connection: connection.get() });
     if (options) {
       writes.push({ path, options, profile: profile.get() });
+      if (writeError) throw new Error(writeError);
+      if (delayWrite) return new Promise(resolve => { releaseWrite = resolve; });
       return {};
+    }
+    if (path.startsWith("/work?")) {
+      if (workError) throw new Error(workError);
+      if (delayWork) return new Promise(resolve => { releaseWork = resolve; });
     }
     if (path.split("?")[0] === "/contacts/c1" && delayDetail)
       return new Promise((resolve) => {
@@ -152,11 +163,13 @@ const ctx = {
       "/overview": overview,
       "/contacts": profile.get() === "work" ? [contact] : [],
       "/reports/contacts": { items: profile.get() === "work" ? [{ ...contact, deal_stages: ["lead", "won"] }] : [], total: profile.get() === "work" ? reportTotal : 0, limit: 50, offset: 0 },
-      "/deals": [],
+      "/deals": relatedDeals,
+      "/deals/d1": deal,
       "/tasks": [task],
-      "/activity": [],
-      "/contacts/c1": { contact, deals: [], tasks: [task], activity: [] },
+      "/activity": activityRows,
+      "/contacts/c1": { contact, deals: relatedDeals, tasks: [task], activity: activityRows },
       "/tasks/t1": task,
+      "/work": workRows,
     };
     const value =
       path === "/snapshot"
@@ -191,6 +204,28 @@ const ctx = {
   },
 };
 module.namespace.default.register(ctx);
+// Minimal element refs let actual React effects exercise focus ownership and
+// keyboard boundaries. This is DOM behavior modeled with refs, not pixel QA.
+const focusLog = [];
+const mockDocument = { activeElement: null };
+function focusable(name) {
+  return { name, isConnected: true, closest: () => null,
+    focus() { mockDocument.activeElement = this; focusLog.push(name); } };
+}
+const opener = focusable("opener");
+mockDocument.activeElement = opener;
+let drawerNode;
+function createNodeMock(element) {
+  if (element.props.className === "hermes-crm-native") return { ownerDocument: mockDocument };
+  if (element.props.className === "hc-drawer") {
+    const close = focusable("drawer-close"), firstInput = focusable("first-input"), save = focusable("save");
+    drawerNode = { ...focusable("drawer"), ownerDocument: mockDocument, controls: [close, firstInput, save],
+      querySelector: () => firstInput, querySelectorAll: () => [close, firstInput, save] };
+    return drawerNode;
+  }
+  if (element.type === "form") return { querySelector: selector => focusable(selector) };
+  return focusable(element.type);
+}
 let root;
 await act(async () => {
   root = Renderer.create(
@@ -199,6 +234,7 @@ await act(async () => {
       null,
       React.createElement(module.namespace.CRMRoot, { ctx }),
     ),
+    { createNodeMock },
   );
 });
 const flatten = (node) =>
@@ -223,6 +259,7 @@ const click = async (title) => {
   const target = button(title);
   assert.ok(target, `Missing button ${title}`);
   await act(async () => {
+    mockDocument.activeElement = opener;
     target.props.onClick();
   });
   await flush();
@@ -307,7 +344,7 @@ delayDetail = true;
 await act(async () => { root.root.findAllByType("button").find(node => flatten(node.children).includes("Ada Example")).props.onClick(); });
 await act(async () => control("Email").props.onChange({ target: { value: "missing" } }));
 await act(async () => releaseDetail({ contact, deals: [], tasks: [], activity: [] }));
-assert.doesNotMatch(text(), /Record details/);
+assert.equal(root.root.findAll(node => node.props["aria-label"] === "Record details").length, 0);
 delayDetail = false;
 reportTotal = 1;
 await click("Overview");
@@ -344,7 +381,7 @@ const field = (title) =>
     .find((node) => flatten(node.children).startsWith(title))
     .findByType("input");
 assert.equal(field("Job title").props.required, false);
-assert.equal(field("Full name").props.autoFocus, true);
+assert.equal(field("Full name").props["data-autofocus"], true);
 await act(async () =>
   field("Full name").props.onChange({ target: { value: "Name only" } }),
 );
@@ -369,7 +406,7 @@ await click("Activity");
 await act(async () => {
   releaseDetail({ contact, deals: [], tasks: [], activity: [] });
 });
-assert.doesNotMatch(text(), /Record details/);
+assert.equal(root.root.findAll(node => node.props["aria-label"] === "Record details").length, 0);
 delayDetail = false;
 await click("Tasks");
 await act(async () =>
@@ -427,7 +464,324 @@ assert.equal(
   "Unchanged datetime control preserves exact scheduled timestamp, including microseconds",
 );
 assert.equal(writes[3].options.body.data.title, "Updated title only");
+// The record workspace replaces the raw-property dump with honest, working
+// associations, audit history, and prefilled record creation.
+relatedDeals.push(deal);
+activityRows.push({ id: "a1", entity_id: "c1", action: "updated", actor: "desktop",
+  summary: "Ada Example · updated", created_at: "2026-11-06T17:00:00+00:00" });
+await click("Refresh");
 await click("Contacts");
+const openRecord = async title => {
+  const target = root.root.findAllByType("button").find(node => flatten(node.children).includes(title));
+  assert.ok(target, `Missing record ${title}`);
+  await act(async () => { target.props.onClick(); });
+  await flush();
+};
+const recordDetails = () => root.root.findAll(node => node.props["aria-label"] === "Record details");
+const input = name => root.root.findAllByType("input").find(node => node.props.name === name);
+const select = name => root.root.findAllByType("select").find(node => node.props.name === name);
+const change = async (node, value) => act(async () => node.props.onChange({ target: { value } }));
+const submitForm = async () => act(async () => { await root.root.findByType("form").props.onSubmit({ preventDefault() {} }); });
+const dialog = () => root.root.findAll(node => node.props.role === "dialog")[0];
+const press = async (key, shiftKey = false) => {
+  let prevented = false, stopped = false;
+  await act(async () => dialog().props.onKeyDown({ key, shiftKey,
+    preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } }));
+  return { prevented, stopped };
+};
+await openRecord("Ada Example");
+assert.equal(recordDetails().length, 1);
+assert.match(text(), /CRM record changes only. Sent and received emails are not synced here/);
+assert.match(text(), /Upcoming follow-ups/);
+assert.match(text(), /Example opportunity/);
+assert.match(text(), /Recorded by desktop/);
+assert.doesNotMatch(text(), /Human owner/);
+assert.equal(root.root.findAllByType("button").some(node => /Send email|Chat with/.test(flatten(node.children))), false);
+await click("Create follow-up");
+assert.equal(select("contact_id").props.value, "c1");
+assert.equal(recordDetails().length, 1, "The contact remains behind the drawer for cancellation");
+assert.equal(root.root.findAll(node => node.props.className === "hc-wrap")[0].props.inert, true);
+assert.equal(dialog().props["aria-modal"], true);
+assert.equal(mockDocument.activeElement.name, "first-input");
+const staleCreateFollowup = root.root.findByType("form").props.onSubmit;
+await change(input("title"), "Draft follow-up");
+await change(input("due_at"), "2027-01-02T12:00");
+mockDocument.activeElement = drawerNode.controls.at(-1);
+assert.equal((await press("Tab")).prevented, true);
+assert.equal(mockDocument.activeElement.name, "drawer-close");
+assert.equal((await press("Tab", true)).prevented, true);
+assert.equal(mockDocument.activeElement.name, "save");
+assert.deepEqual(await press("Escape"), { prevented: true, stopped: true });
+assert.equal(root.root.findAllByType("form").length, 0);
+assert.equal(mockDocument.activeElement, opener, "Dismissal restores focus to the captured opener");
+assert.equal(root.root.findAll(node => node.props.className === "hc-wrap")[0].props.inert, undefined);
+const beforeStaleDraft = writes.length;
+await act(async () => staleCreateFollowup({ preventDefault() {} }));
+assert.equal(writes.length, beforeStaleDraft, "A dismissed valid form callback cannot write");
+await click("Create deal");
+assert.equal(select("contact_id").props.value, "c1");
+await change(input("title"), "New opportunity");
+await change(select("stage"), "negotiation");
+assert.equal(input("probability").props.value, 75);
+await change(input("value"), "1.001");
+await submitForm();
+assert.equal(writes.length, beforeStaleDraft);
+assert.equal(input("value").props.value, "1.001");
+assert.equal(input("value").props["aria-invalid"], true);
+assert.match(text(), /at most two decimal places/);
+await change(input("value"), "12.34");
+await change(input("probability"), "101");
+await submitForm();
+assert.match(text(), /whole number from 0 to 100/);
+await click("Cancel");
+await openRecord("Example opportunity");
+assert.match(text(), /Linked contact/);
+assert.equal(root.root.findAll(node => node.props["aria-current"] === "step")[0].children[0], "Proposal");
+await click("Create follow-up");
+assert.equal(select("contact_id").props.value, "c1");
+assert.equal(select("deal_id").props.value, "d1");
+await click("Cancel");
+await click("Close");
+// Repeated opens create independent drafts, preserve the page/filter state, and
+// never retain a cancelled value or create a write as a side effect.
+for (let i = 0; i < 3; i++) {
+  await click("+ Contact");
+  assert.equal(input("name").props.value, "");
+  await change(input("name"), `Cancelled ${i}`);
+  await click("Cancel");
+}
+assert.equal(writes.length, beforeStaleDraft);
+await click("+ Contact");
+await submitForm();
+assert.match(text(), /Enter the contact’s full name/);
+assert.equal(writes.length, beforeStaleDraft);
+await change(input("name"), "Retained contact");
+await change(input("email"), "not-an-email");
+await submitForm();
+assert.match(text(), /Enter a valid email address/);
+assert.equal(input("name").props.value, "Retained contact");
+await change(input("email"), "retained@example.test");
+writeError = "Validation rejected by the CRM";
+await submitForm();
+assert.equal(root.root.findAllByType("form").length, 1);
+assert.equal(input("name").props.value, "Retained contact");
+assert.equal(input("email").props.value, "retained@example.test");
+assert.match(flatten(dialog().children), /Validation rejected by the CRM/);
+const retryKey = writes.at(-1).options.body.idempotency_key;
+writeError = ""; delayWrite = true;
+const pendingSubmit = root.root.findByType("form").props.onSubmit;
+let savePromise;
+const beforeDoubleSave = writes.length;
+await act(async () => {
+  savePromise = pendingSubmit({ preventDefault() {} });
+  await pendingSubmit({ preventDefault() {} });
+});
+assert.equal(writes.length, beforeDoubleSave + 1, "Repeated Save only sends one in-flight mutation");
+assert.equal(writes.at(-1).options.body.idempotency_key, retryKey);
+assert.equal(button("Cancel").props.disabled, true);
+await press("Escape");
+assert.equal(root.root.findAllByType("form").length, 1, "Pending mutations cannot be dismissed");
+delayWrite = false;
+await act(async () => { releaseWrite({}); await savePromise; });
+await flush();
+assert.equal(root.root.findAllByType("form").length, 0);
+await act(async () => pendingSubmit({ preventDefault() {} }));
+assert.equal(writes.length, beforeDoubleSave + 1, "A saved/unmounted callback cannot create again");
+// Native type=email and the backend permit local domains. An unchanged
+// owner@intranet address must not block an unrelated edit to an existing record.
+contact.email = "owner@intranet";
+await click("Contacts");
+await openRecord("Ada Example");
+await click("Edit");
+assert.equal(input("email").props.type, "email");
+assert.equal(input("email").props.value, "owner@intranet");
+await change(input("name"), "Updated local-domain contact");
+const beforeLocalEmailEdit = writes.length;
+await submitForm();
+assert.equal(writes.length, beforeLocalEmailEdit + 1);
+assert.equal(writes.at(-1).options.body.data.email, "owner@intranet");
+assert.equal(writes.at(-1).options.body.data.name, "Updated local-domain contact");
+assert.equal(writes.at(-1).options.body.data.version, contact.version);
+contact.email = "";
+await flush();
+await click("+ Contact");
+await change(input("name"), "Email validation draft");
+for (const email of ["not-an-email", "owner@", "@intranet", "owner@@intranet", "owner @intranet", "owner@intra net"]) {
+  await change(input("email"), email);
+  await submitForm();
+  assert.equal(writes.length, beforeLocalEmailEdit + 1, `Malformed email must not write: ${email}`);
+  assert.equal(input("email").props.value, email, "Validation preserves the entered address");
+  assert.match(text(), /Enter a valid email address/);
+}
+await click("Cancel");
+// Successful deal and task writes still use existing endpoint payloads. A
+// missing selector choice is visible and retained, never silently unlinked.
+await click("Pipeline");
+await click("+ Deal");
+await change(input("title"), "Created opportunity");
+await change(select("contact_id"), "c1");
+await change(input("value"), "123.45");
+await change(select("stage"), "qualified");
+await change(input("probability"), "30");
+await submitForm();
+assert.equal(writes.at(-1).path, "/deals");
+assert.equal(writes.at(-1).options.method, "POST");
+assert.equal(writes.at(-1).options.body.data.value, 12345);
+assert.equal(writes.at(-1).options.body.data.currency, "USD");
+assert.equal(writes.at(-1).options.body.data.probability, 30);
+assert.equal(writes.at(-1).options.body.data.stage, "qualified");
+assert.equal(writes.at(-1).options.body.data.contact_id, "c1");
+await flush();
+await openRecord("Example opportunity");
+await click("Edit");
+await change(input("title"), "Updated opportunity title");
+await submitForm();
+assert.equal(writes.at(-1).path, "/deals/d1");
+assert.equal(writes.at(-1).options.body.data.version, 2);
+assert.equal(writes.at(-1).options.body.data.value, 25000);
+assert.equal(writes.at(-1).options.body.data.close_date, "2027-02-01");
+await click("Tasks");
+await click("+ Follow-up");
+await change(input("title"), "Created task");
+const beforeInvalidDue = writes.length;
+await submitForm();
+assert.equal(writes.length, beforeInvalidDue);
+assert.match(text(), /Choose a valid local due date and time/);
+await change(input("due_at"), "2027-03-04T09:15");
+await submitForm();
+assert.equal(writes.at(-1).path, "/tasks");
+assert.equal(writes.at(-1).options.body.data.due_at, new Date("2027-03-04T09:15").toISOString());
+assert.equal(writes.at(-1).options.body.data.contact_id, null);
+assert.equal(writes.at(-1).options.body.data.deal_id, null);
+await flush();
+task.contact_id = "outside-contact"; task.deal_id = "outside-deal";
+await openRecord("Follow up");
+await click("Edit");
+assert.ok(root.root.findAllByType("option").some(node => node.props.value === "outside-contact"));
+assert.ok(root.root.findAllByType("option").some(node => node.props.value === "outside-deal"));
+await change(input("title"), "Preserve links");
+await submitForm();
+assert.equal(writes.at(-1).options.body.data.contact_id, "outside-contact");
+assert.equal(writes.at(-1).options.body.data.deal_id, "outside-deal");
+assert.equal(writes.at(-1).options.body.data.due_at, task.due_at);
+task.contact_id = "c1"; task.deal_id = null;
+await flush();
+const beforeHistoryWrites = writes.length;
+// Optional native-work capability must distinguish missing/failed from empty.
+await click("Tasks");
+workError = "404: route unavailable";
+await openRecord("Follow up");
+assert.match(text(), /history is unavailable/);
+assert.doesNotMatch(text(), /No native assignments are recorded/);
+workError = "";
+workRows = [{ id: "w1", state: "result_reported", reason: "native_run_reported", source_task_current: true,
+  job_id: "job1", payload: { human_owner: "Review owner", run_at: task.due_at, prompt: "Research the contact", success_criteria: "Provide sourced findings" },
+  reports: [{ id: "r1", outcome: "completed", summary: "Research draft ready", review_status: "awaiting_human_review", created_at: task.due_at }],
+  events: [{ id: "e1", kind: "registered", created_at: task.due_at }] }];
+await click("Retry history");
+assert.match(text(), /Human owner/);
+assert.match(text(), /Review owner/);
+assert.match(text(), /Agent reported: Completed/);
+assert.match(text(), /Awaiting Human Review/);
+assert.match(text(), /Host terminal success has not been verified/);
+const workParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/work?")).path.split("?")[1]);
+assert.equal(workParams.get("task_id"), "t1");
+assert.equal(workParams.get("workspace_token"), "token-work");
+assert.equal(workParams.get("limit"), "100");
+assert.equal(writes.length, beforeHistoryWrites, "History is read-only");
+// Both accepted manual and interval snapshots refetch assigned-work history.
+// A superseded request cannot overwrite the newest assignment observation.
+const historySummary = () => flatten(root.root.findAllByType("summary").map(node => node.children));
+const expandedReport = root.root.findByType("details");
+await act(async () => expandedReport.props.onToggle({ currentTarget: { open: true } }));
+assert.equal(root.root.findByType("details").props.open, true);
+let historyCalls = calls.filter(call => call.path.startsWith("/work?")).length;
+workRows = [{ ...workRows[0], state: "cancelled", source_task_current: false }];
+await click("Refresh");
+assert.equal(calls.filter(call => call.path.startsWith("/work?")).length, historyCalls + 1);
+assert.match(historySummary(), /Cancelled/);
+assert.equal(root.root.findByType("details"), expandedReport, "Manual refresh retains the keyed report panel");
+assert.equal(root.root.findByType("details").props.open, true, "Manual refresh preserves expansion");
+assert.doesNotMatch(historySummary(), /Result Reported/);
+assert.match(text(), /Changed since assignment/);
+historyCalls++;
+workRows = [{ ...workRows[0], state: "superseded" }];
+await act(async () => { for (const tick of intervals) tick(); });
+await flush();
+assert.equal(calls.filter(call => call.path.startsWith("/work?")).length, historyCalls + 1);
+assert.match(historySummary(), /Superseded/);
+assert.equal(root.root.findByType("details"), expandedReport, "Polling does not unmount the keyed report panel");
+assert.equal(root.root.findByType("details").props.open, true, "Polling preserves expansion");
+delayWork = true;
+await click("Refresh");
+const staleHistoryRefresh = releaseWork;
+assert.match(text(), /Refreshing assigned-work history/);
+assert.match(text(), /Showing the last successful observations/);
+assert.equal(root.root.findByType("details"), expandedReport, "Pending refresh retains the readable report");
+assert.equal(root.root.findByType("details").props.open, true);
+delayWork = false;
+workRows = [{ ...workRows[0], state: "cancelled", payload: { ...workRows[0].payload, human_owner: "Current review owner" } }];
+await click("Refresh");
+assert.match(text(), /Current review owner/);
+await act(async () => staleHistoryRefresh([{ ...workRows[0], state: "result_reported", source_task_current: true,
+  payload: { ...workRows[0].payload, human_owner: "Stale refresh owner" } }]));
+assert.match(historySummary(), /Cancelled/);
+assert.doesNotMatch(text(), /Stale refresh owner/);
+assert.match(text(), /Changed since assignment/);
+assert.equal(writes.length, beforeHistoryWrites, "Refreshed history remains read-only");
+assert.equal(root.root.findByType("details"), expandedReport);
+assert.equal(root.root.findByType("details").props.open, true);
+// Errors keep the expanded report readable, but never silently imply that the
+// last loaded source-task status was reverified. Recovery clears stale status.
+workRows = [{ ...workRows[0], state: "result_reported", source_task_current: true }];
+await click("Refresh");
+workError = "History refresh failed";
+await click("Refresh");
+assert.match(text(), /history could not be refreshed/);
+assert.match(text(), /last successful observations, which may be out of date/);
+assert.match(text(), /Current at last successful refresh; not reverified/);
+assert.doesNotMatch(text(), /No native assignments are recorded/);
+assert.equal(root.root.findByType("details"), expandedReport);
+assert.equal(root.root.findByType("details").props.open, true, "Failed refresh preserves expansion");
+workError = "";
+workRows = [{ ...workRows[0], state: "cancelled", source_task_current: false }];
+await click("Retry history");
+assert.match(historySummary(), /Cancelled/);
+assert.doesNotMatch(text(), /not reverified|could not be refreshed/);
+assert.equal(root.root.findByType("details").props.open, true, "Recovery preserves expansion");
+await act(async () => root.root.findByType("details").props.onToggle({ currentTarget: { open: false } }));
+await click("Refresh");
+assert.equal(root.root.findByType("details").props.open, false, "Refresh also preserves user-collapsed state");
+await click("Close");
+workRows = { unsupported: true };
+await openRecord("Follow up");
+assert.match(text(), /supported history response/);
+assert.doesNotMatch(text(), /No native assignments are recorded/);
+workRows = [];
+await click("Retry history");
+assert.match(text(), /No native assignments are recorded/);
+workError = "Empty history could not be refreshed";
+await click("Refresh");
+assert.match(text(), /last successful history check found no assignments; this has not been reverified/);
+assert.doesNotMatch(text(), /No native assignments are recorded/);
+workError = "";
+await click("Close");
+delayWork = true;
+await openRecord("Follow up");
+assert.match(text(), /Loading assigned-work history/);
+await click("Contacts");
+delayWork = false;
+await act(async () => releaseWork([{ id: "stale-assignment", payload: { human_owner: "Stale hidden owner" } }]));
+assert.doesNotMatch(text(), /Stale hidden owner/);
+assert.equal(recordDetails().length, 0);
+// Explicit cancellation wins over a pending detail response.
+delayDetail = true;
+await openRecord("Ada Example");
+await click("Cancel loading");
+await act(async () => releaseDetail({ contact, deals: relatedDeals, tasks: [task], activity: activityRows }));
+assert.equal(recordDetails().length, 0);
+assert.doesNotMatch(text(), /Loading record…/);
+delayDetail = false;
 await click("+ Contact");
 for (const [name, transition] of [
   [
@@ -453,6 +807,8 @@ for (const [name, transition] of [
   ],
   ["same-value activation", () => epoch.set(epoch.get() + 1)],
 ]) {
+  await change(input("name"), `Valid ${name} draft`);
+  await change(input("email"), "owner@intranet");
   const staleCallback = root.root.findByType("form").props.onSubmit;
   const count = writes.length;
   await act(async () => {
@@ -472,6 +828,8 @@ for (const [name, transition] of [
   await click("Contacts");
   await click("+ Contact");
 }
+await change(input("name"), "Valid old-profile draft");
+await change(input("email"), "owner@intranet");
 const staleSubmit = root.root.findByType("form").props.onSubmit;
 const before = writes.length;
 await act(async () => {
@@ -523,5 +881,5 @@ for (const dispose of pluginDisposers) dispose();
 assert.equal(profile.listeners.size, 0);
 assert.equal(epoch.listeners.size, 0);
 console.log(
-  "PASS actual React 19.3.0 Strict Mode: zero/single/multiple charts, focus/hover/keyboard/drillthrough, server filter pagination/races and current-ID preservation, dashboard/contacts/forms, name-only create, versioned edit/complete, exact scheduled timestamp, scoped snapshot/search, captured demo target, workspace token, stale detail navigation, profile/source remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
+  "PASS actual React 19.3.0 Strict Mode: zero/single/multiple charts, focus/hover/keyboard/drillthrough, server filter pagination/races and current-ID preservation, cohesive record workspace/related prefills, accessible drawer ref focus and keyboard boundaries, repeated cancel/save and mutation lock, retained client/backend validation input, honest read-only assignment history/manual+interval refresh/retained panel expansion/stale-error signals/latest-response guards, local-domain email edits/malformed input validation, name-only create, versioned edit/complete, exact scheduled timestamp, captured demo target, workspace token, stale detail navigation/cancellation, valid-input profile/source ABA remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
 );

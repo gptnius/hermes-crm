@@ -16,11 +16,13 @@ Primary sources:
 
 ## Native registration
 
-The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 15 tools. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
+The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 22 tools. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
 
 Read toolset crm_read: crm_contact_report, crm_contact_list, crm_contact_get, crm_deal_list, crm_deal_get, crm_task_list, crm_task_get, crm_overview.
 
 Write toolset crm_write: crm_contact_create, crm_contact_update, crm_deal_create, crm_deal_update, crm_task_create, crm_task_update, crm_followup_schedule.
+
+Assigned-work toolsets are separate: `crm_work_read` contains get/list; `crm_work_schedule` contains create/schedule/reconcile/cancel; `crm_work_report` contains only the trusted-context report writer. The original `crm_read` inventory stays at eight. See NATIVE_ASSIGNED_WORK.md for the active-context scheduling contract, provenance and uncertainty limits.
 
 Native storage comes from plugins.plugin_storage. Plugin PostgreSQL selection uses ctx.get_config('backend', default='sqlite') and agent.secret_scope.get_secret('HERMES_CRM_DATABASE_URL'). No secret is needed for SQLite. The CRM plugin does not scan the filesystem to discover settings, jobs, tokens or credentials. The Hermes host has separate provider auto-discovery behavior; see NATIVE_DESKTOP.md for the testing caveat.
 
@@ -32,7 +34,7 @@ Native PostgreSQL schema is `crm_` followed by the first 24 hex characters of SH
 
 The added report tool makes the current read toolset eight tools. Historical live-scheduler evidence in VERIFICATION.md used an earlier seven-read-tool revision and is not a new live-scheduler verification of this addition.
 
-## Scheduler contract
+## Follow-up reminder scheduler contract
 
 Use `ctx.dispatch_tool('cronjob_manage', payload, **context)` in an active tool turn. Forward session context. Do not import the private cron function or edit jobs.json.
 
@@ -40,9 +42,9 @@ The adapter targets the pinned source contract and does not pretend to support o
 
 Hermes can save a job but fail scheduler registration. Its result may contain success=false, job_id, job_saved=true, scheduler_registered=false and retry_create=false. The CRM preserves the ID and marks uncertain. A generic error can also arise after persistence and is not proof no job exists.
 
-No jobs are installed at registration. The plugin does not create credentials, configure model providers or implement external outreach. Scheduling requests the crm_read toolset plus no_mcp and local delivery. Enforcement evidence is limited to the configurations documented below; a configured model provider may receive task data.
+No jobs are installed at registration. The plugin does not create credentials, configure model providers or implement external outreach. The original `crm_followup_schedule` reminder requests `crm_read` plus `no_mcp` and local delivery. The separate native assigned-work path requests `crm_read`, `crm_work_read`, `crm_work_report` and `no_mcp`. Enforcement evidence is limited to the tested configurations; a configured model provider may receive task data.
 
-A controlled test exercised actual registration, due-time firing, canonical admission, AIAgent, CRM reads, execution-ledger completion and local output persistence. Its only synthetic component was a deterministic loopback model endpoint. Deferred discovery was disabled, no MCP servers were configured, and no Desktop notification, external delivery, real-model reasoning or restart recovery was tested. See VERIFICATION.md rather than treating this as unrestricted end-to-end validation.
+A historical reminder test exercised actual registration, due-time firing, canonical admission, AIAgent, CRM reads, execution-ledger completion and local output persistence. Its only synthetic component was a deterministic loopback model endpoint. Deferred discovery was disabled in that run, no MCP servers were configured, and no Desktop notification, external delivery, real-model reasoning or restart recovery was tested. Current native-assignment evidence is reported separately in VERIFICATION.md; neither path should be treated as unrestricted end-to-end validation.
 
 ## Native Desktop
 

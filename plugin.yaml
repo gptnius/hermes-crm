@@ -18,6 +18,13 @@ provides_tools:
   - crm_task_update
   - crm_overview
   - crm_followup_schedule
+  - crm_work_create
+  - crm_work_get
+  - crm_work_list
+  - crm_work_schedule
+  - crm_work_reconcile
+  - crm_work_cancel
+  - crm_work_report
 config_schema:
   backend:
     type: str

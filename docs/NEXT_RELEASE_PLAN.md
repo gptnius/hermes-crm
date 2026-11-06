@@ -70,9 +70,21 @@ An assignment needs an immutable workspace/installation/profile identity, a sepa
 
 Each occurrence needs a stable operation identity, requested time, dispatch state, Hermes job/execution/session/admission references where available, timestamps, redacted result/error, cancellation state and retry relationship. Suggested execution states are Pending, Scheduling, Admitted, Queued, Running, Succeeded, Failed, Cancelled, Missed and Unknown. None is inferred from merely clicking a button.
 
-Persist assignment and dispatch intent atomically. Durable dispatch state is separate from a future outbox worker: no browser pane can guarantee dispatch after it closes. Hermes remains responsible for accepted execution claims. Normal session creation/submission supports stable request IDs; a lost response must be reconciled or retried with the same immutable identity, never replaced by a new operation. Scheduled-job creation does not provide the same create-idempotency parameter, so it requires an exact operation-marker reconciliation contract. Multiple matches or uncertain execution become visible blockers. Do not promise exactly-once execution.
+Persist assignment and dispatch intent atomically. Durable dispatch state is separate from a future outbox worker: no browser pane can guarantee dispatch after it closes. Hermes remains responsible for accepted execution claims. Normal session creation/submission supports stable request IDs; a lost response must be reconciled or retried with the same immutable identity, never replaced by a new operation. Scheduled-job creation does not provide the same create-idempotency parameter. The implemented paused-create path therefore binds only a verified create response; after a lost response, an operation marker identifies possible orphan candidates but cannot prove their complete contents. Multiple matches or uncertain execution become visible blockers, not automatic adoption or replacement. Do not promise exactly-once execution.
 
 Validate the task generation and required result before marking the business task complete. An agent returning successfully, producing the required artifact and delivering an action are different facts. This build permits internal CRM results only.
+
+### Supported active-agent scheduling slice
+
+Implement and test a bounded alternative to direct Desktop scheduling: a real active plugin tool saves immutable internal-work intent, creates a native future one-shot job paused, persists its exact job binding, then resumes it. Creation and scheduling are separate explicit actions. There are no jobs at registration and no hidden background dispatcher.
+
+Use separate `crm_work_read`, `crm_work_schedule` and `crm_work_report` toolsets. The scheduled agent receives CRM reads, assignment reads and the narrow report writer, plus `no_mcp`; it does not receive scheduling, general record mutation, delegation, browser, shell or messaging tools. The report handler obtains trusted identity from `ctx.current_cron_execution()` itself, rather than accepting job or execution identity from model arguments.
+
+The result means **identified native run reported a result, awaiting review**. It is not proof of terminal host success, final delivery, correctness or business-task completion. UI history must keep these facts separate. A future one-shot is the first slice; run-now behavior and cadence advancement remain out of scope until verified.
+
+Persist uncertainty before every host mutation. Lost create responses cannot be safely auto-adopted from job-list summaries, which truncate prompts and schedules; keep the assignment unknown and do not create a replacement. A known bound job can be inspected after an uncertain resume. Revalidate task version, cancellation and approved time before resume; if the time elapsed while paused, surface a missed/blocked action instead of silently executing late. Explicit cancellation pauses the exact future job but does not claim to stop a running agent.
+
+Test deterministic synthetic success/failure paths, concurrent requests, rollback, stale/cancelled tasks, paused orphan recovery limits, forged execution identity, profile/generation/instant mismatches, duplicate/conflicting reports, and actual host/plugin-isolation behavior before enabling the feature. End-to-end execution is not established by the current scheduling design or by the earlier reminder test.
 
 ### Public-interface gate
 
@@ -82,7 +94,7 @@ The real interactive plugin tool context can dispatch `cronjob_manage`. Schedule
 
 A conditional immediate path exists through captured-profile public gateway RPC: `session.create` with a stable request ID, `prompt.submit` with a stable submission ID, `prompt.receipt` for result evidence and `prompt.cancel` for cancellation. Persist intent and IDs before calling the host. Reconnect through the supported session-resume protocol. Do not use unattended mode or override the profile’s provider/model.
 
-An explicit requested toolset is not a strict capability ceiling at this revision: newly discovered plugin or context tools can be added before the host freezes the session selection. Before any task prompt, inspect the returned effective toolsets and complete tool inventory. Block unexpected or unknown scope, including a deferred-discovery wrapper without a verifiable underlying catalog. Only a verified restricted current-profile session can proceed. A general guarantee needs an upstream strict capability ceiling enforced across direct/deferred/delegated calls. Transport acceptance, a client-observed receipt and server-verified completion must remain distinct. This bridge is not implemented or live-model verified by the report/filter release.
+An explicit requested toolset is not a strict capability ceiling at this revision: newly discovered plugin or context tools can be added before the host freezes the session selection. Before any task prompt, inspect the returned effective toolsets and complete tool inventory. Block unexpected or unknown scope, including a deferred-discovery wrapper without a verifiable underlying catalog. Only a verified restricted current-profile session can proceed. A general guarantee needs an upstream strict capability ceiling enforced across direct/deferred/delegated calls. Transport acceptance, a client-observed receipt and server-verified completion must remain distinct. A reviewed experimental bridge and durable storage foundation exist, but remain unwired and disabled. They do not provide a working Run now button or a live-model verification. See EXPERIMENTAL_EXECUTION.md.
 
 ### Recovery and coverage
 
@@ -95,9 +107,23 @@ An explicit requested toolset is not a strict capability ceiling at this revisio
 
 ### Smallest real execution slice
 
-First: one synthetic lead, one internal task and the current profile, assigned for immediate execution. Verify capability scope, produce a genuine agent session through supported admission, read CRM data, save a meaningful internal result and reconcile evidence. Leave business completion awaiting explicit review. Specified-time assignments follow only after the scheduler adapter gate is resolved; storing a requested time alone is not scheduling. First use deterministic loopback responses to test transport; then use an already authorized, working model provider for a separately approved real-model check. No authentication, billing or model availability is assumed from a subscription/credit balance.
+The current first slice is one synthetic lead, one internal task and the current profile, assigned for a future one-shot through the supported active-agent scheduler. Verify capability scope, actual due-time admission, CRM reads, authenticated internal result reporting and reconciliation. Leave business completion awaiting explicit review. Immediate Desktop execution remains a separate disabled experiment; storing a requested time alone is not scheduling. First use deterministic loopback responses to test transport; then use an already authorized, working model provider for a separately approved real-model check. No authentication, billing or model availability is assumed from a subscription/credit balance.
 
 Required failure tests include duplicate clicks, concurrent dispatch, lost create/admission responses, restart before and after admission/completion, cancellation, externally deleted jobs, offline/paused profiles and foreign-profile rejection. Effective tool restrictions must be tested with normal discovery, not only the earlier discovery-off fixture.
+
+## Next UI increment: records and in-CRM agent conversation
+
+Use a reusable contact/opportunity shell inspired by familiar CRM structure: identity and key properties, a clear action row, a central activity timeline with upcoming work, and related records. Keep the distinctions between Contact type, linked deal Stage, human ownership and agent execution explicit. A responsive quick-create drawer needs persistent labels, sensible field grouping and pinned Save/Cancel, without hiding validation below the fold. Preserve keyboard access, unsaved-form cancellation, exact existing timestamps and stale-workspace rejection.
+
+References are workflow/layout guidance rather than assets to copy:
+- https://knowledge.hubspot.com/records/work-with-records
+- https://knowledge.hubspot.com/records/create-records-on-the-updated-index-page
+
+Investigate a CRM action that opens or addresses a genuine mounted Hermes chat alongside the record, using supported host composer/layout capabilities. The tested SDK does not export the full native ChatPane. A custom transcript would own streaming/replay, queues, cancellation and approval/question handling; a text box that only submits prompts must not be presented as a complete agent chat. Context attachment should identify the selected record and workspace explicitly, and normal agent tool use must preserve the host's permissions.
+
+Current activity is a record-change audit, not email history. Sent/received email needs a deliberate provider adapter and evidence: account/provider identity, provider message and thread IDs, direction, timestamps, linked contacts and deduplication. Drafts, attempted actions, agent claims and confirmed sent messages must be separate states. Received-message capture also needs an authorized source and sync/recovery policy. Do not assume an existing mail connection or show inert Send controls. No email sending, new credentials or account connection is part of the present implementation authorization.
+
+The proposed demo can progress from lead research and contact creation to reviewing a personalized draft and the corresponding CRM activity. Actual sending requires separately authorized recipients/content and a working provider integration, not a simulated sent event.
 
 ## Delivery boundaries
 
