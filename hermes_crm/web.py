@@ -1,12 +1,12 @@
 from __future__ import annotations
 import argparse
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from .domain import CRM, CRMError
+from .domain import CRM, CRMError, CONTACT_REPORT_FILTERS, LIST_FILTERS, validate_query
 
 def create_app(crm=None):
     crm = crm or CRM()
@@ -48,10 +48,21 @@ def create_app(crm=None):
     def activities(): return crm.activities()
     @app.get('/api/contacts/{record_id}')
     def contact_detail(record_id:str): return crm.contact_detail(record_id)
+    @app.get('/api/reports/contacts')
+    def contact_report(request: Request, q: str = '', stage: str | None = None, contact_type: str | None = None,
+                       company: str = '', email: str = 'any', followup: str = 'any',
+                       limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0, le=2_000_000_000)):
+        validate_query(request.query_params, CONTACT_REPORT_FILTERS)
+        return crm.contact_report(q=q, stage=stage, contact_type=contact_type, company=company,
+                                  email=email, followup=followup, limit=limit, offset=offset)
     @app.get('/api/{kind}')
-    def listing(kind:str,q:str='',stage:str|None=None,status:str|None=None):
+    def listing(request:Request, kind:str, q:str='', stage:str|None=None, status:str|None=None,
+                contact_type:str|None=None, company:str='', email:str='any', followup:str='any',
+                min_value:int|None=None, max_value:int|None=None, priority:str|None=None, due:str='any'):
         if kind not in ('contacts','deals','tasks'): raise CRMError('Endpoint not found',404)
-        return crm.list(kind,q=q,stage=stage,status=status)
+        validate_query(request.query_params, LIST_FILTERS)
+        return crm.list(kind,q=q,stage=stage,status=status,contact_type=contact_type,company=company,
+                        email=email,followup=followup,min_value=min_value,max_value=max_value,priority=priority,due=due)
     @app.get('/api/{kind}/{record_id}')
     def record(kind:str,record_id:str):
         if kind not in ('deals','tasks'): raise CRMError('Endpoint not found',404)

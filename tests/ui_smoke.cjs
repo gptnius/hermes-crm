@@ -123,10 +123,10 @@ function defer(endpoint) {
   console.log("PASS: cancelled details do not mutate cache; fresh details replace versions");
 
   run("closeModal()");
-  finish = defer("contacts?q=");
+  finish = defer("reports/contacts?limit=50&offset=0");
   request = run("state.page='contacts';render()");
   await run("state.page='activity';render()");
-  finish([{ id: "stale", name: "Stale" }]);
+  finish({items:[{ id: "stale", name: "Stale" }],total:1});
   await request;
   assert(!run('state.contacts.some(c=>c.id==="stale")'));
 
@@ -137,6 +137,50 @@ function defer(endpoint) {
   await request;
   assert(!run('state.tasks.some(t=>t.id==="stale-task")'));
   console.log("PASS: stale contact and task list responses cannot replace caches");
+
+  // A unique-contact count is supplied by the server, never derived from deals.
+  const chart = run(`stageChart([{stage:'lead',value:300,count:4,contact_count:2},{stage:'won',value:100,count:1,contact_count:1}])`);
+  assert(chart.includes('$4') && chart.includes('total deal value'));
+  assert(chart.includes('75.0% · 4 deals · 2 distinct contacts'));
+  assert.equal((chart.match(/class="donut-segment"/g) || []).length,2);
+  assert.equal((run('stageChart([])').match(/class="donut-segment"/g) || []).length,0);
+  assert(run('stageChart([])').includes('No deal value to chart'));
+  const single = run(`stageChart([{stage:'lead',value:100,count:1,contact_count:1}])`);
+  assert(single.includes('stroke-dasharray="100 0"'));
+  assert(single.includes('tabindex="0"') && single.includes('<title>Lead:'));
+  assert.equal(run('dollarCents("12.34")'),1234);
+  assert.throws(() => run('dollarCents("1.001")'));
+  assert.throws(() => run('dollarCents("-1")'));
+  assert.throws(() => run('dollarCents("20000000.01")'));
+  assert.equal(run(`preserveSelection([], 'outside', '', 'contact')[0].id`),'outside');
+  assert.equal(run(`preserveSelection([{id:'outside',name:'Present'}], 'outside', '', 'contact').length`),1);
+  console.log('PASS: zero/single/multi-stage chart, distinct counts, accessible details, cents, selector preservation');
+
+  run(`location.hash='#contacts';state.query='unrelated';state.filters={company:'unrelated'};openReport({stage:'won'},'Won stage report')`);
+  await tick();
+  assert.equal(requests.at(-1),'/api/reports/contacts?stage=won&limit=50&offset=0');
+  assert.equal(run('state.query'),'');
+  assert.equal(run('state.filters.company'),undefined);
+  assert(nodes.get('#content').innerHTML.includes('Won stage report'));
+  fixtures['reports/contacts?stage=won&limit=50&offset=50'] = {items:[{id:'c',name:'<script>',lifecycle:'lead',deal_stages:['won','lead']}], total:101};
+  await run('state.offset=50;render()');
+  assert.equal(requests.at(-1),'/api/reports/contacts?stage=won&limit=50&offset=50');
+  assert(nodes.get('#content').innerHTML.includes('101 matching contacts'));
+  assert(nodes.get('#content').innerHTML.includes('&lt;script&gt;'));
+  assert(!nodes.get('#content').innerHTML.includes('Lifecycle'));
+  const release = defer('contacts/pending');
+  const detailRequest = run("contactDetail('pending')");
+  handlers.change({target:{dataset:{filter:'company'},value:'Literal %_'}});
+  release({contact:{name:'Obsolete'},deals:[],tasks:[],activity:[]});
+  await detailRequest; await tick();
+  assert.equal(nodes.get('#modal').open,false);
+  assert.equal(run('state.offset'),0);
+  assert(requests.at(-1).includes('company=Literal%20%25_'));
+  await run(`state.page='deals';state.query='deal';state.stage='won';state.filters={company:'Acme',min_value:'12.34',max_value:'99'};render()`);
+  assert.equal(requests.at(-1),'/api/deals?q=deal&stage=won&company=Acme&min_value=1234&max_value=9900');
+  await run(`state.page='tasks';state.taskFilter='open';state.filters={priority:'high',due:'overdue'};render()`);
+  assert.equal(requests.at(-1),'/api/tasks?q=deal&status=open&priority=high&due=overdue');
+  console.log('PASS: preset filter reset, real totals and pagination, escaping, filter cancellation and filter transport');
   console.log("All UI VM smoke checks passed.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 

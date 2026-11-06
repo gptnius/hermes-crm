@@ -78,6 +78,7 @@ with patch.object(socket, 'create_connection', deny_network), \
     manager = get_plugin_manager()
     manager.discover_and_load()
     assert 'crm_contact_get' in manager._plugin_tool_names, manager._plugins
+    assert 'crm_contact_report' in manager._plugin_tool_names, manager._plugins
 
     def tool(name, args):
         entry = registry.get_entry(name, scope=manager.scope_key)
@@ -119,6 +120,23 @@ with patch.object(socket, 'create_connection', deny_network), \
         'workspace_token': token, 'data': {'version': task['version'], 'status': 'done'}})
     assert tool('crm_task_get', {'id': task['id']})['status'] == 'done'
     assert request('GET', '/overview')
+    # The registered agent report and REST report share filters and aggregates.
+    report_filters = {'stage': 'proposal', 'contact_type': 'lead', 'followup': 'missing',
+                      'limit': 1, 'offset': 0}
+    report = request('GET', '/reports/contacts',
+                     params={**report_filters, 'workspace_token': token})
+    assert report == tool('crm_contact_report', report_filters), report
+    assert report['total'] == 1 and report['items'][0]['id'] == contact_id, report
+    assert report['items'][0]['deal_stages'] == ['proposal']
+    from hermes_cli.web_server_profiles import serving_profile_name
+    for profile_alias in dict.fromkeys(('current', '', serving_profile_name())):
+        assert request('GET', '/reports/contacts',
+            params={**report_filters, 'workspace_token': token, 'profile': profile_alias}) == report
+        assert request('GET', '/contacts',
+            params={'workspace_token': token, 'stage': 'proposal', 'profile': profile_alias})[0]['id'] == contact_id
+    request('GET', '/reports/contacts', 409,
+            params={**report_filters, 'workspace_token': 'stale-profile-token'})
+
 
     # Official request middleware must apply consent again after routes are mounted.
     config_path = home / 'config.yaml'
@@ -133,8 +151,29 @@ with patch.object(socket, 'create_connection', deny_network), \
     assert other_meta['workspace_token'] != token
     request('POST', '/contacts?profile=crm-test-other', 409,
             json={'workspace_token': token, 'data': {'name': 'Cross-profile stale'}})
-    request('POST', '/contacts?profile=crm-test-other', 201, json={
-        'workspace_token': other_meta['workspace_token'], 'data': {'name': 'Other Profile Only'}})
+    other_contact = request('POST', '/contacts?profile=crm-test-other', 201, json={
+        'workspace_token': other_meta['workspace_token'], 'data': {'name': 'Other Profile Only', 'lifecycle': 'customer'}})
+    other_token = other_meta['workspace_token']
+    request('POST', '/deals?profile=crm-test-other', 201, json={
+        'workspace_token': other_token, 'data': {'title': 'Other Profile Won',
+        'contact_id': other_contact['id'], 'stage': 'won', 'value': 500}})
+    # Secondary routing consumes profile; serving-profile requests may retain it.
+    # CRM accepts that host-owned routing key without using it for DB selection.
+    # Both paths must preserve strict business filters and workspace-token checks.
+    other_filters = {'profile': 'crm-test-other', 'workspace_token': other_token,
+                     'stage': 'won', 'contact_type': 'customer', 'limit': 1, 'offset': 0}
+    other_report = request('GET', '/reports/contacts', params=other_filters)
+    assert other_report['total'] == 1 and other_report['items'][0]['id'] == other_contact['id'], other_report
+    assert other_report['items'][0]['deal_stages'] == ['won']
+    assert 'Synthetic Native Contact' not in json.dumps(other_report), other_report
+    assert request('GET', '/reports/contacts', params={**other_filters, 'stage': 'proposal'})['total'] == 0
+    assert request('GET', '/reports/contacts', params={**other_filters, 'contact_type': 'lead'})['total'] == 0
+    request('GET', '/reports/contacts', 409, params={**other_filters, 'workspace_token': token})
+    request('GET', '/reports/contacts', 409, params={'workspace_token': other_token})
+    request('GET', '/reports/contacts', 400, params={**other_filters, 'unknown_filter': 'x'})
+    current_report = request('GET', '/reports/contacts', params={**report_filters, 'workspace_token': token})
+    assert current_report == report == tool('crm_contact_report', report_filters)
+    assert request('GET', '/reports/contacts', params={'workspace_token': token, 'stage': 'won'})['total'] == 0
     other_rows = request('GET', '/contacts?profile=crm-test-other')
     assert 'Synthetic Native Contact' not in json.dumps(other_rows), other_rows
     current_rows = request('GET', '/contacts')
@@ -144,5 +183,5 @@ with patch.object(socket, 'create_connection', deny_network), \
     request('GET', '/meta?profile=crm-test-other', 404)
     request('GET', '/meta')
     assert not list(home.rglob('jobs.json'))
-    print('PASS native host: real discovery, allowlist, project refusal, mount, auth, CRUD, tools, stale versions, stale workspace, runtime disable, secondary-profile IPC isolation')
+    print('PASS native host: real discovery, allowlist, project refusal, mount, auth, CRUD, tools, stale versions, stale workspace, runtime disable, filtered report/tool parity, secondary-profile report token and IPC isolation')
 '''

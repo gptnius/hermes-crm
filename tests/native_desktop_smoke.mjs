@@ -277,6 +277,7 @@ const ctx = {
       return Object.fromEntries(
         Object.entries(sample).map(([key, value]) => [key.slice(1), value]),
       );
+    if (path.startsWith("/reports/contacts?")) return { items: sample["/contacts"], total: 1, limit: 50, offset: 0 };
     return sample[path.split("?")[0]];
   },
   setInterval() {

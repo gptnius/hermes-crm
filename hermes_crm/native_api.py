@@ -6,10 +6,10 @@ profile/secret scope. Synchronous handlers run in its worker pool, not event loo
 from contextlib import contextmanager
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .domain import CRMError
+from .domain import CRMError, CONTACT_REPORT_FILTERS, LIST_FILTERS, validate_query
 from .runtime import open_profile_crm
 
 router = APIRouter()
@@ -93,12 +93,32 @@ def contact_detail(record_id: str, workspace_token: str | None = None):
         return crm.contact_detail(record_id)
 
 
-@router.get('/{kind}')
-def listing(kind: Literal['contacts', 'deals', 'tasks'], q: str = Query('', max_length=200),
-            stage: str | None = None, status: str | None = None, workspace_token: str | None = None):
+@router.get('/reports/contacts')
+def contact_report(request: Request, q: str = '', stage: str | None = None, contact_type: str | None = None,
+                   company: str = '', email: str = 'any', followup: str = 'any',
+                   limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0, le=2_000_000_000),
+                   workspace_token: str | None = None):
     with service() as crm:
         if workspace_token is not None: require_workspace(crm, workspace_token)
-        return crm.list(kind, q=q, stage=stage, status=status)
+        # Hermes may retain its already-resolved routing parameter for the serving
+        # profile. Tolerate it here; only the host selects the active CRM workspace.
+        validate_query(request.query_params, CONTACT_REPORT_FILTERS | {'workspace_token', 'profile'})
+        return crm.contact_report(q=q, stage=stage, contact_type=contact_type, company=company,
+                                  email=email, followup=followup, limit=limit, offset=offset)
+
+
+@router.get('/{kind}')
+def listing(request: Request, kind: Literal['contacts', 'deals', 'tasks'], q: str = Query('', max_length=200),
+            stage: str | None = None, status: str | None = None, workspace_token: str | None = None,
+            contact_type: str | None = None, company: str = '', email: str = 'any', followup: str = 'any',
+            min_value: int | None = None, max_value: int | None = None,
+            priority: str | None = None, due: str = 'any'):
+    with service() as crm:
+        if workspace_token is not None: require_workspace(crm, workspace_token)
+        validate_query(request.query_params, LIST_FILTERS | {'workspace_token', 'profile'})
+        return crm.list(kind, q=q, stage=stage, status=status, contact_type=contact_type,
+                        company=company, email=email, followup=followup, min_value=min_value,
+                        max_value=max_value, priority=priority, due=due)
 
 
 @router.get('/{kind}/{record_id}')

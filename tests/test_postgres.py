@@ -13,6 +13,7 @@ from sqlalchemy.schema import DropSchema
 
 from hermes_crm.domain import CRM, CRMError
 import test_crm as contract
+import test_reports as reports
 
 URL = os.getenv('HERMES_CRM_TEST_POSTGRES_URL')
 pytestmark = pytest.mark.skipif(not URL, reason='Requires explicit disposable PostgreSQL URL')
@@ -36,6 +37,9 @@ def crm():
             engine.dispose()
 
 CONTRACTS = [
+    reports.test_report_unique_aggregates_and_dashboard,
+    reports.test_combined_literal_filters,
+    reports.test_report_pages_beyond_500,
     contract.test_vertical_slice_and_audit,
     contract.test_open_followups_filtered_before_list_limit,
     contract.test_deal_reassignment_updates_linked_tasks_atomically,
@@ -130,3 +134,11 @@ def test_postgres_demo_seed_is_atomic(crm, monkeypatch):
     monkeypatch.setattr(CRM, 'create', original)
     seed(crm)
     assert crm.overview()['contacts'] == 8
+
+
+def test_postgres_report_timezone_edges(crm, monkeypatch):
+    reports.test_report_timezone_edges(crm, monkeypatch)
+
+
+def test_postgres_report_api_tool_parity(crm, monkeypatch):
+    reports.test_api_and_tool_parity(crm, monkeypatch)

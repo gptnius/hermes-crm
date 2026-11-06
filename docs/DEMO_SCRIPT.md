@@ -2,7 +2,7 @@
 
 This is a rehearsal outline, not a recorded or posted demo. Use only a clean synthetic workspace.
 
-0–12 seconds: Open the native CRM pane in Hermes Desktop, with both plugin components enabled in a disposable profile. Explain that the same profile-local CRM is used by the pane and the existing Hermes agent. Click a pipeline stage to drill into its opportunities.
+0–12 seconds: Open the native CRM pane in Hermes Desktop, with both plugin components enabled in a disposable profile. Explain that the same profile-local CRM is used by the pane and the existing Hermes agent. Focus or hover a dashboard stage for value, deal count and unique-contact details, then click to open its contact report. Show the active Stage filter; Contact type is a separate category.
 
 12–28 seconds: Ask the agent to create Demo Buyer at buyer@example.com and a $12,000 qualified opportunity. Show the new contact and deal in the workspace. Confirm the amount displays as $12,000 rather than cents.
 

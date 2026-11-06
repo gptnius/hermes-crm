@@ -2,7 +2,20 @@
 
 Verified November 6, 2026. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
-## Passed
+## Report/filter increment
+
+The latest source adds Stage versus Contact type terminology, a six-stage dashboard value donut, unique-contact drillthrough, missing/overdue lead follow-up presets and server-side combined filters. Contact reports return stable pages and true filtered totals beyond 500 records. These changes are separate from the historical native Mac and scheduler runs below; new chart/filter workflows have not yet been visually checked in a native window. Direct agent assignments/execution are not part of this increment.
+
+Verification for this increment:
+- SQLite/domain, standalone/native API and report contracts pass, including unique counts across multiple deals, indirect task links, literal wildcard search, combined filters, strict validation, cent ranges and timezone boundaries.
+- Actual PostgreSQL 17.11: 28 tests pass on a disposable local cluster, including the shared report contracts. Test schemas were removed and the server stopped. Hosted Supabase remains untested.
+- Three actual-host tests pass against the pinned source below, including authenticated profile routing and the scheduler MCP resolver.
+- All four JavaScript suites pass: standalone VM, native SDK smoke, routing, and real React 19.3.0 Strict Mode. Added cases cover zero/single/multiple chart segments, hover/focus/keyboard drillthrough, unique-contact versus deal counts, server pagination/filter reset, stale responses, cents and preservation of linked IDs outside bounded form choices.
+- Independent review found and fixed a report/editor race: cancelling a new-contact form no longer discards a still-current pending report response. Its regression failed before the fix and passes afterward.
+
+Run `python -m pytest tests/test_crm.py tests/test_native_api.py tests/test_reports.py -q`, plus the opt-in host/PostgreSQL and JavaScript commands below. New registered-tool count is 15, including eight read tools; the older Doctor and live-scheduler counts below remain historical evidence, not a fresh run of those checks.
+
+## Earlier verified baseline
 
 ### SQLite/domain and native API regression: 30 tests
 
@@ -105,7 +118,7 @@ The source prototype is public at https://github.com/gptnius/hermes-crm. Its ini
 
 ## Release gates still open
 
-1. Expand accessibility, keyboard/focus and responsive/cross-platform coverage beyond the verified native Mac workflows; complete standalone desktop/mobile QA.
+1. Visually verify the new chart/filter/report workflows in the native window. Expand accessibility, keyboard/focus and responsive/cross-platform coverage beyond the earlier verified Mac workflows; complete standalone desktop/mobile QA.
 2. Extend scheduler coverage to an authorized real model, default tool discovery, restart/failure recovery and any intended human-visible reminder surface. Keep external outreach excluded.
 3. Complete source-distribution review and pin the reviewed commit before publishing each update.
 4. Complete the runtime gates before calling this a fully validated release or preparing any authorized contest submission. A clearly labeled source prototype can remain public while those gates are open.

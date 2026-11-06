@@ -964,3 +964,21 @@ dialog::backdrop {
     left: 10px;
   }
 }
+
+/* Preset reports use native controls and explicit, non-color-only stage summaries. */
+.filters, .toolbar { flex-wrap: wrap; gap: 12px; }
+.filter-label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted, #586861); }
+.filter-label input, .filter-label select { min-height: 38px; max-width: 190px; border: 1px solid #d5ddd9; border-radius: 6px; padding: 8px; background: white; color: #243b33; }
+.stage-chart { padding: 18px 22px; text-align: center; }
+.stage-chart svg { display: block; width: 230px; max-width: 100%; margin: auto; overflow: visible; }
+.donut-segment { cursor: pointer; }
+.donut-segment:hover, .donut-segment:focus { stroke-width: 27px; outline: none; filter: brightness(.85); }
+.stage-summaries { display: grid; gap: 8px; text-align: left; }
+.stage-summary { display: flex; align-items: center; gap: 9px; padding: 10px; text-align: left; border: 1px solid #d5ddd9; border-radius: 6px; background: white; color: #243b33; cursor: pointer; }
+.stage-summary:hover, .stage-summary:focus-visible { background: #edf5f0; outline: 2px solid #427f77; }
+.stage-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.attention-reports { padding: 0 22px 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+.attention-reports h3, .attention-reports p { width: 100%; }
+.pagination { display: flex; justify-content: flex-end; gap: 12px; padding: 16px; }
+.report-count { padding: 0 22px; }
+button:disabled { opacity: .5; cursor: default; }

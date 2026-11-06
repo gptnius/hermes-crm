@@ -14,6 +14,10 @@ Tables are crm_contacts, crm_deals, crm_tasks, crm_activity, crm_idempotency and
 - Links: foreign keys plus explicit validation. A task's contact must match the selected opportunity.
 - Text: bounded, rendered as escaped content. Notes remain untrusted data, not agent instructions.
 
+## Reports and terminology
+
+Stage describes the six deal stages. Contact type describes the existing lead/customer/partner category, retained under the legacy `lifecycle` field without converting data. Contact reports use correlated linked-record predicates, literal escaped search and server-side filters before pagination. A true filtered total counts unique contacts; a contact can appear in multiple stage reports. Dashboard value shares include all six stages, including Won and Lost, and describe current state rather than historical funnel conversion. Missing/overdue follow-up presets describe stored tasks, not guaranteed agent execution.
+
 ## Profile boundaries
 
 Native operations resolve Hermes' plugin_data_dir and plugin_db on every call. No global DB connection caches a previous profile. SQLite uses Hermes' connection policy. PostgreSQL uses a dedicated crm_ schema derived from the active profile's resolved data directory and reads the connection secret through the host profile scope.
@@ -46,4 +50,4 @@ SQLAlchemy owns dialect differences, bound parameters and schema mapping. SQLite
 
 ## Future work
 
-Introduce schema migrations, pagination and scalable aggregate queries before large datasets. Add authentication, authorization, backup/restore and operational health before remote hosting. Expand the verified native Mac workflows to broader platform, responsive-layout and accessibility coverage. Add a safe schedule reconciliation flow only after inspecting real host states and cancellation semantics.
+Introduce schema migrations, pagination beyond contact reports and scalable aggregate queries before large datasets. Add authentication, authorization, backup/restore and operational health before remote hosting. Expand the verified native Mac workflows to broader platform, responsive-layout and accessibility coverage. Add a safe schedule reconciliation flow only after inspecting real host states and cancellation semantics.

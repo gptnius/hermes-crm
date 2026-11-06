@@ -122,6 +122,8 @@ const writes = [],
   intervals = new Set();
 let backendTokenSuffix = "",
   backendKind = "sqlite";
+let reportTotal = 1;
+let delayReport = false, releaseReport;
 let delayDetail = false,
   releaseDetail;
 const pluginDisposers = [];
@@ -140,6 +142,7 @@ const ctx = {
       return new Promise((resolve) => {
         releaseDetail = resolve;
       });
+    if (path.startsWith("/reports/contacts?") && delayReport) return new Promise(resolve => { releaseReport = resolve; });
     const routes = {
       "/meta": {
         backend: backendKind,
@@ -148,6 +151,7 @@ const ctx = {
       },
       "/overview": overview,
       "/contacts": profile.get() === "work" ? [contact] : [],
+      "/reports/contacts": { items: profile.get() === "work" ? [{ ...contact, deal_stages: ["lead", "won"] }] : [], total: profile.get() === "work" ? reportTotal : 0, limit: 50, offset: 0 },
       "/deals": [],
       "/tasks": [task],
       "/activity": [],
@@ -226,6 +230,109 @@ const click = async (title) => {
 assert.match(text(), /Relationship intelligence/);
 assert.match(text(), /Weighted forecast/);
 assert.equal(intervals.size, 1, "Strict Mode replay leaves one live interval");
+// Chart geometry, distinct counts, accessible focus/hover, zero and single-stage cases.
+assert.match(text(), /No deal value to chart/);
+const chartRows = module.namespace.stageChartRows([{ stage: "lead", value: 30000, count: 3, contact_count: 1 }, { stage: "won", value: 10000, count: 1, contact_count: 1 }]);
+assert.equal(chartRows.total, 40000);
+assert.equal(chartRows.rows[0].share, .75);
+assert.equal(chartRows.rows[0].contact_count, 1, "Do not equate deals with unique contacts");
+assert.equal(module.namespace.dollarFilter("12.34"), "1234");
+assert.equal(module.namespace.dollarFilter("0.01"), "1");
+assert.throws(() => module.namespace.dollarFilter("1.001"));
+let chart;
+const selected = [];
+await act(async () => { chart = Renderer.create(React.createElement(module.namespace.StageChart, { stages: chartRows.rows, onStage: stage => selected.push(stage) })); });
+assert.equal(chart.root.findAllByType("circle").length, 2);
+let segment = chart.root.findAllByType("circle")[0];
+assert.equal(segment.props.strokeDasharray, "75 25");
+await act(async () => segment.props.onFocus());
+assert.match(flatten(chart.toJSON()), /75.0% · 3 deals · 1 distinct contacts/);
+await act(async () => segment.props.onMouseEnter());
+await act(async () => segment.props.onKeyDown({ key: "Enter", preventDefault() {} }));
+assert.equal(selected.at(-1), "lead");
+await act(async () => chart.root.findAllByType("button")[4].props.onClick());
+assert.equal(selected.at(-1), "won");
+await act(async () => chart.update(React.createElement(module.namespace.StageChart, { stages: [{ stage: "lost", value: 42, count: 1, contact_count: 1 }], onStage: stage => selected.push(stage) })));
+assert.equal(chart.root.findAllByType("circle")[0].props.strokeDasharray, "100 0");
+await act(async () => chart.unmount());
+// Presets clear unrelated filters and retain scoped transport and exact server totals.
+await click("Contacts");
+const control = name => root.root.findAll(node => node.props["aria-label"] === name && ["input", "select"].includes(node.type))[0];
+await act(async () => control("Company").props.onChange({ target: { value: "unrelated" } }));
+await flush();
+await click("Overview");
+await act(async () => root.root.findAllByType("button").find(node => node.props["aria-label"]?.startsWith("Lead:")).props.onClick());
+await flush();
+let reportParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/reports/contacts?")).path.split("?")[1]);
+assert.equal(reportParams.get("stage"), "lead");
+assert.equal(reportParams.get("company"), null);
+assert.equal(reportParams.get("workspace_token"), "token-work");
+assert.match(text(), /Linked stages: Lead, Won/);
+assert.doesNotMatch(text(), /Lifecycle/);
+reportTotal = 101;
+await click("Refresh");
+await click("Next");
+reportParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/reports/contacts?")).path.split("?")[1]);
+assert.equal(reportParams.get("offset"), "50");
+assert.equal(reportParams.get("limit"), "50");
+assert.match(text(), /101 matching contacts/);
+await act(async () => control("Contact type").props.onChange({ target: { value: "partner" } }));
+await flush();
+reportParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/reports/contacts?")).path.split("?")[1]);
+assert.equal(reportParams.get("offset"), "0");
+assert.equal(reportParams.get("contact_type"), "partner");
+// Opening/cancelling an editor must not invalidate an unrelated pending report.
+delayReport = true;
+await act(async () => control("Company").props.onChange({ target: { value: "pending-editor" } }));
+await flush();
+const editorPendingReport = releaseReport;
+await click("+ Contact");
+await click("Cancel");
+delayReport = false;
+await act(async () => editorPendingReport({ items: [{ ...contact, deal_stages: ["lead"] }], total: 1, limit: 50, offset: 0 }));
+assert.doesNotMatch(text(), /Loading matching records/);
+assert.match(text(), /Ada Example/);
+// A late filter response must not replace a newer filtered result.
+delayReport = true;
+await act(async () => control("Company").props.onChange({ target: { value: "old" } }));
+await flush();
+const oldReport = releaseReport;
+delayReport = false;
+await act(async () => control("Company").props.onChange({ target: { value: "new" } }));
+await flush();
+await act(async () => oldReport({ items: [{ ...contact, name: "Stale filtered person" }], total: 999 }));
+assert.doesNotMatch(text(), /Stale filtered person/);
+// Changing a filter also invalidates pending record detail.
+delayDetail = true;
+await act(async () => { root.root.findAllByType("button").find(node => flatten(node.children).includes("Ada Example")).props.onClick(); });
+await act(async () => control("Email").props.onChange({ target: { value: "missing" } }));
+await act(async () => releaseDetail({ contact, deals: [], tasks: [], activity: [] }));
+assert.doesNotMatch(text(), /Record details/);
+delayDetail = false;
+reportTotal = 1;
+await click("Overview");
+await click("0 leads with no open follow-up");
+reportParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/reports/contacts?")).path.split("?")[1]);
+assert.equal(reportParams.get("contact_type"), "lead");
+assert.equal(reportParams.get("followup"), "missing");
+assert.equal(reportParams.get("stage"), null);
+await click("Pipeline");
+await act(async () => control("Minimum value (USD)").props.onChange({ target: { value: "12.34" } }));
+await flush();
+assert.equal(new URLSearchParams(calls.findLast(call => call.path.startsWith("/deals?")).path.split("?")[1]).get("min_value"), "1234");
+await click("Tasks");
+await act(async () => { control("Priority").props.onChange({ target: { value: "high" } }); control("Due").props.onChange({ target: { value: "overdue" } }); });
+await flush();
+const followupParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/tasks?")).path.split("?")[1]);
+assert.equal(followupParams.get("priority"), "high");
+assert.equal(followupParams.get("due"), "overdue");
+await click("Clear filters");
+task.contact_id = "outside-loaded-contacts";
+await act(async () => { root.root.findAllByType("button").find(node => flatten(node.children).includes("Follow up")).props.onClick(); });
+await click("Edit");
+assert.ok(root.root.findAllByType("option").some(node => node.props.value === "outside-loaded-contacts"), "Bounded selector preserves current contact ID");
+await click("Cancel");
+task.contact_id = "c1";
 await click("Contacts");
 assert.match(text(), /Ada Example/);
 await click("+ Contact");
@@ -416,5 +523,5 @@ for (const dispose of pluginDisposers) dispose();
 assert.equal(profile.listeners.size, 0);
 assert.equal(epoch.listeners.size, 0);
 console.log(
-  "PASS actual React 19.3.0 Strict Mode: dashboard/contacts/forms, name-only create, versioned edit/complete, exact scheduled timestamp, scoped snapshot/search, captured demo target, workspace token, stale detail navigation, profile/source remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
+  "PASS actual React 19.3.0 Strict Mode: zero/single/multiple charts, focus/hover/keyboard/drillthrough, server filter pagination/races and current-ID preservation, dashboard/contacts/forms, name-only create, versioned edit/complete, exact scheduled timestamp, scoped snapshot/search, captured demo target, workspace token, stale detail navigation, profile/source remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
 );

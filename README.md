@@ -7,14 +7,15 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 ## What works
 
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
-- Contacts: search, create, edit and inspect linked opportunities, tasks and activity.
-- Pipeline: six stages, integer-cent USD amounts, weighted forecast and stage drillthrough.
+- Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; create, edit and inspect linked records.
+- Main dashboard: six-stage value donut with keyboard/hover details, unique-contact drillthrough and preset missing/overdue follow-up reports.
+- Pipeline: six stages, integer-cent USD amounts, company/value filters and weighted forecast.
 - Follow-ups: timezone-aware due dates, priority, completion and activity history.
-- Native Hermes: 14 read/write tools, active-profile storage, optimistic version checks and idempotent creates.
+- Native Hermes: 15 read/write tools, active-profile storage, optimistic version checks and idempotent creates.
 - Native scheduling: a one-shot local Hermes job for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
 
-See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [architecture and safety](docs/ARCHITECTURE.md), [Hermes integration](docs/HERMES_INTEGRATION.md) and [verification report](docs/VERIFICATION.md).
+See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [the next-release agent-work roadmap](docs/NEXT_RELEASE_PLAN.md), [architecture and safety](docs/ARCHITECTURE.md), [Hermes integration](docs/HERMES_INTEGRATION.md) and [verification report](docs/VERIFICATION.md).
 
 ## Native Desktop first
 
@@ -104,7 +105,7 @@ Tests use temporary synthetic data. See docs/VERIFICATION.md for exact tested en
 
 ## Deliberate limits
 
-This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, imports, attachments, migrations from another CRM or background daemon. Lists are bounded at 500 records and activity at 100; this is a small-workspace prototype, not a large CRM data browser. A future migration system is needed before changing a deployed schema. No public repository, catalog PR, contest entry or production deployment is created by running the app.
+This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, imports, attachments, migrations from another CRM or background daemon. Contact reports use server pagination with filtered totals. Legacy lists, deal/task views and form choices are bounded at 500 records, and activity at 100; displayed deal-list totals cover returned records. This is a small-workspace prototype, not a large CRM data browser. Direct agent assignment/execution, custom saved views and a report/dashboard builder are not implemented. A future migration system is needed before changing a deployed schema. No public repository, catalog PR, contest entry or production deployment is created by running the app.
 
 ## License
 

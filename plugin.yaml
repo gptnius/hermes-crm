@@ -3,6 +3,7 @@ version: "0.1.0"
 description: Profile-local CRM for contacts, deals and safe internal follow-ups.
 requires_hermes: ">=0.23.0"
 provides_tools:
+  - crm_contact_report
   - crm_contact_list
   - crm_contact_get
   - crm_contact_create

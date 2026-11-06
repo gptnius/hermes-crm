@@ -16,15 +16,21 @@ Primary sources:
 
 ## Native registration
 
-The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 14 tools. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
+The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 15 tools. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
 
-Read toolset crm_read: crm_contact_list, crm_contact_get, crm_deal_list, crm_deal_get, crm_task_list, crm_task_get, crm_overview.
+Read toolset crm_read: crm_contact_report, crm_contact_list, crm_contact_get, crm_deal_list, crm_deal_get, crm_task_list, crm_task_get, crm_overview.
 
 Write toolset crm_write: crm_contact_create, crm_contact_update, crm_deal_create, crm_deal_update, crm_task_create, crm_task_update, crm_followup_schedule.
 
 Native storage comes from plugins.plugin_storage. Plugin PostgreSQL selection uses ctx.get_config('backend', default='sqlite') and agent.secret_scope.get_secret('HERMES_CRM_DATABASE_URL'). No secret is needed for SQLite. The CRM plugin does not scan the filesystem to discover settings, jobs, tokens or credentials. The Hermes host has separate provider auto-discovery behavior; see NATIVE_DESKTOP.md for the testing caveat.
 
 Native PostgreSQL schema is `crm_` followed by the first 24 hex characters of SHA-256 of the resolved plugin data-directory path. This keeps active profiles separate on one explicitly selected database. The standalone CLI needs the same explicit HERMES_CRM_POSTGRES_SCHEMA to view those records. Do not publish resolved profile paths; they are only local namespace inputs.
+
+## Contact report contract
+
+`crm_contact_report` and `/reports/contacts` share server-side filtering and return `items`, `total`, `limit` and `offset`. Filters cover linked deal stage, Contact type, company, email presence, text and open-follow-up state. Results count contacts once even when multiple deals match and include distinct linked stages plus follow-up aggregates. The legacy contact `lifecycle` field stores Contact type; it is not a deal stage. Existing list tools retain array responses and the 500-record bound.
+
+The added report tool makes the current read toolset eight tools. Historical live-scheduler evidence in VERIFICATION.md used an earlier seven-read-tool revision and is not a new live-scheduler verification of this addition.
 
 ## Scheduler contract
 

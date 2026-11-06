@@ -283,6 +283,57 @@ function Activity({ rows = [] }) {
 function Empty({ children }) {
   return h("div", { className: "hc-empty" }, children);
 }
+// All six stages are included. Contacts may appear in several stage reports.
+export function stageChartRows(stages = []) {
+  const rows = STAGES.map(stage => ({ stage, value: 0, count: 0, contact_count: 0,
+    ...stages.find(row => row.stage === stage) }));
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  return { total, rows: rows.map(row => ({ ...row, share: total ? row.value / total : 0 })) };
+}
+const STAGE_COLORS = ["#4779ce", "#9b69c6", "#c67e24", "#338b95", "#32825e", "#b85f67"];
+export function StageChart({ stages, onStage }) {
+  const { total, rows } = stageChartRows(stages);
+  const [active, setActive] = useState(null);
+  let offset = 0;
+  const describe = row => `${label(row.stage)}: ${money(row.value)} USD · ${(row.share * 100).toFixed(1)}% · ${row.count} deals · ${row.contact_count} distinct contacts`;
+  return h("section", { className: "hc-card" },
+    h("h2", null, "Deal value by stage"),
+    h("p", { className: "hc-muted" }, "All stages, including Won and Lost. Contacts may have multiple linked stages."),
+    h("p", null, `Total deal value: ${money(total)}`),
+    total > 0 ? h("svg", { viewBox: "0 0 120 120", width: 240, height: 240,
+      role: "group", "aria-label": "Deal value by stage. Select a stage to view linked contacts." },
+      rows.map((row, index) => {
+        const start = offset;
+        offset += row.share * 100;
+        if (!row.value) return null;
+        return h("circle", { key: row.stage, cx: 60, cy: 60, r: 44,
+          fill: "none", stroke: STAGE_COLORS[index], strokeWidth: 24,
+          pathLength: 100, strokeDasharray: `${row.share * 100} ${100 - row.share * 100}`,
+          strokeDashoffset: -start, transform: "rotate(-90 60 60)",
+          role: "button", tabIndex: 0, "aria-label": `${describe(row)}. View contacts.`,
+          style: { cursor: "pointer" },
+          onMouseEnter: () => setActive(row), onMouseLeave: () => setActive(null),
+          onFocus: () => setActive(row), onBlur: () => setActive(null),
+          onClick: () => onStage(row.stage),
+          onKeyDown: event => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); onStage(row.stage); } },
+        }, h("title", null, describe(row)));
+      })) : h(Empty, null, "No deal value to chart. Stage summaries remain available."),
+    h("p", { role: "status", className: "hc-muted" }, active ? describe(active) : "Hover or focus a segment for details. Select a segment or summary to view contacts."),
+    h("div", { className: "hc-list" }, rows.map((row, index) => button(
+      describe(row), () => onStage(row.stage), { key: row.stage, className: "hc-list-item",
+        style: { borderLeft: `5px solid ${STAGE_COLORS[index]}` },
+        "aria-label": `${describe(row)}. View contacts.` })))
+  );
+}
+const EMPTY_FILTERS = { contact_type: "", company: "", email: "", followup: "", priority: "", due: "", min_value: "", max_value: "" };
+export function dollarFilter(value) {
+  if (value === "") return "";
+  if (!/^\d+(?:\.\d{1,2})?$/.test(value)) throw new Error("Enter non-negative dollar amounts with at most two decimal places.");
+  const [whole, fraction = ""] = value.split(".");
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  if (!Number.isSafeInteger(cents) || cents > 2000000000) throw new Error("Dollar amount must be at most $20,000,000.");
+  return String(cents);
+}
 function Workspace({ ctx, identity, profile, connection }) {
   const clientRef = useRef(null);
   if (!clientRef.current) clientRef.current = createRouteClient(ctx, identity);
@@ -295,6 +346,9 @@ function Workspace({ ctx, identity, profile, connection }) {
   const [query, setQuery] = useState("");
   const [stage, setStage] = useState("");
   const [status, setStatus] = useState("open");
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [offset, setOffset] = useState(0);
+  const [filterGeneration, setFilterGeneration] = useState(0);
   const [editor, setEditor] = useState(null);
   const [detail, setDetail] = useState(null);
   const [notice, setNotice] = useState("");
@@ -303,6 +357,9 @@ function Workspace({ ctx, identity, profile, connection }) {
   const serial = useRef(0);
   const mutationLock = useRef(false);
   const viewRequest = useRef(0);
+  // Record editors/details do not own list requests. Only filter/navigation
+  // changes invalidate a matching report, independently of record panels.
+  const reportRequest = useRef(0);
   async function refresh() {
     const ticket = ++serial.current;
     setLoading(true);
@@ -334,6 +391,7 @@ function Workspace({ ctx, identity, profile, connection }) {
   }, []);
   useEffect(() => {
     let live = true;
+    const reportTicket = reportRequest.current;
     setSearchResult(null);
     if (!data || !["contacts", "pipeline", "tasks"].includes(page)) return;
     const kind = page === "pipeline" ? "deals" : page;
@@ -341,42 +399,43 @@ function Workspace({ ctx, identity, profile, connection }) {
       workspace_token: data.meta.workspace_token,
     });
     if (query) params.set("q", query);
-    if (kind === "deals" && stage) params.set("stage", stage);
+    if (["deals", "contacts"].includes(kind) && stage) params.set("stage", stage);
     if (kind === "tasks" && status !== "all") params.set("status", status);
+    const names = kind === "contacts" ? ["contact_type", "company", "email", "followup"]
+      : kind === "deals" ? ["company", "min_value", "max_value"] : ["priority", "due"];
+    if (kind === "contacts") { params.set("limit", "50"); params.set("offset", String(offset)); }
     const stop = ctx.setTimeout(async () => {
       try {
-        const rows = await client.request(`/${kind}?${params}`);
-        if (live && client.current())
-          setSearchResult({
-            key: JSON.stringify([
-              page,
-              query,
-              stage,
-              status,
-              data?.meta.workspace_token,
-            ]),
-            rows,
-          });
+        for (const name of names) if (filters[name]) params.set(name,
+          name.endsWith("_value") ? dollarFilter(filters[name]) : filters[name]);
+        const result = await client.request(`/${kind === "contacts" ? "reports/contacts" : kind}?${params}`);
+        if (live && client.current() && reportTicket === reportRequest.current) {
+          setError("");
+          setSearchResult({ key: searchKey, rows: kind === "contacts" ? result.items : result,
+            total: kind === "contacts" ? result.total : null });
+        }
       } catch (e) {
-        if (live && client.current()) setError(e.message);
+        if (live && client.current() && reportTicket === reportRequest.current) setError(e.message);
       }
     }, 200);
-    return () => {
-      live = false;
-      stop();
-    };
-  }, [page, query, stage, status, data]);
-  const searchReady =
-    searchResult?.key ===
-    JSON.stringify([page, query, stage, status, data?.meta.workspace_token]);
-  const searchRows = (kind) => (searchReady ? searchResult.rows : []);
-  function navigate(next, selectedStage = "") {
+    return () => { live = false; stop(); };
+  }, [page, query, stage, status, filters, offset, filterGeneration, data]);
+  const searchKey = JSON.stringify([page, query, stage, status, filters, offset, filterGeneration, data?.meta.workspace_token]);
+  const searchReady = searchResult?.key === searchKey;
+  const searchRows = () => (searchReady ? searchResult.rows : []);
+  function invalidateView() {
     viewRequest.current++;
-    setPage(next);
-    setQuery("");
-    setStage(selectedStage);
-    setDetail(null);
-    setEditor(null);
+    reportRequest.current++;
+    setFilterGeneration(value => value + 1);
+    setDetail(null); setEditor(null); setOffset(0); setError("");
+  }
+  function changeFilter(name, value) {
+    invalidateView(); setFilters(old => ({ ...old, [name]: value }));
+  }
+  function navigate(next, selectedStage = "", followup = "") {
+    invalidateView();
+    setPage(next); setQuery(""); setStage(selectedStage); setStatus("open");
+    setFilters({ ...EMPTY_FILTERS, ...(followup ? { contact_type: "lead", followup } : {}) });
     setNotice("");
   }
   async function write(path, options) {
@@ -429,14 +488,6 @@ function Workspace({ ctx, identity, profile, connection }) {
     });
     setDetail(null);
   }
-  const visible = (rows, fields) =>
-    rows.filter((row) =>
-      fields.some((field) =>
-        String(row[field] || "")
-          .toLowerCase()
-          .includes(query.toLowerCase()),
-      ),
-    );
   const heading = {
     overview: [
       "Relationship intelligence",
@@ -611,50 +662,16 @@ function Workspace({ ctx, identity, profile, connection }) {
                 ),
               ),
             ),
+            h("section", { className: "hc-card" },
+              h("h2", null, "Lead attention"),
+              h("p", { className: "hc-muted" }, "Stored follow-ups for lead contacts, not agent execution coverage."),
+              h("div", { className: "hc-actions" },
+                button(`${overview.lead_attention?.no_open_followup ?? 0} leads with no open follow-up`, () => navigate("contacts", "", "missing")),
+                button(`${overview.lead_attention?.overdue_followup ?? 0} leads with overdue follow-up`, () => navigate("contacts", "", "overdue")))),
             h(
               "div",
               { className: "hc-two" },
-              h(
-                "section",
-                { className: "hc-card" },
-                h(
-                  "div",
-                  { className: "hc-row" },
-                  h("h2", null, "Pipeline by stage"),
-                  badge(`${money(overview.won_value)} won`),
-                ),
-                overview.stages.map((item) =>
-                  button(
-                    h(
-                      "div",
-                      { className: "hc-bar-row" },
-                      h("span", null, `${label(item.stage)} (${item.count})`),
-                      h(
-                        "div",
-                        { className: "hc-track" },
-                        h("div", {
-                          className: "hc-fill",
-                          style: {
-                            width: `${Math.max(item.value ? 3 : 0, (item.value / Math.max(1, ...overview.stages.map((s) => s.value))) * 100)}%`,
-                          },
-                        }),
-                      ),
-                      h("span", null, money(item.value)),
-                    ),
-                    () => navigate("pipeline", item.stage),
-                    {
-                      style: {
-                        width: "100%",
-                        border: 0,
-                        padding: 0,
-                        background: "transparent",
-                      },
-                      key: item.stage,
-                      "aria-label": `${label(item.stage)}: ${item.count} deals, ${money(item.value)}. View deals.`,
-                    },
-                  ),
-                ),
-              ),
+              h(StageChart, { stages: overview.stages, onStage: stage => navigate("contacts", stage) }),
               h(
                 "section",
                 { className: "hc-card" },
@@ -764,20 +781,20 @@ function Workspace({ ctx, identity, profile, connection }) {
                 type: "search",
                 maxLength: 200,
                 value: query,
-                onChange: (e) => setQuery(e.target.value),
+                onChange: (e) => { invalidateView(); setQuery(e.target.value); },
                 placeholder: `Search ${page}…`,
                 "aria-label": `Search ${page}`,
               }),
-              page === "pipeline" &&
+              ["pipeline", "contacts"].includes(page) &&
                 h(
                   "select",
                   {
                     value: stage,
-                    onChange: (e) => setStage(e.target.value),
-                    "aria-label": "Deal stage",
+                    onChange: (e) => { invalidateView(); setStage(e.target.value); },
+                    "aria-label": "Stage",
                   },
                   h("option", { value: "" }, "All stages"),
-                  STAGES.map((s) =>
+                  (page === "contacts" ? [...STAGES, "unassigned"] : STAGES).map((s) =>
                     h("option", { key: s, value: s }, label(s)),
                   ),
                 ),
@@ -786,7 +803,7 @@ function Workspace({ ctx, identity, profile, connection }) {
                   "select",
                   {
                     value: status,
-                    onChange: (e) => setStatus(e.target.value),
+                    onChange: (e) => { invalidateView(); setStatus(e.target.value); },
                     "aria-label": "Task status",
                   },
                   ["open", "done", "all"].map((s) =>
@@ -794,6 +811,18 @@ function Workspace({ ctx, identity, profile, connection }) {
                   ),
                 ),
             ),
+            h("div", { className: "hc-actions" },
+              (page === "contacts" ? [["contact_type", "Contact type", ["lead", "customer", "partner"]],
+                ["email", "Email", ["present", "missing"]], ["followup", "Follow-up", ["missing", "overdue", "upcoming"]]]
+                : page === "tasks" ? [["priority", "Priority", ["normal", "high"]], ["due", "Due", ["overdue", "upcoming"]]] : [])
+                .map(([name, title, options]) => h("label", { key: name }, title,
+                  h("select", { value: filters[name], "aria-label": title, onChange: e => changeFilter(name, e.target.value) },
+                    h("option", { value: "" }, `Any ${title.toLowerCase()}`), options.map(value => h("option", { key: value, value }, label(value)))))),
+              ["contacts", "pipeline"].includes(page) && h("label", null, "Company",
+                h("input", { value: filters.company, "aria-label": "Company", maxLength: 200, onChange: e => changeFilter("company", e.target.value) })),
+              page === "pipeline" && ["min_value", "max_value"].map(name => h("label", { key: name }, name === "min_value" ? "Minimum value (USD)" : "Maximum value (USD)",
+                h("input", { value: filters[name], type: "number", min: "0", step: "0.01", "aria-label": name === "min_value" ? "Minimum value (USD)" : "Maximum value (USD)", onChange: e => changeFilter(name, e.target.value) }))),
+              button("Clear filters", () => navigate(page))),
             button(
               `+ ${page === "contacts" ? "Contact" : page === "pipeline" ? "Deal" : "Follow-up"}`,
               () => edit(page === "pipeline" ? "deals" : page),
@@ -803,17 +832,18 @@ function Workspace({ ctx, identity, profile, connection }) {
         !searchReady &&
           ["contacts", "pipeline", "tasks"].includes(page) &&
           h("p", { role: "status" }, "Loading matching records…"),
+        page === "contacts" && searchReady && h("div", { className: "hc-row", style: { marginTop: 18 } },
+          h("p", { role: "status" }, `${stage === "unassigned" ? "Contacts without linked deals · " : stage ? `Contacts linked to ${label(stage)} stage · ` : filters.followup ? `${filters.contact_type === "lead" ? "Lead attention" : "Contacts"} · ${label(filters.followup)} follow-up · ` : ""}${searchResult.total} matching contacts · ${searchResult.total ? offset + 1 : 0}–${offset + searchRows().length} shown`),
+          h("div", { className: "hc-actions" },
+            button("Previous", () => { viewRequest.current++; reportRequest.current++; setDetail(null); setEditor(null); setOffset(Math.max(0, offset - 50)); }, { disabled: offset === 0 }),
+            button("Next", () => { viewRequest.current++; reportRequest.current++; setDetail(null); setEditor(null); setOffset(offset + 50); }, { disabled: offset + searchRows().length >= searchResult.total }))),
         page === "contacts" &&
           searchReady &&
           h(
             "div",
             { className: "hc-list", style: { marginTop: 18 } },
-            visible(searchRows("contacts"), ["name", "company", "email"]).length
-              ? visible(searchRows("contacts"), [
-                  "name",
-                  "company",
-                  "email",
-                ]).map((c) =>
+            searchRows("contacts").length
+              ? searchRows("contacts").map((c) =>
                   button(
                     h(
                       "div",
@@ -830,7 +860,7 @@ function Workspace({ ctx, identity, profile, connection }) {
                             .join(" · "),
                         ),
                       ),
-                      badge(c.lifecycle),
+                      h("div", null, h("p", null, `Contact type: ${label(c.lifecycle)}`), h("p", null, `Linked stages: ${(c.deal_stages || []).map(label).join(", ") || "Unassigned"}`)),
                     ),
                     () => open("contacts", c.id),
                     { key: c.id, className: "hc-list-item" },
@@ -848,10 +878,7 @@ function Workspace({ ctx, identity, profile, connection }) {
             "div",
             { className: "hc-board" },
             STAGES.filter((s) => !stage || stage === s).map((s) => {
-              const rows = visible(searchRows("deals"), [
-                "title",
-                "contact_name",
-              ]).filter((d) => d.stage === s);
+              const rows = searchRows("deals").filter((d) => d.stage === s);
               return h(
                 "section",
                 { className: "hc-column", key: s },
@@ -906,7 +933,7 @@ function Workspace({ ctx, identity, profile, connection }) {
             h(
               "div",
               { className: "hc-list" },
-              visible(searchRows("tasks"), ["title", "contact_name"])
+              searchRows("tasks")
                 .filter((t) => status === "all" || t.status === status)
                 .map((t) =>
                   h(
@@ -944,7 +971,7 @@ function Workspace({ ctx, identity, profile, connection }) {
                   ),
                 ),
             ),
-            !visible(searchRows("tasks"), ["title", "contact_name"]).filter(
+            !searchRows("tasks").filter(
               (t) => status === "all" || t.status === status,
             ).length &&
               h(Empty, null, "No matching follow-ups. You’re clear for now."),
@@ -954,7 +981,7 @@ function Workspace({ ctx, identity, profile, connection }) {
     h(
       "footer",
       { className: "hc-footer" },
-      "Profile-local CRM · Desktop and agent tools share the same records · Refreshes every 30 seconds · Lists show up to 500 records. The active app profile controls this view, not a focused chat in another profile.",
+      "Profile-local CRM · Desktop and agent tools share the same records · Refreshes every 30 seconds · Contact reports use server pagination. Deal/task lists and form choices show up to 500 records; displayed deal totals cover returned records only. The active app profile controls this view, not a focused chat in another profile.",
     ),
   );
 }
@@ -974,7 +1001,7 @@ function Detail({ detail }) {
         h(
           "p",
           { key },
-          h("strong", null, `${label(key)}: `),
+          h("strong", null, `${key === "lifecycle" ? "Contact type" : label(key)}: `),
           value == null
             ? "Not set"
             : key === "value"
@@ -1082,7 +1109,8 @@ function Editor({ editor, data, busy, save, cancel }) {
               onChange: (e) => update(key, e.target.value),
               required: key === "contact_id" && kind === "deals",
             },
-            options.map(([value, text]) =>
+            (values[key] && !options.some(([value]) => String(value) === String(values[key]))
+              ? [...options, [values[key], `Current selection (${values[key]}) · outside loaded choices`]] : options).map(([value, text]) =>
               h("option", { key: value, value }, text),
             ),
           )
@@ -1166,7 +1194,7 @@ function Editor({ editor, data, busy, save, cancel }) {
               field("title", "Job title"),
               field(
                 "lifecycle",
-                "Lifecycle",
+                "Contact type",
                 "text",
                 selectOptions(["lead", "customer", "partner"]),
               ),

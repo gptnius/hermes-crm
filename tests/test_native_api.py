@@ -135,3 +135,16 @@ def test_snapshot_uses_one_workspace_and_stale_reads_rejected(native,monkeypatch
     assert client.get(prefix+'/contacts?workspace_token='+token).status_code==409
     assert client.get(prefix+'/tasks/unknown?workspace_token='+token).status_code==409
     assert client.get(prefix+'/contacts/unknown?workspace_token='+token).status_code==409
+
+
+def test_report_profile_switch_rejects_stale_workspace(native):
+    client, state, factory = native
+    prefix = '/api/plugins/hermes-crm'
+    token = client.get(prefix+'/meta').json()['workspace_token']
+    with native_api.service() as crm:
+        crm.create('contacts', {'name':'Alpha only'})
+    assert client.get(prefix+'/reports/contacts',params={'workspace_token':token}).json()['total']==1
+    state['profile']='beta'
+    assert client.get(prefix+'/reports/contacts',params={'workspace_token':token}).status_code==409
+    new_token=client.get(prefix+'/meta').json()['workspace_token']
+    assert client.get(prefix+'/reports/contacts',params={'workspace_token':new_token}).json()['total']==0

@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import (Boolean, Column, ForeignKey, Integer, MetaData, String, Table,
-                        Text, create_engine, event, select, update, func)
+                        Text, create_engine, event, select, update, func, or_)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
@@ -52,6 +52,23 @@ class CRMError(Exception):
         self.message, self.status = message, status
         super().__init__(message)
 
+CONTACT_REPORT_FILTERS = {'q', 'stage', 'contact_type', 'company', 'email', 'followup', 'limit', 'offset'}
+LIST_FILTERS = {'q', 'stage', 'status', 'contact_type', 'company', 'email', 'followup',
+                'min_value', 'max_value', 'priority', 'due'}
+
+
+def validate_query(params, allowed):
+    """Reject misspellings and ambiguous repeated filters, rather than silently broadening a report."""
+    seen = set()
+    for key, value in params.multi_items():
+        if key not in allowed: raise CRMError(f'Unknown filter: {key}')
+        if key in seen: raise CRMError(f'Repeated filter: {key}')
+        seen.add(key)
+        if key in ('limit', 'offset', 'min_value', 'max_value'):
+            import re
+            if not re.fullmatch(r'[0-9]+', value): raise CRMError(f'{key} must be an integer')
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
 
@@ -60,7 +77,7 @@ class ContactInput(StrictModel):
     email: str = Field(default='', max_length=254)
     company: str = Field(default='', max_length=160)
     title: str = Field(default='', max_length=160)
-    lifecycle: Literal['lead', 'customer', 'partner'] = 'lead'
+    lifecycle: Literal['lead', 'customer', 'partner'] = Field(default='lead', title='Contact type')
     notes: str = Field(default='', max_length=10000)
     @field_validator('email')
     @classmethod
@@ -275,23 +292,122 @@ class CRM:
             self._audit(conn, kind, record, action, actor)
             return record
 
-    def list(self, kind, q='', stage=None, status=None):
-        if len(q) > 200: raise CRMError('Search is limited to 200 characters')
-        table = TABLES[kind]
-        stmt = select(table)
-        if kind != 'contacts': stmt = select(table, contacts.c.name.label('contact_name')).outerjoin(contacts, table.c.contact_id == contacts.c.id)
+    @staticmethod
+    def _text_filter(value, name):
+        if not isinstance(value, str) or len(value) > 200:
+            raise CRMError(f'{name} must be text of at most 200 characters')
+        return value.lower().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+    @staticmethod
+    def _choice(value, allowed, name):
+        if value is not None and (not isinstance(value, str) or value not in allowed):
+            raise CRMError(f'Invalid {name}')
+
+    @staticmethod
+    def _integer(value, name, minimum=0, maximum=2_000_000_000):
+        if type(value) is not int or not minimum <= value <= maximum:
+            raise CRMError(f'{name} must be an integer from {minimum} to {maximum}')
+
+    def _contact_predicates(self, q='', stage=None, contact_type=None, company='',
+                            email='any', followup='any', timestamp=None):
+        q = self._text_filter(q, 'Search')
+        company = self._text_filter(company, 'Company')
+        self._choice(stage, (*STAGES, 'unassigned'), 'stage')
+        self._choice(contact_type, ('lead', 'customer', 'partner'), 'contact type')
+        if email is None or followup is None: raise CRMError('Invalid contact filter')
+        self._choice(email, ('any', 'present', 'missing'), 'email filter')
+        self._choice(followup, ('any', 'missing', 'overdue', 'upcoming'), 'follow-up filter')
+        predicates = []
         if q:
-            escaped = q.lower().replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
-            columns = [table.c.name, table.c.company, table.c.email] if kind == 'contacts' else [table.c.title, contacts.c.name]
-            from sqlalchemy import or_
-            stmt = stmt.where(or_(*[func.lower(col).like(f'%{escaped}%', escape='\\') for col in columns]))
-        if stage:
-            if kind != 'deals' or stage not in STAGES: raise CRMError('Invalid stage')
-            stmt = stmt.where(table.c.stage == stage)
-        if status:
-            if kind != 'tasks' or status not in ('open','done'): raise CRMError('Invalid task status')
-            stmt = stmt.where(table.c.status == status)
-        stmt = stmt.order_by(table.c.due_at.asc() if kind == 'tasks' else table.c.created_at.desc()).limit(500)
+            predicates.append(or_(*[func.lower(c).like(f'%{q}%', escape='\\')
+                                   for c in (contacts.c.name, contacts.c.company, contacts.c.email)]))
+        if company: predicates.append(func.lower(contacts.c.company).like(f'%{company}%', escape='\\'))
+        if contact_type: predicates.append(contacts.c.lifecycle == contact_type)
+        linked_deal = select(deals.c.id).where(deals.c.contact_id == contacts.c.id).correlate(contacts)
+        if stage == 'unassigned': predicates.append(~linked_deal.exists())
+        elif stage: predicates.append(linked_deal.where(deals.c.stage == stage).exists())
+        if email == 'present': predicates.append(contacts.c.email != '')
+        elif email == 'missing': predicates.append(contacts.c.email == '')
+        linked_task = self._contact_tasks().where(tasks.c.status == 'open')
+        if followup == 'missing': predicates.append(~linked_task.exists())
+        elif followup == 'overdue': predicates.append(linked_task.where(tasks.c.due_at < (timestamp or now())).exists())
+        elif followup == 'upcoming': predicates.append(linked_task.where(tasks.c.due_at >= (timestamp or now())).exists())
+        return predicates
+
+    @staticmethod
+    def _contact_tasks():
+        # EXISTS/IN avoids duplicate tasks with both direct and deal links.
+        return select(tasks.c.id).where(or_(tasks.c.contact_id == contacts.c.id,
+            select(deals.c.id).where(deals.c.id == tasks.c.deal_id,
+                deals.c.contact_id == contacts.c.id).correlate(contacts, tasks).exists())).correlate(contacts)
+
+    def contact_report(self, q='', stage=None, contact_type=None, company='', email='any',
+                       followup='any', limit=50, offset=0):
+        self._integer(limit, 'limit', 1, 100)
+        self._integer(offset, 'offset')
+        timestamp = now()
+        predicates = self._contact_predicates(q, stage, contact_type, company, email, followup, timestamp)
+        linked_tasks = self._contact_tasks().where(tasks.c.status == 'open')
+        def aggregate(query, expression):
+            return query.with_only_columns(expression).scalar_subquery()
+        linked_deals = select(deals.c.id).where(deals.c.contact_id == contacts.c.id).correlate(contacts)
+        stmt = select(contacts,
+            aggregate(linked_deals, func.count()).label('deal_count'),
+            aggregate(linked_tasks, func.count()).label('open_followup_count'),
+            aggregate(linked_tasks.where(tasks.c.due_at < timestamp), func.count()).label('overdue_followup_count'),
+            aggregate(linked_tasks, func.min(tasks.c.due_at)).label('next_followup_at')
+        ).where(*predicates).order_by(contacts.c.created_at.desc(), contacts.c.id.asc()).limit(limit).offset(offset)
+        with self.engine.connect() as conn:
+            total = conn.execute(select(func.count()).select_from(contacts).where(*predicates)).scalar_one()
+            items = [dict(r) for r in conn.execute(stmt).mappings()]
+            stages = {r['id']: set() for r in items}
+            if stages:
+                for contact_id, stage_name in conn.execute(select(deals.c.contact_id, deals.c.stage)
+                        .where(deals.c.contact_id.in_(stages)).distinct()):
+                    stages[contact_id].add(stage_name)
+            for item in items: item['deal_stages'] = [s for s in STAGES if s in stages[item['id']]]
+        return dict(items=items, total=total, limit=limit, offset=offset)
+
+    def list(self, kind, q='', stage=None, status=None, *, contact_type=None, company='',
+             email='any', followup='any', min_value=None, max_value=None, priority=None, due='any'):
+        if kind not in TABLES: raise CRMError('Invalid record kind')
+        if kind == 'contacts':
+            if status is not None or min_value is not None or max_value is not None or priority is not None or due != 'any':
+                raise CRMError('Unsupported contact filter')
+            stmt = select(contacts).where(*self._contact_predicates(q, stage, contact_type, company, email, followup))
+        else:
+            if contact_type is not None or email != 'any' or followup != 'any': raise CRMError('Unsupported filter')
+            escaped = self._text_filter(q, 'Search')
+            escaped_company = self._text_filter(company, 'Company')
+            table = TABLES[kind]
+            stmt = select(table, contacts.c.name.label('contact_name')).outerjoin(contacts, table.c.contact_id == contacts.c.id)
+            if escaped:
+                stmt = stmt.where(or_(*[func.lower(c).like(f'%{escaped}%', escape='\\') for c in (table.c.title, contacts.c.name)]))
+            if kind == 'deals':
+                if status is not None or priority is not None or due != 'any': raise CRMError('Unsupported deal filter')
+                self._choice(stage, STAGES, 'stage')
+                if stage: stmt = stmt.where(deals.c.stage == stage)
+                if escaped_company: stmt = stmt.where(func.lower(contacts.c.company).like(f'%{escaped_company}%', escape='\\'))
+                if min_value is not None:
+                    self._integer(min_value, 'min_value')
+                    stmt = stmt.where(deals.c.value >= min_value)
+                if max_value is not None:
+                    self._integer(max_value, 'max_value')
+                    stmt = stmt.where(deals.c.value <= max_value)
+                if min_value is not None and max_value is not None and min_value > max_value:
+                    raise CRMError('min_value must not exceed max_value')
+            else:
+                if stage is not None or company or min_value is not None or max_value is not None: raise CRMError('Unsupported task filter')
+                self._choice(status, ('open','done'), 'task status')
+                self._choice(priority, ('normal','high'), 'priority')
+                if due is None: raise CRMError('Invalid due filter')
+                self._choice(due, ('any','overdue','upcoming'), 'due filter')
+                if status: stmt = stmt.where(tasks.c.status == status)
+                if priority: stmt = stmt.where(tasks.c.priority == priority)
+                if due in ('overdue','upcoming'):
+                    stmt = stmt.where(tasks.c.status == 'open', tasks.c.due_at < now() if due == 'overdue' else tasks.c.due_at >= now())
+        table = TABLES[kind]
+        stmt = stmt.order_by(table.c.due_at.asc() if kind == 'tasks' else table.c.created_at.desc(), table.c.id.asc()).limit(500)
         with self.engine.connect() as conn: return [dict(row) for row in conn.execute(stmt).mappings()]
 
     def activities(self, entity_ids=None):
@@ -322,13 +438,17 @@ class CRM:
             all_deals = [dict(r) for r in conn.execute(select(deals)).mappings()]
             all_tasks = [dict(r) for r in conn.execute(select(tasks)).mappings()]
             count = conn.execute(select(func.count()).select_from(contacts)).scalar()
+            timestamp = now()
+            lead_attention = {key: conn.execute(select(func.count()).select_from(contacts).where(
+                *self._contact_predicates(contact_type='lead', followup=state, timestamp=timestamp))).scalar_one()
+                for key, state in [('no_open_followup', 'missing'), ('overdue_followup', 'overdue')]}
         open_deals = [d for d in all_deals if d['stage'] not in ('won','lost')]
         open_tasks = [t for t in all_tasks if t['status']=='open']
         return dict(self.info(), contacts=count, open_deals=len(open_deals), pipeline_value=sum(d['value'] for d in open_deals),
             weighted_value=sum(d['value']*d['probability']//100 for d in open_deals),
             won_value=sum(d['value'] for d in all_deals if d['stage']=='won'), open_tasks=len(open_tasks),
-            overdue_tasks=sum(t['due_at'] < now() for t in open_tasks),
-            stages=[dict(stage=s, count=sum(d['stage']==s for d in all_deals), value=sum(d['value'] for d in all_deals if d['stage']==s)) for s in STAGES],
+            overdue_tasks=sum(t['due_at'] < timestamp for t in open_tasks), lead_attention=lead_attention,
+            stages=[dict(stage=s, contact_count=len({d['contact_id'] for d in all_deals if d['stage']==s}), count=sum(d['stage']==s for d in all_deals), value=sum(d['value'] for d in all_deals if d['stage']==s)) for s in STAGES],
             activity=self.activities()[:8], tasks=self.list('tasks', status='open')[:6])
 
     def schedule_followup(self, task_id, dispatch, actor='hermes', **context):

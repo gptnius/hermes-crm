@@ -46,6 +46,10 @@ const state = {
   query: "",
   stage: "",
   taskFilter: "open",
+  filters: {},
+  offset: 0,
+  total: 0,
+  report: "",
   render: 0,
 };
 let toastTimer,
@@ -94,8 +98,8 @@ function createButton(type) {
 }
 function contactTable(rows) {
   return rows.length
-    ? `<div class="table-scroll"><table><thead><tr><th scope="col">Name</th><th scope="col">Company</th><th scope="col">Lifecycle</th><th scope="col">Added</th></tr></thead><tbody>${rows.map((c) => `<tr><td><div class="person"><span class="avatar" aria-hidden="true">${esc(initials(c.name))}</span><div><button class="name-button" data-action="contact" data-id="${esc(c.id)}">${esc(c.name)}</button><small>${esc(c.email || "No email added")}</small></div></div></td><td>${esc(c.company || "—")}</td><td>${badge(c.lifecycle)}</td><td>${date(c.created_at)}</td></tr>`).join("")}</tbody></table></div>`
-    : empty("No contacts found. Add a contact to get started.");
+    ? `<div class="table-scroll"><table><thead><tr><th scope="col">Name</th><th scope="col">Company</th><th scope="col">Contact type</th><th scope="col">Linked deal stages</th><th scope="col">Added</th></tr></thead><tbody>${rows.map((c) => `<tr><td><div class="person"><span class="avatar" aria-hidden="true">${esc(initials(c.name))}</span><div><button class="name-button" data-action="contact" data-id="${esc(c.id)}">${esc(c.name)}</button><small>${esc(c.email || "No email added")}</small></div></div></td><td>${esc(c.company || "—")}</td><td>${badge(c.lifecycle)}</td><td>${Array.isArray(c.deal_stages) ? (c.deal_stages.map(badge).join(" ") || "Unassigned") : "See contact details"}</td><td>${date(c.created_at)}</td></tr>`).join("")}</tbody></table></div>`
+    : empty("No matching contacts. Change filters or add a contact.");
 }
 function taskRows(rows) {
   return rows.length
@@ -126,6 +130,47 @@ function dealCards(rows) {
     )
     .join("");
 }
+let pendingReport = false;
+function queryString(params) {
+  const pairs = Object.entries(params).filter(([,v]) => v !== undefined && v !== null && v !== "");
+  return pairs.length ? "?" + pairs.map(([k,v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v)).join("&") : "";
+}
+function dollarCents(value) {
+  if (value === undefined || value === "") return undefined;
+  if (!/^\d+(?:\.\d{1,2})?$/.test(value)) throw new Error("Enter a nonnegative USD amount with at most two decimal places.");
+  const [whole, fraction = ""] = String(value).split(".");
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2,"0"));
+  if (!Number.isSafeInteger(cents) || cents > 2000000000) throw new Error("The value is too large.");
+  return cents;
+}
+function filterSelect(key, title, values) {
+  return `<label class="filter-label">${esc(title)}<select data-filter="${key}" aria-label="${esc(title)}">${values.map(([v,t]) => `<option value="${esc(v)}" ${state.filters[key] === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`;
+}
+function filterInput(key, title, type = "text") {
+  return `<label class="filter-label">${esc(title)}<input data-filter="${key}" type="${type}" ${type === "number" ? 'min="0" step="0.01"' : ""} aria-label="${esc(title)}" value="${esc(state.filters[key] || "")}"></label>`;
+}
+function preserveSelection(rows, id, name, type) {
+  return !id || rows.some(r => String(r.id) === String(id)) ? rows : [...rows, {id, name: name || `Current ${type} (${id})`, title: name || `Current ${type} (${id})`}];
+}
+function openReport(filters, title) {
+  closeModal(false); clearTimeout(searchTimer); state.render++;
+  state.filters = filters; state.query = ""; state.stage = ""; state.offset = 0; state.report = title;
+  if (location.hash === "#contacts") { state.page = "contacts"; render(); }
+  else { pendingReport = true; location.hash = "contacts"; }
+}
+function stageChart(rows) {
+  const data = stages.map(stage => ({stage, value: 0, count: 0, contact_count: 0, ...rows.find(r => r.stage === stage)}));
+  const total = data.reduce((n,s) => n + Number(s.value || 0),0);
+  const colors = ["#427f77","#447fa6","#8264ac","#b88736","#397a4c","#b05d65"];
+  let offset = 0;
+  const details = s => `${label(s.stage)}: ${money(s.value)} USD · ${total ? (s.value / total * 100).toFixed(1) : "0.0"}% · ${Number(s.count)} deals · ${Number(s.contact_count)} distinct contacts`;
+  const segments = data.map((s,i) => {
+    const percent = total ? s.value / total * 100 : 0;
+    const circle = percent > 0 ? `<circle class="donut-segment" cx="60" cy="60" r="45" pathLength="100" fill="none" stroke="${colors[i]}" stroke-width="22" stroke-dasharray="${percent} ${100-percent}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)" role="button" tabindex="0" aria-label="${esc(details(s))}" data-action="stage" data-stage="${s.stage}"><title>${esc(details(s))}</title></circle>` : "";
+    offset += percent; return circle;
+  }).join("");
+  return `<div class="stage-chart"><svg viewBox="0 0 120 120" aria-label="Deal value by stage, including Won and Lost"><circle cx="60" cy="60" r="45" fill="none" stroke="#e6e8e7" stroke-width="22"/>${segments}</svg><p><strong>${money(total)}</strong> total deal value</p>${total ? "" : '<p class="subtitle">No deal value to chart. Stage reports remain available below.</p>'}<div class="stage-summaries">${data.map((s,i) => `<button class="stage-summary" data-action="stage" data-stage="${s.stage}" title="${esc(details(s))}"><span class="stage-dot" style="background:${colors[i]}" aria-hidden="true"></span>${esc(details(s))}</button>`).join("")}</div></div>`;
+}
 async function render() {
   // Only the latest render may publish markup or replace record caches.
   const token = ++state.render;
@@ -148,8 +193,7 @@ async function render() {
       state.contacts = list(contacts);
       state.tasks = list(o.tasks);
       $("#profile").textContent = o.profile || "default";
-      const ps = list(o.stages).filter((s) => s.stage !== "lost");
-      const max = Math.max(...ps.map((s) => s.value), 1);
+      const ps = list(o.stages);
       html =
         head(
           "A clearer view of what’s next.",
@@ -183,26 +227,16 @@ async function render() {
           )
           .join(
             "",
-          )}</div><div class="grid"><section class="card"><div class="card-head"><div><h2>Sales pipeline</h2><div class="subtitle">A little momentum at every stage.</div></div><a class="text-link" href="#deals">View deals ↗</a></div><div class="pipeline">${ps.map((s) => `<div class="pipeline-row"><button data-action="stage" data-stage="${esc(s.stage)}">${label(s.stage)} ↗</button><div class="track" aria-hidden="true"><div class="bar" style="width:${Math.round((s.value / max) * 100)}%"></div></div><div class="pipeline-value">${money(s.value)}<small>${s.count} ${s.count === 1 ? "deal" : "deals"}</small></div></div>`).join("")}</div><div class="pipeline-summary"><span>Weighted pipeline <strong>${money(o.weighted_value)}</strong></span><span>${o.open_deals} open opportunities</span></div></section><section class="card"><div class="card-head"><div><h2>Your next steps</h2><div class="subtitle">${o.open_tasks} open tasks · ${o.overdue_tasks} overdue</div></div><a href="#tasks" class="text-link">View all ↗</a></div>${taskRows(state.tasks.filter((t) => t.status !== "done").slice(0, 4))}</section></div><div class="grid"><section class="card"><div class="card-head"><div><h2>People in your orbit</h2><div class="subtitle">Every great opportunity starts with a connection.</div></div><a href="#contacts" class="text-link">All contacts ↗</a></div>${contactTable(state.contacts.slice(0, 5))}</section><section class="card"><div class="card-head"><h2>Recent activity</h2><a href="#activity" class="text-link">View all ↗</a></div>${activityRows(list(o.activity).slice(0, 5))}</section></div>`;
+          )}</div><div class="grid"><section class="card"><div class="card-head"><div><h2>Sales pipeline</h2><div class="subtitle">Deal value by stage, including Won and Lost.</div></div><a class="text-link" href="#deals">View deals ↗</a></div>${stageChart(ps)}<div class="attention-reports"><h3>Lead attention</h3><button class="button" data-action="attention" data-followup="missing">${Number(o.lead_attention?.no_open_followup || 0)} leads with no open follow-up</button><button class="button" data-action="attention" data-followup="overdue">${Number(o.lead_attention?.overdue_followup || 0)} leads with overdue follow-ups</button><p class="subtitle">Based on stored tasks, not agent execution.</p></div></section><section class="card"><div class="card-head"><div><h2>Your next steps</h2><div class="subtitle">${o.open_tasks} open tasks · ${o.overdue_tasks} overdue</div></div><a href="#tasks" class="text-link">View all ↗</a></div>${taskRows(state.tasks.filter((t) => t.status !== "done").slice(0, 4))}</section></div><div class="grid"><section class="card"><div class="card-head"><div><h2>People in your orbit</h2><div class="subtitle">Every great opportunity starts with a connection.</div></div><a href="#contacts" class="text-link">All contacts ↗</a></div>${contactTable(state.contacts.slice(0, 5))}</section><section class="card"><div class="card-head"><h2>Recent activity</h2><a href="#activity" class="text-link">View all ↗</a></div>${activityRows(list(o.activity).slice(0, 5))}</section></div>`;
     } else if (state.page === "contacts") {
-      const contacts = await api(
-        "contacts?q=" + encodeURIComponent(state.query),
-      );
+      const result = await api("reports/contacts" + queryString({q: state.query, ...state.filters, limit: 50, offset: state.offset}));
       if (token !== state.render) return;
-      state.contacts = list(contacts);
-      html =
-        head(
-          "Contacts",
-          "Build stronger relationships, one conversation at a time.",
-          createButton("contact"),
-        ) +
-        `<section class="card"><div class="toolbar"><input class="search" id="search" type="search" aria-label="Search contacts" placeholder="Search names, companies, or emails…" value="${esc(state.query)}"><span class="subtitle">${state.contacts.length} contacts</span></div>${contactTable(state.contacts)}</section>`;
+      state.contacts = list(result.items);
+      state.total = Number(result.total) || 0;
+      html = head("Contacts", esc(state.report || "Filter contacts and their linked deal stages."), createButton("contact")) +
+        `<section class="card"><div class="toolbar filters"><input class="search" id="search" type="search" aria-label="Search contacts" placeholder="Search names, companies, or emails…" value="${esc(state.query)}">${filterSelect("stage", "Stage", [["", "All stages"], ...stages.map(s => [s,label(s)]), ["unassigned","Unassigned"]])}${filterSelect("contact_type","Contact type",[["","All contact types"],["lead","Lead"],["customer","Customer"],["partner","Partner"]])}${filterInput("company","Company")}${filterSelect("email","Email",[["","Any email"],["present","Email present"],["missing","Email missing"]])}${filterSelect("followup","Follow-up",[["","Any follow-up"],["missing","No open follow-up"],["overdue","Overdue follow-up"],["upcoming","Upcoming follow-up"]])}<button class="button" data-action="clear-filters">Clear filters</button></div><p class="subtitle report-count">${state.total} matching contacts · ${state.total ? state.offset + 1 : 0}–${Math.min(state.offset + state.contacts.length,state.total)} shown</p>${contactTable(state.contacts)}<div class="pagination"><button class="button" data-action="previous" ${state.offset === 0 ? "disabled" : ""}>Previous</button><button class="button" data-action="next" ${state.offset + 50 >= state.total ? "disabled" : ""}>Next</button></div></section>`;
     } else if (state.page === "deals") {
-      const deals = await api(
-        "deals?q=" +
-          encodeURIComponent(state.query) +
-          (state.stage ? "&stage=" + encodeURIComponent(state.stage) : ""),
-      );
+      const deals = await api("deals" + queryString({q: state.query, stage: state.stage, company: state.filters.company, min_value: dollarCents(state.filters.min_value), max_value: dollarCents(state.filters.max_value)}));
       if (token !== state.render) return;
       state.deals = list(deals);
       html =
@@ -211,7 +245,7 @@ async function render() {
           "Turn promising conversations into lasting partnerships.",
           createButton("deal"),
         ) +
-        `<div class="toolbar" style="padding:0 0 20px;border:0"><input class="search" id="search" type="search" aria-label="Search deals" placeholder="Search opportunities…" value="${esc(state.query)}"><select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((s) => `<option value="${s}" ${state.stage === s ? "selected" : ""}>${label(s)}</option>`).join("")}</select></div><div class="board" ${state.stage ? 'style="grid-template-columns:minmax(240px,420px)"' : ""}>${(state.stage
+        `<div class="toolbar" style="padding:0 0 20px;border:0"><input class="search" id="search" type="search" aria-label="Search deals" placeholder="Search opportunities…" value="${esc(state.query)}"><select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((s) => `<option value="${s}" ${state.stage === s ? "selected" : ""}>${label(s)}</option>`).join("")}</select>${filterInput("company","Company")}${filterInput("min_value","Minimum value (USD)","number")}${filterInput("max_value","Maximum value (USD)","number")}</div><p class="subtitle">Showing up to 500 matching deals.</p><div class="board" ${state.stage ? 'style="grid-template-columns:minmax(240px,420px)"' : ""}>${(state.stage
           ? [state.stage]
           : stages
         )
@@ -222,9 +256,7 @@ async function render() {
           .join("")}</div>`;
     } else if (state.page === "tasks") {
       // Filter on the server before its result limit, so completed history cannot hide open work.
-      const tasks = await api(
-        "tasks" + (state.taskFilter ? "?status=" + encodeURIComponent(state.taskFilter) : ""),
-      );
+      const tasks = await api("tasks" + queryString({q: state.query, status: state.taskFilter, priority: state.filters.priority, due: state.filters.due}));
       if (token !== state.render) return;
       state.tasks = list(tasks);
       const rows = state.tasks.filter(
@@ -236,7 +268,7 @@ async function render() {
           "Make the next move. Keep every follow-up on track.",
           createButton("task"),
         ) +
-        `<section class="card"><div class="toolbar"><h2>${rows.length} ${state.taskFilter || "total"} tasks</h2><select id="task-filter" aria-label="Task status">${[
+        `<section class="card"><div class="toolbar filters"><input class="search" id="search" type="search" aria-label="Search tasks" placeholder="Search tasks…" value="${esc(state.query)}">${filterSelect("priority","Priority",[["","All priorities"],["normal","Normal"],["high","High"]])}${filterSelect("due","Due",[["","Any due date"],["overdue","Overdue open tasks"],["upcoming","Upcoming open tasks"]])}<h2>${rows.length} ${state.taskFilter || "total"} tasks (up to 500)</h2><select id="task-filter" aria-label="Task status">${[
           ["open", "Open tasks"],
           ["done", "Completed"],
           ["", "All tasks"],
@@ -255,7 +287,7 @@ async function render() {
     if (token === state.render) root.innerHTML = html;
   } catch (e) {
     if (token === state.render)
-      root.innerHTML = `<div class="error" role="alert">${esc(e.message)}</div><button class="button" data-action="retry">Try again</button>`;
+      root.innerHTML = `<div class="error" role="alert">${esc(e.message)}</div><button class="button" data-action="retry">Try again</button><button class="button" data-action="reset-current-filters">Reset filters</button>`;
   }
 }
 function route() {
@@ -269,7 +301,8 @@ function route() {
     ? raw
     : "overview";
   state.query = "";
-  if (state.page !== "deals") state.stage = "";
+  if (!pendingReport) { state.filters = {}; state.offset = 0; state.report = ""; state.stage = ""; }
+  pendingReport = false;
   render();
 }
 function showModal(html) {
@@ -328,6 +361,8 @@ async function openForm(type, record = {}) {
       ]);
       contacts = list(contacts);
       deals = list(deals);
+      contacts = preserveSelection(contacts, record.contact_id, record.contact_name, "contact");
+      deals = preserveSelection(deals, record.deal_id, record.deal_title, "deal");
     }
     if (requestEpoch !== modalEpoch) return;
     let fields = "";
@@ -341,7 +376,7 @@ async function openForm(type, record = {}) {
           'required maxlength="160"',
         ) +
         `<div class="form-row">${field("email", "Email", record.email, "email")}${field("company", "Company", record.company)}</div>` +
-        `<div class="form-row">${field("title", "Job title", record.title)}${select("lifecycle", "Lifecycle", ["lead", "customer", "partner"], record.lifecycle || "lead")}</div>`;
+        `<div class="form-row">${field("title", "Job title", record.title)}${select("lifecycle", "Contact type", ["lead", "customer", "partner"], record.lifecycle || "lead")}</div>`;
     }
     if (type === "deal") {
       fields =
@@ -477,6 +512,7 @@ document.addEventListener("click", (e) => {
   if (a.startsWith("new-")) openForm(a.slice(4));
   if (a === "close") closeModal();
   if (a === "retry") render();
+  if (a === "reset-current-filters") { closeModal(false); clearTimeout(searchTimer); state.filters = {}; state.query = ""; state.stage = ""; state.offset = 0; state.report = ""; render(); }
   if (a === "contact") contactDetail(b.dataset.id);
   if (a === "deal") {
     const d = state.deals.find((x) => String(x.id) === b.dataset.id);
@@ -487,16 +523,18 @@ document.addEventListener("click", (e) => {
     if (t) openForm("task", t);
   }
   if (a === "toggle-task") toggleTask(b.dataset.id, b);
-  if (a === "stage") {
-    state.stage = b.dataset.stage;
-    if (location.hash === "#deals") {
-      state.page = "deals";
-      render();
-    } else location.hash = "deals";
-  }
+  if (a === "stage") openReport({stage: b.dataset.stage}, `${label(b.dataset.stage)} stage: contacts linked to matching deals`);
+  if (a === "attention") openReport({contact_type: "lead", followup: b.dataset.followup}, b.dataset.followup === "missing" ? "Leads with no open follow-up" : "Leads with overdue follow-ups");
+  if (a === "clear-filters") openReport({}, "");
+  if (a === "previous" || a === "next") { closeModal(false); state.offset = Math.max(0,state.offset + (a === "next" ? 50 : -50)); render(); }
+
 });
 document.addEventListener("input", (e) => {
   if (e.target.id !== "search") return;
+  closeModal(false);
+  state.render++;
+  state.offset = 0;
+  state.report = "";
   state.query = e.target.value;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(async () => {
@@ -514,11 +552,17 @@ document.addEventListener("input", (e) => {
   }, 350);
 });
 document.addEventListener("change", (e) => {
+  if (e.target.dataset.filter) {
+    closeModal(false); clearTimeout(searchTimer); state.offset = 0; state.report = "";
+    state.filters[e.target.dataset.filter] = e.target.value; render();
+  }
   if (e.target.id === "stage-filter") {
+    closeModal(false); clearTimeout(searchTimer);
     state.stage = e.target.value;
     render();
   }
   if (e.target.id === "task-filter") {
+    closeModal(false); clearTimeout(searchTimer);
     state.taskFilter = e.target.value;
     render();
   }
@@ -529,6 +573,7 @@ $("#modal").addEventListener("cancel", () => {
 // Escape also cancels a dialog request before its modal has opened.
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !$("#modal").open) modalEpoch++;
+  if ((e.key === "Enter" || e.key === " ") && e.target?.classList?.contains("donut-segment")) { e.preventDefault(); openReport({stage:e.target.dataset.stage}, `${label(e.target.dataset.stage)} stage: contacts linked to matching deals`); }
 });
 window.addEventListener("hashchange", route);
 async function initialize() {

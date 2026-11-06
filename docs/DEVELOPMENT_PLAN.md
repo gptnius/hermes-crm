@@ -6,13 +6,15 @@ Status: focused prototype in development. Target: working, reviewable open-sourc
 An agent-native relationship workspace: people, pipeline and follow-through in one small local application. A person's existing Hermes agent can work on the same records shown in the UI. One active Hermes profile maps to one workspace by default. The UI should feel considered and legible: calm navy navigation, warm off-white canvas, teal focus, chart cards and useful drillthrough. HubSpot and Salesforce are functional references, not assets to copy.
 
 ## Prototype scope and acceptance
-1. **Overview:** live pipeline, weighted forecast, contacts and outstanding follow-ups; stage chart and counts link to filtered deals; recent immutable activity and upcoming work.
-2. **Contacts:** create, search, inspect, edit; company, title, email and lifecycle; linked opportunities, tasks and activity. All demo contacts are synthetic and use example.com addresses.
+1. **Overview:** live pipeline, weighted forecast, contacts and outstanding follow-ups; six-stage value donut and summaries link to reports of unique contacts; recent immutable activity and upcoming work.
+2. **Contacts:** create, search, inspect, edit; company, title, email and Contact type; linked opportunities, tasks and activity. All demo contacts are synthetic and use example.com addresses.
 3. **Pipeline:** staged opportunities (lead, qualified, proposal, negotiation, won, lost), value in integer minor units, probability, closing date and linked contact. Moving stages is audited; stage filters and detail drawers are keyboard accessible.
 4. **Follow-ups:** create and complete tasks with explicit timezone-aware due dates; priority and contact/deal links; overdue and future views. A task due date is not a promise that a scheduler will run.
 5. **Agent tools:** validated create, list/search, get and update operations for contacts, opportunities and tasks plus activity; structured errors; actor attribution and retry idempotency. Use Hermes' supported plugin registration mechanism after checking current upstream source. No invented SDK.
 6. **Scheduling:** use verified native Hermes scheduler interface only. Separate CRM task persistence from scheduler outcome, surface failures, retain a job reference when scheduled, avoid duplicate jobs on retries. Never silently edit host crontab or assume a background service is running. If the host integration cannot be verified, return a pending scheduling request rather than claim execution.
 7. **Storage:** SQLite as explicit default in the current Hermes profile directory (or configured data path). PostgreSQL is opt-in through a database URL with fail-fast validation, never fallback. Supabase is a PostgreSQL deployment option, not a hidden second datastore. Portable schema and common repository behavior; backend-specific checks documented honestly.
+
+The next increment adds combined server-side filters, paged contact reports and preset attention reports on the main dashboard. See [NEXT_RELEASE_PLAN.md](NEXT_RELEASE_PLAN.md) for the detailed implementation sequence and the separate, gated agent-assignment design. No direct agent-execution UI is represented as complete.
 
 ## Architecture
 - Python package with small domain service and relational repository shared by web endpoints and agent tools.
