@@ -11,7 +11,7 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: six-stage value donut with keyboard/hover details, unique-contact drillthrough and preset missing/overdue follow-up reports.
 - Pipeline: six stages, integer-cent USD amounts, company/value filters and weighted forecast.
-- Follow-ups: timezone-aware due dates, priority, completion, paged assignment history and a server-counted coverage queue. Task-specific Preview/Copy prepares a request for explicit native chat Send; it does not dispatch work. See [assignment workflow](docs/ASSIGNMENT_UI.md).
+- Follow-ups: timezone-aware due dates, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. Task-specific Preview/Copy prepares a request for explicit native chat Send; it does not dispatch work. See [assignment workflow](docs/ASSIGNMENT_UI.md).
 - Native Hermes: 22 tools across separate record, assigned-work and native-report permission sets, active-profile storage, optimistic version checks and idempotent creates.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit active-agent paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded scheduled-agent tests with deterministic local model responses; real-model behavior remains unverified. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).

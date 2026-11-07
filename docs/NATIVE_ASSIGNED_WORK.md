@@ -1,6 +1,6 @@
 # Native assigned work
 
-This prototype adds future one-shot internal assignments created through a real active Hermes tool context. It is separate from the default-disabled Desktop execution bridge and from the simpler existing follow-up reminder tool. It does not send email, make calls, modify provider settings or complete business tasks automatically.
+This prototype adds future one-shot internal assignments. Intent can be saved through the native CRM form or an agent tool; scheduling requires a real active Hermes tool context. It is separate from the default-disabled Desktop execution bridge and from the simpler existing follow-up reminder tool. It does not send email, make calls, modify provider settings or complete business tasks automatically.
 
 ## User-facing contract
 
@@ -40,9 +40,9 @@ Task version, cancellation and approved time are checked again before resume. If
 
 Three new profile-scoped tables store native assignments, events and reports. Existing CRM and experimental execution tables are unchanged. Incompatible table shapes or constraints fail closed rather than silently migrating. PostgreSQL remains explicit and isolated by the existing profile schema.
 
-The native API exposes read-only `/work` and `/work/{assignment_id}` routes, plus paged `/reports/work` history and `/reports/coverage` evidence. They require the captured workspace token and use the same per-call profile factory as tools. Host routing parameters do not independently select a database. There is no REST scheduling endpoint and no borrowed tool context.
+The native API exposes read-only `/work` and `/work/{assignment_id}` routes, plus paged `/reports/work` history and `/reports/coverage` evidence. Explicit `POST /work` saves local intent only, requires a positive integer `expected_task_version`, and uses the same atomic create/idempotency implementation as the agent tool. All these routes require the captured workspace token and use the same per-call profile factory as tools. Host routing parameters do not independently select a database. There is no REST scheduling endpoint and no borrowed tool context.
 
-The native task record displays assignment history, observed job state, source-task freshness and authenticated reports awaiting review. An unavailable history request is not shown as an empty history. The UI does not schedule, dispatch, retry or approve work. It can prepare a task-specific request with Preview/Copy beside the genuine native chat; the user pastes, reviews and uses native Send. The coverage queue uses complete local evidence before paging, not bounded task/history caches. See [assignment UI](ASSIGNMENT_UI.md) for version binding, recovery actions and exact limits.
+The native task record displays assignment history, observed job state, source-task freshness and authenticated reports awaiting review. An unavailable history request is not shown as an empty history. The UI can save intent and replay the exact local save after an uncertain response; it does not schedule, dispatch, retry execution or approve work. It can prepare a task-specific request with Preview/Copy beside the genuine native chat; the user pastes, reviews and uses native Send. The coverage queue uses complete local evidence before paging, not bounded task/history caches. See [assignment UI](ASSIGNMENT_UI.md) for version binding, recovery actions and exact limits.
 
 ## Verification status
 

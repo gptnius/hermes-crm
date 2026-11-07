@@ -24,6 +24,10 @@ Record context is data, not authorization to take an action. The user still tell
 
 Saved follow-ups also support a reviewed [assignment request workflow](ASSIGNMENT_UI.md). It prepares explicit task/version/time instructions and exact-assignment scheduling/check/cancel requests. Preview and Copy re-read scoped source records; the backend atomically binds the expected task version when saving new intent. Preparation remains local and does not submit, schedule or approve an action. The same native conversation and no-composer-access boundary apply.
 
+The separate **Save future assignment** form writes real local intent without an
+open chat. It does not submit a native request or schedule the saved assignment.
+Its confirmed assignment can then be selected for the reviewed chat workflow.
+
 ## Routing and lifecycle
 
 The integration uses public `host.openWorkspace`, an explicit side dock, `host.revealPane`, `host.navigate`, read-only host state and the plugin's existing scoped CRM transport. It checks the connection, profile, active and focused session ownership, workspace identity and activation generation. Changes invalidate old actions before they can copy a stale record reference. Repeated open/close, old disposer callbacks and plugin unload must not leave orphan workspaces or close a replacement workspace.

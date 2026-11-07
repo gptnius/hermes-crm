@@ -218,6 +218,7 @@ with patch.object(socket, 'create_connection', deny_network), \
     for path in ('/reports/work', '/reports/coverage'):
         assert client.get(prefix + path, params={'workspace_token': 'not-authentication'}).status_code == 401
     assert client.post(prefix + '/contacts', json={}).status_code == 401
+    assert client.post(prefix + '/work', json={'workspace_token': 'not-authentication'}).status_code == 401
     meta = request('GET', '/meta')
     token = meta['workspace_token']
     assert meta['native_desktop'] is True
@@ -240,8 +241,8 @@ with patch.object(socket, 'create_connection', deny_network), \
     task_updated = request('PATCH', '/tasks/' + task['id'], json={
         'workspace_token': token, 'data': {'version': task['version'], 'status': 'done'}})
     assert tool('crm_task_get', {'id': task['id']})['status'] == 'done'
-    # Intent creation uses a real registered tool, not REST or a borrowed context.
-    # History must resolve the same workspace AND profile string in both adapters.
+    # Intent saving uses authenticated REST without a borrowed tool context.
+    # The registered tool must recover the same workspace/profile-bound intent.
     work_task = tool('crm_task_create', {
         'title': 'Synthetic native-work analysis', 'due_at': '2099-01-02T00:00:00Z'})
     create_schema = registry.get_entry('crm_work_create', scope=manager.scope_key).schema['parameters']
@@ -253,10 +254,19 @@ with patch.object(socket, 'create_connection', deny_network), \
         'task_id': work_task['id'], 'expected_task_version': work_task['version'], 'human_owner': 'Synthetic Native Owner',
         'prompt': 'Summarize this existing CRM task using internal records only.',
         'success_criteria': 'One concise internal summary for human review.',
-        'run_at': '2099-01-01T00:00:00Z', 'idempotency_key': 'native-host-work-intent'}
-    work = tool('crm_work_create', work_request)
+        'run_at': '2099-01-01T00:00:00.123456Z', 'idempotency_key': 'native-host-work-intent'}
+    save_body = {**work_request, 'workspace_token': token}
+    work = request('POST', '/work', 201, json=save_body)
+    assert work['payload']['run_at'] == '2099-01-01T00:00:00.123456+00:00'
+    assert tool('crm_work_create', work_request) == work
+    assert request('POST', '/work', 201, json=save_body) == work
+    request('POST', '/work', 409, json={**save_body, 'workspace_token': 'stale-profile-token'})
+    for extra in ({'approved': True}, {'profile': 'foreign'}, {'backend': 'sqlite'}):
+        request('POST', '/work', 422, json={**save_body, **extra})
+    request('POST', '/work', 409, json={**save_body, 'expected_task_version': 2, 'idempotency_key': 'stale-rest'})
     assert work['payload']['expected_task_version'] == work_task['version']
     for bad_version in (None, True, '1', 1.0, 0):
+        request('POST', '/work', 422, json={**save_body, 'expected_task_version': bad_version})
         rejected = raw_tool('crm_work_create', {**work_request, 'expected_task_version': bad_version})
         assert not rejected['ok'] and rejected['status'] == 422, rejected
     stale = raw_tool('crm_work_create', {**work_request, 'expected_task_version': 2, 'idempotency_key': 'stale'})
@@ -313,13 +323,16 @@ with patch.object(socket, 'create_connection', deny_network), \
     # Original approved version replays exactly after the source is completed;
     # changed approval with the same key conflicts, and no replacement is saved.
     tool('crm_task_update', {'id': work_task['id'], 'version': work_task['version'], 'status': 'done'})
-    replay = tool('crm_work_create', work_request)
+    replay = request('POST', '/work', 201, json=save_body)
+    assert tool('crm_work_create', work_request) == replay
     assert replay['id'] == work['id'] and replay['payload'] == work['payload']
     assert not replay['source_task_current'] and replay['business_task_completed']
     assert len(replay['events']) == 1
     work = replay
     changed = raw_tool('crm_work_create', {**work_request, 'expected_task_version': 2})
     assert not changed['ok'] and changed['status'] == 409, changed
+    request('POST', '/work', 409, json={**save_body, 'expected_task_version': 2})
+    request('POST', '/work', 409, json={**save_body, 'expected_task_version': 2, 'idempotency_key': 'done-source'})
     review = request('GET', '/reports/coverage', params={'workspace_token': token, 'status': 'needs_scheduling_review'})
     assert review['total'] == 1 and review['items'][0]['task']['status'] == 'done'
     assert review['items'][0]['assignment']['id'] == work['id']
@@ -336,6 +349,8 @@ with patch.object(socket, 'create_connection', deny_network), \
     # Secondary requests use the real host profile router / private plugin-host IPC.
     other_meta = request('GET', '/meta?profile=crm-test-other')
     assert other_meta['workspace_token'] != token
+    request('POST', '/work?profile=crm-test-other', 409, json=save_body)
+    request('POST', '/work', 409, json={**save_body, 'workspace_token': other_meta['workspace_token']})
     other_work_scope = {'workspace_token': other_meta['workspace_token'], 'profile': 'crm-test-other'}
     assert request('GET', '/work', params=other_work_scope) == []
     for path in ('/reports/work', '/reports/coverage'):

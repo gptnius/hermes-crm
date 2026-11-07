@@ -1,6 +1,19 @@
-# Prepare agent work and inspect follow-up coverage
+# Save agent assignments and inspect follow-up coverage
 
-The native CRM can prepare a task-specific request beside the existing Hermes conversation and show paged, server-derived coverage evidence. Preparation is not dispatch. The user reviews the text, pastes it into the matching native chat and uses the host's normal Send action. There is no automatic prompt submission, direct cron button, email adapter or enabled Run now bridge.
+The native CRM can save real future internal-work assignments directly, prepare a task-specific request beside the existing Hermes conversation, and show paged, server-derived coverage evidence. Saving is not scheduling; preparation is not dispatch. For execution requests, the user reviews the text, pastes it into the matching native chat and uses the host's normal Send action. There is no automatic prompt submission, direct cron button, email adapter or enabled Run now bridge.
+
+## Save a future assignment in CRM
+
+1. Open an existing open follow-up and choose **Save future assignment**. No open native conversation is required.
+2. Enter the human owner, reviewed instructions, success criteria and an explicit offset-aware future run time. The owner is an accountability label, not a permission grant; run time is separate from the business due date. The form requires a five-minute buffer for new work.
+3. Choose **Review assignment**, check the exact task/version, fields and request key, then choose **Save assignment**. Preview alone writes nothing. The authenticated local REST handler atomically binds the source task version and saves the same native-work intent used by agent tools. It never receives a tool context or calls a scheduler or model.
+4. The exact returned assignment is pinned independently of the history page, and history refreshes. **Saved, not scheduled** means exactly that: there is no native job yet. Use its **Prepare scheduling for saved assignment** action for a separately reviewed native-chat request.
+
+If saving is not confirmed, the form retains the immutable request and key and offers **Retry same save**. Replaying that exact request can recover its original assignment even if the task subsequently changes or the run time passes. It does not authorize execution. A rejected, malformed or lost response is not treated as proof of no save; the form cannot silently generate a replacement. Missing history is not proof of no save either.
+
+Recovery fields remain available across panel closure, sibling CRM views and profile changes within the same plugin lifetime. **An app/plugin reload loses this in-memory recovery panel.** Keep the selectable exact request before reloading and reconcile that key through the native agent if necessary. Confirmed assignments themselves are stored durably in the CRM. Closing a form does not cancel an in-flight save.
+
+After a confirmed save, **Save another future assignment** explicitly starts additional intent with a new key. It does not replace or cancel the earlier assignment; review existing history first. The backend profile from scoped CRM metadata is distinct from a Desktop display-profile alias, and both are kept bound to the captured workspace.
 
 ## Prepare a request
 
@@ -18,7 +31,7 @@ Preparation lives only in the mounted CRM view. Closing it, switching scope or d
 
 ## Saving and scheduling are separate
 
-A future preparation asks the real native agent to call `crm_work_create` and save intent only. It must return the assignment ID and actual saved state. Refresh saved history to see that evidence; copying a request does not create a history row or scheduling badge.
+Direct **Save future assignment** is the shortest path to real saved intent. The older future-preparation option also remains available: it asks the real native agent to call `crm_work_create` and save intent only. It must return the assignment ID and actual saved state. Refresh saved history to see that evidence; copying a request does not create a history row or scheduling badge.
 
 For an exact saved assignment, the UI can prepare **Ask to schedule saved assignment**, **Ask to check assignment** or **Ask to cancel future assignment**. Each preview/copy re-reads that assignment, including its version, generation, frozen fields and bound job ID.
 

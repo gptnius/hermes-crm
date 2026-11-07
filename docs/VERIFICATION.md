@@ -2,6 +2,49 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Direct assignment-saving increment
+
+The native CRM now saves a real future internal-analysis assignment through an
+explicit review and Save action, without requiring an open conversation. The
+new authenticated `POST /work` route writes local intent through the existing
+atomic native-work store. It cannot dispatch a tool, model or scheduler. Exact
+receipts and paged history show **Saved, not scheduled** separately from later
+native-chat scheduling requests.
+
+Verification on November 7, 2026:
+
+- Full default Python regression: **541 passed, 259 opt-in cases skipped**,
+  with three dependency warnings. Save contracts cover strict inputs, captured
+  workspace/profile, atomic expected version, stale/done source rejection,
+  exact idempotent replay after source changes, and zero host dispatch.
+- Actual pinned-host authenticated ASGI/IPC: **two cases passed**, one in each
+  plugin isolation mode. They exercise direct saving, token/profile boundaries,
+  source conflicts and replay through the real host routes. The isolated guard
+  forbids network/model calls and original-home access. An independent reviewer
+  reran both cases successfully.
+- All six UI suites passed, including real React 19.3.0, pinned-source chat and
+  the expanded assignment suite. Save regressions cover exact microseconds and
+  keys, no-chat use, duplicate/stale writes, malformed/lost replies, profile and
+  reconnect A→B→A, backend-profile aliases, a second deliberate assignment,
+  receipt/history presentation, and focus return after closure. The unchanged,
+  disabled execution bridge passed **25 tests**, including its SQLite adapter.
+- Independent source/documentation review found no remaining actionable issue
+  in this Save-only increment. Syntax and whitespace checks passed.
+
+No database schema changed. The earlier 123 PostgreSQL native-work/coverage
+checks below remain historical evidence. A fresh optional rerun was blocked at
+disposable-cluster startup by the environment's Unix-socket restriction; the
+server shut down before any tests ran. This is not a new PostgreSQL pass.
+
+Unconfirmed-save recovery is retained only for the plugin lifetime, with an
+explicit reload warning and selectable original request. Confirmed intent is
+durable. A lost response is not proof of no write, and the UI offers only the
+same-key replay, not an automatic replacement. Native pixels, physical
+keyboard/focus behavior, actual chat Send and real-model execution of these
+requests were not tested. No direct native Send, provider adapter or external
+communication was enabled. The separate Google Workspace assessment is
+source-only; see [its exact limits](GOOGLE_WORKSPACE_ASSESSMENT.md).
+
 ## Assignment request and coverage increment
 
 The native Tasks view now prepares explicit requests beside the genuine native conversation and shows paged coverage/history evidence. Preview and Copy re-read scoped source records; preparation does not save intent, submit a prompt or schedule work. The user must paste, review and use native Send. New create requests include an atomic `expected_task_version` check; exact legacy omission and original-version replay remain supported. No tool names or scheduled toolsets were added.

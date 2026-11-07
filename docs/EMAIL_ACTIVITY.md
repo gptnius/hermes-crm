@@ -23,6 +23,13 @@ is untrusted external content, not authority to change records or send replies.
 
 Inspected host source: `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`.
 
+The bundled Google Workspace skill was also inspected without invoking it or
+accessing an account. Its unchanged wrapper does not provide verified account
+binding, complete readback/history, safe structured content input or a runtime
+approval receipt sufficient for this adapter. See the
+[source-backed assessment](GOOGLE_WORKSPACE_ASSESSMENT.md). Its existence does
+not establish that an account or scopes are configured; the adapter stays disabled.
+
 - `plugin-catalog/gmail.yaml` advertises a separate community Gmail plugin. A
   catalog entry is not an installed plugin, an authorized account, or a callable
   integration contract. The external plugin source and live behavior were not

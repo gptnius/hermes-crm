@@ -22,7 +22,7 @@ const originalWork = { id: 'a1', task_id: 't1', version: 2, generation: 1, state
 async function fixture(options = {}) {
   const state = { profile: atom('work'), connectionId: atom('source-a'), gateway: atom('open'), cwd: atom('/synthetic'), activeSessionId: atom('runtime-A'), focusedSessionId: atom('runtime-A'), focusedStoredSessionId: atom('stored-A'), focusedSessionOwner: atom({ connectionId: 'source-a', profile: 'work' }) };
   const epoch = atom(1), disposers = [], intervals = new Set(), timers = new Set(), calls = [], copies = [], opened = [], navigation = [], focus = [];
-  const e = { state, epoch, disposers, calls, copies, opened, navigation, focus, task: clone(originalTask), work: clone(originalWork), token: 'workspace-secret', taskGate: null, workGate: null, copyGate: null, taskError: false, coverageError: false, historyError: false, copyResult: true, closed: false, viewRequest: { current: 0 }, coveragePages: null, historyPages: null };
+  const e = { state, epoch, disposers, calls, copies, opened, navigation, focus, task: clone(originalTask), work: clone(originalWork), token: 'workspace-secret', taskGate: null, workGate: null, copyGate: null, taskError: false, coverageError: false, historyError: false, copyResult: true, closed: false, viewRequest: { current: 0 }, coveragePages: null, historyPages: null, writes: [], savedWorks: new Map(), saveGate: null, saveError: false, readonly: false, focusTargets: [], nodeMocks: [] };
   const host = { state, composer: new Proxy({}, { get() { throw Error('Composer must never be accessed'); } }), navigate(path) { navigation.push(path); }, revealPane() {}, paneVisibility: () => ({ get: () => true }), openWorkspace(id, value) { opened.push({ id, ...value }); return () => {}; } };
   const useValue = a => React.useSyncExternalStore(a.subscribe, a.get, a.get);
   const sdk = { host, atom, useValue, gatewayActivationEpoch: epoch.get, useGatewayActivationEpoch: () => useValue(epoch), PANES_AREA: 'panes', ROUTES_AREA: 'routes', SIDEBAR_NAV_AREA: 'sidebar.nav', PALETTE_AREA: 'palette' };
@@ -30,15 +30,34 @@ async function fixture(options = {}) {
     setInterval(f) { intervals.add(f); return () => intervals.delete(f); },
     setTimeout(f) { const timer = setTimeout(() => { timers.delete(timer); f(); }, 1); timers.add(timer); return () => { clearTimeout(timer); timers.delete(timer); }; },
     async rest(path, requestOptions) {
-      assert.equal(requestOptions, undefined, 'Assignment UI is read-only'); calls.push(path);
+      calls.push(path);
+      if (path === '/work' && requestOptions?.method === 'POST') {
+        const body = clone(requestOptions.body); e.writes.push(body);
+        assert.equal(body.workspace_token, e.token);
+        assert.equal(Object.keys(body).sort().join(','), 'expected_task_version,human_owner,idempotency_key,prompt,run_at,success_criteria,task_id,workspace_token');
+        if (e.saveError) throw Error('Secret backend failure must not be echoed');
+        let saved = e.savedWorks.get(body.idempotency_key);
+        if (!saved) {
+          if (body.expected_task_version !== e.task.version || e.task.status !== 'open') throw Error('Source task changed');
+          const fraction = /\.(\d{1,6})/.exec(body.run_at)?.[1] || '';
+          const run_at = new Date(body.run_at).toISOString().replace(/\.\d{3}Z$/, `.${fraction.padEnd(6, '0')}+00:00`);
+          saved = { ...clone(originalWork), id: `saved-work-${e.savedWorks.size + 1}`, version: 1, workspace: e.token, profile: 'work', idempotency_key: body.idempotency_key,
+            payload: { task_id: body.task_id, task_version: body.expected_task_version, expected_task_version: body.expected_task_version, task_status: 'open',
+              human_owner: body.human_owner, prompt: body.prompt, success_criteria: body.success_criteria, run_at } };
+          e.savedWorks.set(body.idempotency_key, saved);
+        }
+        return e.saveGate ? e.saveGate.promise : e.saveReply ? e.saveReply(clone(saved)) : clone(saved);
+      }
+      assert.equal(requestOptions, undefined, 'Only explicit local assignment Save may write');
       const params = new URLSearchParams(path.split('?')[1]);
       if (path !== '/snapshot') assert.equal(params.get('workspace_token'), e.token);
       if (path.startsWith('/tasks/t1?')) { if (e.taskError) throw Error('Synthetic task read failure'); return e.taskGate ? e.taskGate.promise : clone(e.task); }
       if (path.startsWith('/work/a1?')) return e.workGate ? e.workGate.promise : clone(e.work);
+      if (path.startsWith('/work/saved-work-')) return clone([...e.savedWorks.values()].find(w => path.startsWith(`/work/${w.id}?`)));
       if (path.startsWith('/reports/work?')) { if (e.historyError) throw Error('Untrusted provider detail must not be shown'); return e.historyPages?.(params) || { items: [clone(e.work)], total: 1, limit: 25, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00+00:00' }; }
       if (path.startsWith('/reports/coverage?')) { if (e.coverageError) throw Error('Private raw provider error'); return e.coveragePages?.(params) || { items: [], total: 0, limit: 50, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00+00:00', workspace_token: e.token }; }
       if (path.startsWith('/tasks?')) return [clone(e.task)];
-      if (path === '/snapshot') return { meta: { workspace_token: e.token, backend: 'sqlite' }, contacts: [], deals: [], tasks: [clone(e.task)], activity: [], overview: { contacts: 0, open_tasks: 1, overdue_tasks: 0, open_deals: 0, stages: [], tasks: [clone(e.task)], activity: [] } };
+      if (path === '/snapshot') return { meta: { workspace_token: e.token, profile: 'work', backend: 'sqlite' }, contacts: [], deals: [], tasks: [clone(e.task)], activity: [], overview: { contacts: 0, open_tasks: 1, overdue_tasks: 0, open_deals: 0, stages: [], tasks: [clone(e.task)], activity: [] } };
       throw Error(`Unexpected route ${path}`);
     } };
   const context = vm.createContext({ console, Intl, URLSearchParams, crypto: webcrypto });
@@ -46,10 +65,10 @@ async function fixture(options = {}) {
   await mod.link(name => { const exports = name === 'react' ? React : name === '@hermes/plugin-sdk' ? sdk : null; assert.ok(exports); return new vm.SyntheticModule(Object.keys(exports), function () { for (const [k, v] of Object.entries(exports)) this.setExport(k, v); }, { context }); }); await mod.evaluate();
   const api = mod.namespace; api.default.register(ctx);
   const identity = api.routeIdentity(ctx), client = api.createRouteClient(ctx, identity);
-  const props = { ctx, identity, client, task: clone(e.task), workspaceToken: e.token, disabled: false, viewRequest: e.viewRequest, close() { e.closed = true; }, openNativeChat() {}, ...(options.mode ? { mode: options.mode } : {}), ...(options.work ? { work: clone(e.work) } : {}) };
+  const props = { ctx, identity, client, task: clone(e.task), workspaceToken: e.token, workspaceProfile: 'work', disabled: false, viewRequest: e.viewRequest, close() { e.closed = true; }, openNativeChat() {}, ...(options.mode ? { mode: options.mode } : {}), ...(options.work ? { work: clone(e.work) } : {}) };
   let root;
   e.flush = async () => act(async () => { await new Promise(r => setTimeout(r, 4)); });
-  e.mount = async (name = 'AgentRequest', extra = {}) => { await act(async () => { root = Renderer.create(React.createElement(React.StrictMode, null, React.createElement(api[name], { ...props, ...extra })), { createNodeMock: elem => ({ focus() { focus.push(elem.type); }, ownerDocument: { activeElement: null }, querySelector() { return null; }, querySelectorAll() { return []; } }) }); }); await e.flush(); };
+  e.mount = async (name = 'AgentRequest', extra = {}) => { await act(async () => { root = Renderer.create(React.createElement(React.StrictMode, null, React.createElement(api[name], { ...props, ...extra })), { createNodeMock: elem => { const node = { name: flatten(elem.props.children), isConnected: true, focus() { focus.push(elem.type); e.focusTargets.push(node); }, ownerDocument: { activeElement: null }, querySelector() { return null; }, querySelectorAll() { return []; } }; e.nodeMocks.push(node); return node; } }); }); await e.flush(); };
   e.change = async fn => { await act(async () => { fn(); }); await e.flush(); };
   e.button = name => root.root.findAllByType('button').find(n => flatten(n.children) === name);
   e.click = async name => { const b = e.button(name); assert.ok(b, `Missing ${name}`); assert.notEqual(b.props.disabled, true, `Disabled ${name}`); await e.change(() => b.props.onClick()); };
@@ -273,3 +292,143 @@ for (const field of ['Coverage filter', 'Search coverage']) {
 }
 
 console.log('PASS assignment Preview/Copy read-only contracts; exact version/key/time/tool text; stale task/assignment/form/view/profile/chat ABA guards; async locks and clipboard uncertainty; paginated evidence queue/history; distinct report/host/task states; editor-safe native split and local discard. Real native clipboard/layout/Send and provider execution are not tested.');
+
+// Explicit Save is a real local intent write, independent of chat; Review never writes.
+{
+  const e = await fixture({ noClipboard: true });
+  for (const name of ['activeSessionId', 'focusedSessionId', 'focusedStoredSessionId', 'focusedSessionOwner']) e.state[name].set(null);
+  await e.mount('SaveAssignment'); await e.fill();
+  await e.input('Future run time with UTC offset', '2030-11-10T14:00:00.123456-05:00');
+  await e.click('Review assignment'); assert.equal(e.writes.length, 0);
+  const preview = JSON.parse(e.field('Exact assignment to save').props.value);
+  assert.equal(preview.expected_task_version, 3); assert.equal(preview.run_at, '2030-11-10T14:00:00.123456-05:00');
+  assert.equal(preview.workspace_token, undefined); assert.ok(preview.idempotency_key);
+  assert.equal(e.field('Exact assignment to save').props.readOnly, true);
+  const save = e.button('Save assignment').props.onClick;
+  await e.change(() => { save(); save(); }); assert.equal(e.writes.length, 1);
+  assert.equal(e.writes[0].idempotency_key, preview.idempotency_key);
+  const saved = [...e.savedWorks.values()][0];
+  assert.equal(saved.payload.run_at, '2030-11-10T19:00:00.123456+00:00');
+  assert.match(e.text(), /Saved, not scheduled\. Assignment saved-work-1 · Version 1/);
+  assert.equal(saved.state, 'pending'); assert.equal(saved.job_id, null);
+  assert.equal(e.copies.length, 0); assert.equal(e.opened.length, 0); assert.equal(e.navigation.length, 0);
+  await e.finish();
+}
+// The exact save receipt is independent of unrelated or failed oldest history pages.
+for (const failedHistory of [false, true]) {
+  const e = await fixture();
+  e.historyPages = params => ({ items: [clone(originalWork)], total: 701, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00+00:00' });
+  await e.mount('TaskWork', { snapshotGeneration: 1, companion: true });
+  await e.click('Save future assignment'); await e.fill(); await e.click('Review assignment');
+  const before = e.calls.filter(p => p.startsWith('/reports/work')).length; e.historyError = failedHistory;
+  await e.click('Save assignment');
+  assert.ok(e.calls.filter(p => p.startsWith('/reports/work')).length > before);
+  assert.match(e.text(), /Saved, not scheduled/); assert.match(e.text(), /Assignment saved-work-1 · Version 1/);
+  assert.match(e.text(), /701 saved assignments/); assert.match(e.text(), /a1/);
+  if (failedHistory) assert.match(e.text(), /history could not be refreshed/);
+  await e.click('Close assignment form'); await e.click('Prepare scheduling for saved assignment'); await e.click('Preview request');
+  assert.match(e.preview(), /"assignment_id": "saved-work-1"/); assert.match(e.preview(), /"assignment_version": 1/);
+  assert.equal(e.writes.length, 1); await e.finish();
+}
+// Failed or lost writes freeze the request, including across remounts and source changes.
+for (const failure of ['rejected', 'lost', 'malformed']) {
+  const e = await fixture(); await e.mount('SaveAssignment'); await e.fill(); await e.click('Review assignment');
+  if (failure === 'rejected') e.saveError = true;
+  if (failure === 'lost') e.saveGate = deferred();
+  if (failure === 'malformed') e.saveReply = row => ({ ...row, payload: { ...row.payload, run_at: '2030-11-10T19:00:00.000001+00:00' } });
+  await e.click('Save assignment');
+  if (failure === 'lost') await e.change(() => e.saveGate.reject(Error('Lost response')));
+  assert.match(e.text(), /Save was not confirmed/); assert.doesNotMatch(e.text(), /Saved, not scheduled|Secret backend/);
+  const frozen = e.field('Exact assignment to save').props.value;
+  assert.equal(e.root().root.findAllByProps({ 'aria-label': 'Reviewed instructions' }).length, 0);
+  await e.unmount(); await e.mount('SaveAssignment');
+  assert.equal(e.field('Exact assignment to save').props.value, frozen); assert.equal(e.button('Save assignment'), undefined);
+  if (failure !== 'rejected') { e.task.version = 4; e.task.status = 'done'; }
+  e.saveError = false; e.saveGate = null; e.saveReply = null;
+  await e.click('Retry same save'); assert.deepEqual(e.writes[1], e.writes[0]);
+  assert.equal(e.savedWorks.size, 1); assert.match(e.text(), /Saved, not scheduled/); await e.finish();
+}
+// Stale task, edited form, closed form and disabled snapshot callbacks never write.
+for (const change of ['source', 'fields', 'selection', 'close']) {
+  const e = await fixture(); await e.mount('SaveAssignment'); await e.fill();
+  if (change === 'source') e.task.version++;
+  await e.click('Review assignment');
+  if (change === 'source') { assert.match(e.text(), /source task changed/); assert.equal(e.button('Save assignment'), undefined); }
+  else {
+    const save = e.button('Save assignment').props.onClick;
+    if (change === 'fields') await e.input('Reviewed instructions', 'Changed before save');
+    if (change === 'selection') e.viewRequest.current++;
+    if (change === 'close') await e.click('Close assignment form');
+    await e.change(save);
+  }
+  assert.equal(e.writes.length, 0); await e.finish();
+}
+{
+  const e = await fixture(); await e.mount('SaveAssignment', { disabled: true });
+  await e.change(() => e.button('Review assignment').props.onClick()); assert.equal(e.calls.length, 0); await e.finish();
+}
+// ABA prevents a late save response being shown as current, but preserves exact recovery.
+for (const boundary of ['review', 'write']) for (const change of ['profile', 'connection', 'reconnect', 'selection', 'unmount']) {
+  const e = await fixture(); await e.mount('SaveAssignment'); await e.fill();
+  const gate = deferred();
+  if (boundary === 'write') { await e.click('Review assignment'); e.saveGate = gate; await e.click('Save assignment'); }
+  else { e.taskGate = gate; await e.click('Review assignment'); }
+  if (change === 'profile') await e.change(() => { e.state.profile.set('other'); e.state.profile.set('work'); });
+  if (change === 'connection') await e.change(() => { e.state.connectionId.set('other'); e.state.connectionId.set('source-a'); });
+  if (change === 'reconnect') await e.change(() => { e.state.gateway.set('closed'); e.state.gateway.set('open'); });
+  if (change === 'selection') e.viewRequest.current++;
+  if (change === 'unmount') await e.unmount();
+  await e.change(() => gate.resolve(boundary === 'write' ? clone([...e.savedWorks.values()][0]) : clone(e.task)));
+  if (boundary === 'review') assert.equal(e.writes.length, 0);
+  else if (['profile', 'connection', 'reconnect'].includes(change)) {
+    assert.doesNotMatch(e.text(), /Saved, not scheduled/);
+    await e.unmount(); const identity = e.api.routeIdentity(e.ctx), client = e.api.createRouteClient(e.ctx, identity);
+    e.saveGate = null; await e.mount('SaveAssignment', { identity, client });
+    await e.click('Retry same save'); assert.deepEqual(e.writes[1], e.writes[0]); assert.equal(e.savedWorks.size, 1);
+    assert.match(e.text(), /Saved, not scheduled/); client.dispose();
+  }
+  await e.finish();
+}
+// An unresolved save survives normal record navigation; another create cannot be prepared blindly.
+{
+  const e = await fixture(); await e.mount('TaskWork', { snapshotGeneration: 1, companion: true });
+  await e.click('Save future assignment'); await e.fill(); await e.click('Review assignment'); e.saveError = true; await e.click('Save assignment');
+  await e.click('Close assignment form'); assert.equal(e.button('Prepare agent request').props.disabled, true);
+  await e.click('Recover unconfirmed save'); assert.ok(e.button('Retry same save')); assert.equal(e.button('Review assignment'), undefined);
+  await e.finish();
+}
+console.log('PASS explicit local Save: actual reviewed POST, no chat requirement/dispatch, exact microseconds/key/version, history refresh and exact receipt, stale/readonly/duplicate guards, frozen failure/lost-response replay and profile/connection/reconnect ABA recovery.');
+// Only a confirmed receipt unlocks an explicit additional assignment, never a replacement.
+{
+  const e = await fixture(); await e.mount('TaskWork', { snapshotGeneration: 1, companion: true });
+  await e.click('Save future assignment'); await e.fill(); await e.click('Review assignment'); await e.click('Save assignment'); await e.click('Close assignment form');
+  const first = clone(e.writes[0]); await e.click('Save another future assignment');
+  assert.match(e.text(), /Earlier saved assignment saved-work-1 remains unchanged/);
+  await e.fill(); await e.click('Review assignment'); await e.click('Save assignment');
+  assert.notEqual(e.writes[1].idempotency_key, first.idempotency_key); assert.equal(e.savedWorks.size, 2);
+  assert.equal(e.savedWorks.get(first.idempotency_key).state, 'pending'); assert.equal(e.savedWorks.get(first.idempotency_key).job_id, null);
+  assert.match(e.text(), /Assignment saved-work-2 · Version 1/); await e.finish();
+}
+// A Desktop route/display alias is not the backend profile. Only snapshot metadata binds it.
+{
+  const e = await fixture(); e.state.profile.set('display-alias');
+  const identity = e.api.routeIdentity(e.ctx), client = e.api.createRouteClient(e.ctx, identity);
+  await e.mount('SaveAssignment', { identity, client, workspaceProfile: 'work' }); await e.fill(); await e.click('Review assignment'); await e.click('Save assignment');
+  assert.match(e.text(), /Saved, not scheduled/); assert.equal(e.writes.length, 1); client.dispose(); await e.finish();
+}
+// Closing Save restores its exact initiating control or current task heading, never a stale node/route.
+for (const targetState of ['connected', 'disconnected', 'task-done', 'profile-aba']) {
+  const e = await fixture(); const heading = { focus() { e.focusTargets.push(heading); } };
+  const task = clone(originalTask); await e.mount('TaskWork', { task, snapshotGeneration: 1, companion: true, taskHeadingRef: { current: heading } });
+  const launcher = e.nodeMocks.findLast(n => n.name === 'Save future assignment'); assert.ok(launcher);
+  await e.change(() => e.button('Save future assignment').props.onClick({ currentTarget: launcher }));
+  if (targetState !== 'connected') launcher.isConnected = false;
+  if (targetState === 'task-done') task.status = 'done';
+  if (targetState === 'profile-aba') await e.change(() => { e.state.profile.set('other'); e.state.profile.set('work'); });
+  const before = e.focusTargets.length; await e.click('Close assignment form');
+  if (targetState === 'profile-aba') assert.equal(e.focusTargets.length, before);
+  else if (targetState === 'connected') assert.equal(e.focusTargets.at(-1), launcher);
+  else if (targetState === 'task-done') assert.equal(e.focusTargets.at(-1), heading);
+  else { assert.notEqual(e.focusTargets.at(-1), launcher); assert.equal(e.focusTargets.at(-1).name, 'Save future assignment'); }
+  assert.equal(e.writes.length, 0); await e.finish();
+}

@@ -30,6 +30,19 @@ class DemoRequest(BaseModel):
     workspace_token: str = Field(min_length=1, max_length=80)
 
 
+class WorkSaveRequest(BaseModel):
+    """Reviewed local intent, never a dispatch request or caller-selected profile."""
+    model_config = ConfigDict(extra='forbid', strict=True)
+    workspace_token: str = Field(min_length=1, max_length=80)
+    task_id: str = Field(min_length=1, max_length=36)
+    expected_task_version: int = Field(ge=1)
+    human_owner: str = Field(min_length=1, max_length=160)
+    prompt: str = Field(min_length=1, max_length=50000)
+    success_criteria: str = Field(min_length=1, max_length=10000)
+    run_at: str = Field(min_length=1, max_length=80)
+    idempotency_key: str = Field(min_length=1, max_length=160)
+
+
 @contextmanager
 def service():
     crm = None
@@ -150,6 +163,17 @@ def work_detail(request: Request, assignment_id: str = Path(..., min_length=1, m
         validate_query(request.query_params, {'workspace_token', 'profile'})
         require_workspace(crm, workspace_token)
         return NativeWorkStore(crm, initialize=False).get(assignment_id)
+
+
+@router.post('/work', status_code=201)
+def save_work(request: Request, body: WorkSaveRequest):
+    """Save durable intent only. There is no native tool/cron/model context here."""
+    with service() as crm:
+        # Hermes resolves profile routing. No request field can choose a backend
+        # or override that profile, and the captured token must match it.
+        validate_query(request.query_params, {'profile'})
+        require_workspace(crm, body.workspace_token)
+        return NativeWorkStore(crm).create(**body.model_dump(exclude={'workspace_token'}))
 
 
 @router.get('/{kind}')

@@ -63,6 +63,12 @@ export function initializeLifetime(ctx) {
     chatGeneration: sdk.atom(0),
     retainedView: null,
     chatWorkspace: null,
+    // Keep an uncertain local save across panel remounts and route ABA. Never
+    // store this in browser storage or infer that a missing history row is safe
+    // to replace. A second pane shares the same per-task write lock and key.
+    assignmentSaves: new Map(),
+    assignmentReceipts: new Map(),
+    assignmentSaveGeneration: sdk.atom(0),
   };
   const stops = [];
   const bump = () => {
@@ -578,6 +584,122 @@ export function AgentRequest({ ctx, identity, client, task, workspaceToken, mode
       button("Copy request", () => validate(true), { disabled: disabled || busy || typeof ctx.os?.writeClipboard !== "function" }),
       typeof ctx.os?.writeClipboard !== "function" && h("p", null, "Clipboard is unavailable. Select the exact preview and copy manually; verify its scope and current task before native Send."))
       : h("p", { role: "status" }, "The task, form, route or native chat changed. Preview again before copying.")),
+    status && h("p", { role: "status", className: "hc-notice" }, status));
+}
+
+function assignmentSaveScope(identity, workspaceToken, taskId, workspaceProfile) {
+  return JSON.stringify([...JSON.parse(identity).slice(0, 2), workspaceToken, taskId, workspaceProfile]);
+}
+function publishAssignmentSave(lifetime) {
+  lifetime.assignmentSaveGeneration.set(lifetime.assignmentSaveGeneration.get() + 1);
+}
+function instantMicros(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) return null;
+  const fraction = /\.(\d{1,6})/.exec(value)?.[1] || "";
+  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3));
+}
+function confirmedAssignment(work, body, profile) {
+  const payload = work?.payload;
+  return validId(work?.id) && positiveVersion(work.version) && positiveVersion(work.generation) &&
+    work.task_id === body.task_id && work.workspace === body.workspace_token && work.profile === profile &&
+    work.idempotency_key === body.idempotency_key && payload?.task_id === body.task_id &&
+    payload.expected_task_version === body.expected_task_version && payload.task_version === body.expected_task_version &&
+    payload.human_owner === body.human_owner && payload.prompt === body.prompt && payload.success_criteria === body.success_criteria &&
+    instantMicros(payload.run_at) !== null && instantMicros(payload.run_at) === instantMicros(body.run_at);
+}
+export function SaveAssignment({ ctx, identity, client, task, workspaceToken, workspaceProfile, disabled, viewRequest, close, onSaved }) {
+  const lifetime = lifetimes.get(ctx);
+  useValue(lifetime.assignmentSaveGeneration);
+  const scope = assignmentSaveScope(identity, workspaceToken, task.id, workspaceProfile);
+  const entry = lifetime.assignmentSaves.get(scope);
+  const [fields, setFields] = useState({ owner: "", instructions: "", criteria: "", runAt: "" });
+  const [preview, setPreview] = useState(null), [status, setStatus] = useState(""), [busy, setBusy] = useState(false);
+  const mounted = useRef(false), generation = useRef(0), lock = useRef(false), latest = useRef(null), startRef = useRef(null), reviewed = useRef(null);
+  const viewRevision = viewRequest.current;
+  latest.current = { task, workspaceToken, workspaceProfile, disabled, viewRevision };
+  useEffect(() => { mounted.current = true; startRef.current?.focus(); return () => { mounted.current = false; generation.current++; }; }, []);
+  const canAct = () => mounted.current && !disabled && !latest.current.disabled && client.current() &&
+    latest.current.task === task && workspaceToken === latest.current.workspaceToken && typeof workspaceProfile === "string" && workspaceProfile.length > 0 &&
+    workspaceProfile === latest.current.workspaceProfile && viewRevision === viewRequest.current;
+  function update(name, value) {
+    if (lifetime.assignmentSaves.has(scope) || !canAct()) return;
+    generation.current++; reviewed.current = null; setPreview(null); setStatus(""); setFields(old => ({ ...old, [name]: value }));
+  }
+  async function review() {
+    if (!canAct() || lock.current || lifetime.assignmentSaves.has(scope)) return;
+    lock.current = true; setBusy(true); setStatus("");
+    const ticket = ++generation.current;
+    try {
+      if (!validId(task.id) || !positiveVersion(task.version) || task.status !== "open") throw new Error("Reopen a saved open task before creating an assignment.");
+      if (!fields.owner.trim() || fields.owner.length > 160 || !fields.instructions.trim() || fields.instructions.length > 50000 || !fields.criteria.trim() || fields.criteria.length > 10000)
+        throw new Error("Enter a human owner, reviewed instructions and success criteria within the displayed limits.");
+      requestInstant(fields.runAt);
+      const fresh = await client.request(`/tasks/${encodeURIComponent(task.id)}?${new URLSearchParams({ workspace_token: workspaceToken })}`);
+      if (!canAct() || ticket !== generation.current || lifetime.assignmentSaves.has(scope)) return;
+      if (fresh?.id !== task.id || fresh.version !== task.version || fresh.status !== "open") throw new Error("The source task changed or is no longer open. Reopen it before saving new work.");
+      requestInstant(fields.runAt);
+      const body = Object.freeze({ task_id: task.id, expected_task_version: task.version, human_owner: fields.owner.trim(),
+        prompt: fields.instructions.trim(), success_criteria: fields.criteria.trim(), run_at: fields.runAt,
+        idempotency_key: preview?.idempotency_key || crypto.randomUUID(), workspace_token: workspaceToken });
+      reviewed.current = { task, viewRevision, body }; setPreview(body);
+      setStatus("Review this exact assignment, then choose Save assignment. Nothing has been saved or scheduled.");
+    } catch (error) { if (canAct() && ticket === generation.current) { setPreview(null); setStatus(error.message); } }
+    finally { lock.current = false; if (mounted.current) setBusy(false); }
+  }
+  async function save() {
+    if (!canAct() || lock.current) return;
+    let pending = lifetime.assignmentSaves.get(scope);
+    if (pending?.active || pending?.work || (!pending && !preview)) return;
+    // First write freezes reviewed fields before touching transport. Retries
+    // deliberately skip a fresh-task/future check: exact recovery is valid even
+    // after the source changed or time elapsed; backend create decides atomically.
+    if (!pending) {
+      if (reviewed.current?.task !== task || reviewed.current?.viewRevision !== viewRevision || reviewed.current?.body !== preview) { setPreview(null); setStatus("The form or record selection changed. Review the assignment again before saving."); return; }
+      try { requestInstant(preview.run_at); } catch (error) { setStatus(error.message); return; }
+      pending = { body: preview, active: false, work: null };
+      lifetime.assignmentSaves.set(scope, pending);
+    }
+    pending.active = true; publishAssignmentSave(lifetime);
+    lock.current = true; setBusy(true); setStatus("");
+    const ticket = ++generation.current;
+    try {
+      const work = await client.request("/work", { method: "POST", body: pending.body });
+      if (!confirmedAssignment(work, pending.body, workspaceProfile)) throw new Error("Unconfirmed assignment response");
+      // An off-screen result may be retained only for its original scoped key;
+      // it cannot navigate, alter a newer form, or authorize a native chat action.
+      pending.work = work;
+      lifetime.assignmentReceipts.set(scope, work);
+      if (canAct() && ticket === generation.current) onSaved?.(work);
+    } catch {
+      // Transport errors, stale route replies and malformed successes all keep
+      // the exact request. No generated replacement key, silent retry or dispatch.
+      if (canAct() && ticket === generation.current) setStatus("Save was not confirmed. Keep this exact request and retry the same save; do not create a replacement. A backend rejection or lost reply may require checking the saved history.");
+    } finally {
+      pending.active = false; publishAssignmentSave(lifetime); lock.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
+  const frozen = entry?.body || preview, readOnly = Boolean(entry), work = entry?.work;
+  const visibleBody = frozen && Object.fromEntries(Object.entries(frozen).filter(([name]) => name !== "workspace_token"));
+  return h("section", { className: "hc-card hc-request", "aria-label": "Save future assignment" },
+    h("div", { className: "hc-row" }, h("h3", { ref: startRef, tabIndex: -1 }, "Save future assignment"),
+      button("Close assignment form", () => { generation.current++; mounted.current = false; close(); })),
+    h("p", { className: "hc-notice" }, "Save durable internal-analysis intent only. This does not schedule a job, run Hermes, send a chat message or complete this follow-up. No open chat is needed to save."),
+    h("p", null, `Task ${task.id} · Reviewed version ${frozen?.expected_task_version || task.version} · Business due time: ${exactTime(task.due_at)}`),
+    !entry && lifetime.assignmentReceipts.has(scope) && h("p", { role: "status", className: "hc-notice" }, `Earlier saved assignment ${lifetime.assignmentReceipts.get(scope).id} remains unchanged. This is an additional assignment with a separate request key, not a replacement or cancellation. Review existing history before saving more work.`),
+    !readOnly && h("div", { className: "hc-fields" },
+      h("label", null, "Human owner", h("input", { "aria-label": "Human owner", value: fields.owner, maxLength: 160, disabled, onChange: e => update("owner", e.target.value) })),
+      h("label", null, "Future run time with UTC offset", h("input", { "aria-label": "Future run time with UTC offset", value: fields.runAt, placeholder: "2030-11-10T14:00:00-05:00", disabled, onChange: e => update("runAt", e.target.value) })),
+      h("label", { className: "hc-wide" }, "Reviewed instructions", h("textarea", { "aria-label": "Reviewed instructions", value: fields.instructions, maxLength: 50000, disabled, onChange: e => update("instructions", e.target.value) })),
+      h("label", { className: "hc-wide" }, "Success criteria", h("textarea", { "aria-label": "Success criteria", value: fields.criteria, maxLength: 10000, disabled, onChange: e => update("criteria", e.target.value) }))),
+    h("p", { className: "hc-muted" }, "Owner is an accountability label, not a permission grant. One-shot run time must be at least five minutes ahead when first saved. Later scheduled work is limited to existing CRM data, without web research, record changes or outreach."),
+    frozen && h("label", null, "Exact assignment to save", h("textarea", { "aria-label": "Exact assignment to save", readOnly: true, value: JSON.stringify(visibleBody, null, 2), rows: 16, spellCheck: false })),
+    entry && !work && h("p", { role: "status", className: "hc-notice" }, entry.active ? "Saving this exact request. Closing the panel does not cancel the save."
+      : "Save remains unconfirmed. Its fields and request key are retained in this plugin session, including after closing this panel or switching profiles. Retry this same save. Before reloading the app/plugin, keep the exact request above for recovery; reloading loses this recovery panel. Missing history is not proof that no assignment was saved."),
+    work && h("p", { role: "status" }, `${work.state === "pending" && work.reason === "not_scheduled" && !work.job_id ? "Saved, not scheduled" : "Saved assignment recovered"}. Assignment ${work.id} · Version ${work.version} · Generation ${work.generation} · State ${label(work.state)} · Native job ${work.job_id || "not bound"}. Saving does not authorize execution.`),
+    h("div", { className: "hc-actions" },
+      !entry && button(busy ? "Checking source task…" : "Review assignment", review, { disabled: disabled || busy }),
+      frozen && !work && button(entry ? "Retry same save" : "Save assignment", save, { disabled: disabled || busy || Boolean(entry?.active) })),
     status && h("p", { role: "status", className: "hc-notice" }, status));
 }
 
@@ -1438,33 +1560,70 @@ export function AssignedWork({ client, task, workspaceToken, snapshotGeneration,
         button("Previous assignments", () => changeHistory(() => setOffset(value => Math.max(0, value - 25))), { disabled: offset === 0 || refreshing }),
         button("Next assignments", () => changeHistory(() => setOffset(value => value + 25)), { disabled: offset + history.length >= result.page.total || refreshing }))));
 }
-function TaskWork({ ctx, identity, client, task, workspaceToken, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork }) {
+export function TaskWork({ ctx, identity, client, task, workspaceToken, workspaceProfile, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork, taskHeadingRef }) {
+  const lifetime = lifetimes.get(ctx);
+  useValue(lifetime.assignmentSaveGeneration);
+  const saveScope = assignmentSaveScope(identity, workspaceToken, task.id, workspaceProfile);
+  const savedEntry = lifetime.assignmentSaves.get(saveScope);
+  const savedWork = savedEntry?.work || lifetime.assignmentReceipts.get(saveScope);
+  const [saving, setSaving] = useState(false), [savedGeneration, setSavedGeneration] = useState(0);
   const [prepared, setPrepared] = useState(null), [notice, setNotice] = useState("");
   const prepareLock = useRef(false), selectedRevision = viewRequest.current;
-  const rootRef = useRef(null), prepareButton = useRef(null), returnFocus = useRef(null), hadPrepared = useRef(false);
+  const rootRef = useRef(null), prepareButton = useRef(null), saveButton = useRef(null), anotherSaveButton = useRef(null);
+  const returnFocus = useRef(null), returnAction = useRef("prepare"), hadPrepared = useRef(false);
   useEffect(() => {
-    if (!prepared && hadPrepared.current) {
-      const target = returnFocus.current?.isConnected ? returnFocus.current : prepareButton.current;
-      target?.focus();
+    if (!prepared && !saving && hadPrepared.current && !disabled && client.current() && selectedRevision === viewRequest.current) {
+      // The launching button can unmount while its form is visible. Prefer the
+      // exact still-connected target, then that action's new button, then the
+      // task heading. Never focus a stale/disconnected node or an old route.
+      const fallback = returnAction.current === "another" ? anotherSaveButton.current || saveButton.current
+        : returnAction.current === "save" ? saveButton.current : prepareButton.current;
+      const target = returnFocus.current?.isConnected ? returnFocus.current : fallback;
+      if (target && target.isConnected !== false) target.focus();
+      else taskHeadingRef?.current?.focus();
     }
-    hadPrepared.current = Boolean(prepared);
-  }, [prepared]);
+    hadPrepared.current = Boolean(prepared || saving);
+  }, [prepared, saving]);
   function prepare(mode = "future", work = null) {
-    if (disabled || prepared || prepareLock.current || selectedRevision !== viewRequest.current || !client.current()) return;
+    if (disabled || saving || prepared || prepareLock.current || selectedRevision !== viewRequest.current || !client.current()) return;
     if (!companion) { if (openNativeChat()) setNotice("Prepare beside native chat: choose this task’s request action in the companion CRM workspace. No request has been created."); return; }
     try {
       const binding = captureChatBinding(ctx, identity);
       prepareLock.current = true;
+      returnAction.current = "prepare";
       returnFocus.current = rootRef.current?.ownerDocument?.activeElement;
       setPrepared({ mode, work, binding }); setNotice("");
     } catch (error) { setNotice(error.message); }
   }
   return h("div", { className: "hc-stack", ref: rootRef },
-    task.status === "open" && !prepared && button("Prepare agent request", () => prepare(), { disabled, ref: prepareButton,
+    !prepared && !saving && (task.status === "open" || savedEntry) && button(savedEntry ? savedEntry.work ? "Review saved assignment" : "Recover unconfirmed save" : "Save future assignment", event => {
+      if (!disabled && !prepareLock.current && selectedRevision === viewRequest.current && client.current()) {
+        returnAction.current = "save"; returnFocus.current = event?.currentTarget || saveButton.current; setSaving(true);
+      }
+    }, { disabled, ref: saveButton }),
+    !prepared && !saving && savedEntry?.work && task.status === "open" && button("Save another future assignment", event => {
+      if (disabled || prepareLock.current || selectedRevision !== viewRequest.current || !client.current() || !lifetime.assignmentSaves.get(saveScope)?.work) return;
+      returnAction.current = "another"; returnFocus.current = event?.currentTarget || anotherSaveButton.current;
+      lifetime.assignmentSaves.delete(saveScope); publishAssignmentSave(lifetime); setSaving(true);
+    }, { disabled, ref: anotherSaveButton }),
+    task.status === "open" && !prepared && !saving && button("Prepare agent request", () => prepare(), { disabled: disabled || Boolean(savedEntry && !savedEntry.work), ref: prepareButton,
       title: companion ? "Prepare reviewable text for this task" : "Open native chat beside CRM before preparing a request" }),
     !companion && h("p", { className: "hc-muted" }, "Request actions first open native chat beside CRM. Choose the same action in that companion workspace to start preparing; unsaved form fields are never moved."),
     task.status !== "open" && h("p", null, "This business task is done. Existing assignments may still need a check or future-schedule cancellation; new work requires deliberate reopening."),
     notice && h("p", { role: "status", className: "hc-notice" }, notice),
+    savedEntry && !savedEntry.work && !saving && h("p", { role: "status", className: "hc-notice" }, "A save for this task is unconfirmed. Recover the exact request before preparing another assignment; closing the form did not cancel it."),
+    saving && h(SaveAssignment, { ctx, identity, client, task, workspaceToken, workspaceProfile, disabled, viewRequest,
+      close: () => setSaving(false), onSaved: () => setSavedGeneration(value => value + 1) }),
+    savedWork && h("section", { className: "hc-notice", "aria-label": "Exact saved assignment" },
+      h("h3", null, savedWork.state === "pending" && savedWork.reason === "not_scheduled" && !savedWork.job_id ? "Saved, not scheduled" : "Exact saved assignment"),
+      h("p", null, `Assignment ${savedWork.id} · Version ${savedWork.version} · Generation ${savedWork.generation} · ${label(savedWork.state)}`),
+      h("p", null, `Requested run: ${exactTime(savedWork.payload.run_at)} · Native job ${savedWork.job_id || "not bound"}`),
+      h("p", null, "This exact save receipt is independent of the history page. It is not a live scheduler check. Native-chat preparation reads the assignment again before using it."),
+      h("div", { className: "hc-actions" },
+        savedWork.state === "pending" && savedWork.reason === "not_scheduled" && savedWork.source_task_current === true && task.status === "open" &&
+          button("Prepare scheduling for saved assignment", () => prepare("schedule", savedWork), { disabled: disabled || saving || Boolean(prepared) }),
+        button("Prepare check for saved assignment", () => prepare("check", savedWork), { disabled: disabled || saving || Boolean(prepared) }),
+        button("Prepare cancellation for saved assignment", () => prepare("cancel", savedWork), { disabled: disabled || saving || Boolean(prepared) }))),
     selectedWork && h("section", { className: "hc-notice", "aria-label": "Exact assignment selected from coverage" },
       h("h3", null, "Selected assignment from coverage"),
       h("p", null, `Assignment ${selectedWork.id} · Version ${selectedWork.version} · Generation ${selectedWork.generation} · ${label(selectedWork.state)}`),
@@ -1472,14 +1631,14 @@ function TaskWork({ ctx, identity, client, task, workspaceToken, snapshotGenerat
       h("p", null, "This exact assignment was read separately; it may not appear on the current history page. Preview will check it again."),
       h("div", { className: "hc-actions" },
         selectedWork.state === "pending" && selectedWork.reason === "not_scheduled" && selectedWork.source_task_current === true && task.status === "open" &&
-          button("Prepare scheduling for selected assignment", () => prepare("schedule", selectedWork), { disabled: disabled || Boolean(prepared) }),
-        button("Prepare check for selected assignment", () => prepare("check", selectedWork), { disabled: disabled || Boolean(prepared) }),
-        button("Prepare cancellation for selected assignment", () => prepare("cancel", selectedWork), { disabled: disabled || Boolean(prepared) }))),
+          button("Prepare scheduling for selected assignment", () => prepare("schedule", selectedWork), { disabled: disabled || saving || Boolean(prepared) }),
+        button("Prepare check for selected assignment", () => prepare("check", selectedWork), { disabled: disabled || saving || Boolean(prepared) }),
+        button("Prepare cancellation for selected assignment", () => prepare("cancel", selectedWork), { disabled: disabled || saving || Boolean(prepared) }))),
     prepared && h(AgentRequest, { ctx, identity, client, task, workspaceToken, viewRequest, disabled,
       mode: prepared.mode, work: prepared.work, initialBinding: prepared.binding,
       close: () => { prepareLock.current = false; setPrepared(null); },
       openNativeChat: () => { if (prepared.binding.current()) openNativeChat(); else setNotice("The native conversation changed. Discard this preparation and select the intended main chat before opening it."); } }),
-    h(AssignedWork, { client, task, workspaceToken, snapshotGeneration, onPrepare: prepare, disabled: disabled || Boolean(prepared) }));
+    h(AssignedWork, { client, task, workspaceToken, snapshotGeneration: `${snapshotGeneration}:${savedGeneration}`, onPrepare: prepare, disabled: disabled || saving || Boolean(prepared) }));
 }
 
 const COVERAGE_FILTERS = {
@@ -1594,7 +1753,7 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
           h("p", { className: "hc-muted" }, "CRM record changes only. Sent and received emails are not synced here."),
           h(Timeline, { rows: activity || [] }),
           h("p", { className: "hc-record-meta" }, isContact ? "Up to 100 recent CRM changes for this contact and its linked records." : "Matching changes from the latest 100 workspace activity records.")),
-        !isContact && !isDeal && h(TaskWork, { ctx, identity, client, task: row, workspaceToken: detail.workspaceToken, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork: detail.assignment })),
+        !isContact && !isDeal && h(TaskWork, { ctx, identity, client, task: row, workspaceToken: detail.workspaceToken, workspaceProfile: data.meta.profile, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork: detail.assignment, taskHeadingRef: headingRef })),
       h("aside", { className: "hc-stack hc-record-related", "aria-label": "Related records" },
         h(RecordSection, { title: isDeal ? "Linked contact" : "Related deals", action: isContact ? badge(deals.length) : null },
           isDeal ? h(Properties, { rows: [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)]] })
