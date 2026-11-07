@@ -256,6 +256,88 @@ for (const aba of [false, true]) {
   assert.doesNotMatch(e.api.pauseEvidence(work), /pause observed/);
   await e.finish();
 }
+// Completed/disabled/no-next-run is separate historical evidence, never a pause or run cancellation.
+{
+  const e = await fixture(), work = clone(originalWork);
+  work.job_id = 'job1'; work.state = 'cancelled'; work.reason = 'future_schedule_already_inactive_running_run_not_cancelled';
+  const invalidated = { id: 'invalidated', kind: 'intent_invalidated', version: 8, created_at: '2026-11-06T11:00:00+00:00', evidence: { reason: 'cancelled', host_cancelled: false } };
+  const inactive = { id: 'inactive', kind: 'inactive_schedule_observed', version: 9, created_at: '2026-11-06T12:00:00+00:00', evidence: {
+    source: 'public_job_list', job_id: 'job1', state: 'completed', enabled: false, next_run_at: null,
+    future_schedule_inactive: true, pause_attempted: false, running_execution_cancelled: false } };
+  const assertUnknown = message => {
+    assert.match(e.api.pauseEvidence(work), /pause is unverified/, message);
+    assert.doesNotMatch(e.api.pauseEvidence(work), /was observed completed|pause observed at/, message);
+  };
+  work.events = [invalidated]; assertUnknown('Reason alone never proves inactivity');
+  work.events = [inactive]; assertUnknown('Inactive evidence requires an invalidation fence');
+  for (const kind of ['inactive_schedule_observed', 'job_observed']) {
+    work.events = [invalidated, { ...inactive, kind }];
+    const text = e.api.pauseEvidence(work);
+    assert.match(text, /observed completed, disabled and with no next run/);
+    assert.match(text, /2026-11-06T12:00:00\+00:00/);
+    assert.match(text, /historical observation is not a live check/);
+    assert.match(text, /No pause was sent for this observation, and no running agent was stopped/);
+    assert.doesNotMatch(text, /pause observed|cancellation succeeded|pause is unverified/);
+    for (const mutate of [
+      event => event.evidence.job_id = 'other-job', event => event.evidence.source = 'unknown',
+      event => event.evidence.state = 'running', event => event.evidence.enabled = 0,
+      event => event.evidence.next_run_at = '2030-01-01T00:00:00Z', event => delete event.evidence.next_run_at,
+      event => delete event.evidence.future_schedule_inactive, event => event.evidence.future_schedule_inactive = 1,
+      event => event.version = 7, event => delete event.version, event => event.created_at = 'malformed',
+    ]) {
+      const malformed = { ...clone(inactive), kind }; mutate(malformed);
+      work.events = [invalidated, malformed]; assertUnknown(`Malformed ${kind} cannot prove inactivity`);
+    }
+    work.events = [{ ...inactive, kind, version: 8 }, invalidated];
+    assertUnknown('Even the same version before invalidation cannot prove inactivity');
+  }
+  for (const field of ['pause_attempted', 'running_execution_cancelled']) for (const value of [true, undefined]) {
+    const malformed = clone(inactive); malformed.evidence[field] = value;
+    work.events = [invalidated, malformed]; assertUnknown('No-op evidence requires explicit no pause / no running cancellation');
+  }
+  for (const kind of ['job_observed', 'pause_unknown', 'reconcile_unknown', 'reconcile_stale', 'reconciled_unbound', 'resume_unknown', 'inactive_schedule_observed']) {
+    work.events = [invalidated, inactive, { kind, version: 9, created_at: '2026-11-06T13:00:00+00:00', evidence: { job_id: 'job1', state: 'running', enabled: true } }];
+    assertUnknown(`Later ${kind} supersedes inactive observation`);
+  }
+  work.events = [invalidated, { ...inactive, kind: 'job_observed', evidence: { job_id: 'job1', state: 'completed', enabled: false, next_run_at: null } }];
+  assertUnknown('Legacy completed observation without checked inactive marker stays unknown');
+  work.events = [invalidated, { ...inactive, version: invalidated.version, created_at: invalidated.created_at }];
+  assertUnknown('UUID order cannot place inactive evidence after a tied invalidation');
+  for (const kind of ['job_observed', 'reconcile_unknown', 'reconcile_stale']) for (const conflictFirst of [false, true]) {
+    const conflict = { ...inactive, kind, evidence: { job_id: 'job1', state: 'running', enabled: true } };
+    work.events = [invalidated, ...(conflictFirst ? [conflict, inactive] : [inactive, conflict])];
+    assertUnknown(`Tied ${kind} cannot be ordered by UUID`);
+  }
+  work.events = [invalidated, inactive];
+  work.reports = [{ id: 'r1', outcome: 'blocked', summary: 'Review missing facts', provenance: 'native_run_reported', created_at: inactive.created_at, identity: { job_id: 'job1', execution_id: 'run1' } }];
+  e.work = work;
+  await e.mount('AssignedWork', { snapshotGeneration: 1 });
+  assert.match(e.text(), /observed completed, disabled and with no next run/);
+  assert.match(e.text(), /Agent reported: Blocked/);
+  assert.match(e.text(), /Awaiting Human Review/);
+  assert.match(e.text(), /Open; report does not complete it/);
+  assert.match(e.text(), /does not verify host terminal success, delivery or business-task completion/);
+  assert.equal(e.writes.length, 0);
+  await e.finish();
+}
+// The coverage queue explains inactive historical evidence independently of reports and future sibling work.
+{
+  const e = await fixture();
+  const assignment = { ...clone(originalWork), id: 'inactive-old', state: 'cancelled', job_id: 'job1',
+    future_schedule_pause_observed: false, future_schedule_inactive_observed: true,
+    inactive_observed_at: '2026-11-06T12:00:00+00:00', task_version: 3,
+    latest_report: { outcome: 'blocked', created_at: '2026-11-06T11:00:00+00:00', age_seconds: 7200, review_status: 'awaiting_human_review', provenance: 'native_run_reported' } };
+  const row = value => ({ id: `assignment:${value.id}`, kind: 'assignment', row_kind: 'assignment', task: clone(originalTask), contacts: [], risk_flags: ['awaiting_review'], next_action: 'open_assignment', assignment: value });
+  e.coveragePages = () => ({ items: [row(assignment), row({ ...assignment, id: 'future-new', state: 'scheduled', future_schedule_inactive_observed: false, inactive_observed_at: null, latest_report: null })], total: 2, limit: 50, offset: 0, observed_at: '2026-11-06T13:00:00+00:00', workspace_token: e.token });
+  await e.mount('CoverageQueue', { snapshotGeneration: 1, open() {} });
+  assert.equal((e.text().match(/observed completed, disabled and with no next run/g) || []).length, 1);
+  assert.match(e.text(), /historical observation is not a live check/);
+  assert.match(e.text(), /No pause was sent for this observation, and no running agent was stopped/);
+  assert.match(e.text(), /Agent reported Blocked/);
+  assert.match(e.text(), /Awaiting human review; host terminal success and delivery not established/);
+  assert.match(e.text(), /future-new/); assert.doesNotMatch(e.text(), /cancellation succeeded|pause observed at/);
+  assert.equal(e.writes.length, 0); await e.finish();
+}
 // Same-batch filter/query ABA restarts an invalidated pending report instead of loading forever.
 for (const field of ['Coverage filter', 'Search coverage']) {
   const e = await fixture(), gates = [];

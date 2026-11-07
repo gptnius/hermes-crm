@@ -350,6 +350,42 @@ def test_hosted_mapping_identity_and_equivalent_timestamp_supported(setup):
     assert result['reports'][0]['identity']['scheduled_instant']==a['payload']['run_at']
 
 
+@pytest.mark.parametrize('mapping', [False, True], ids=['attributes', 'mapping'])
+@pytest.mark.parametrize('started_at,expected', [
+    ('2030-11-06T20:44:06.941376-05:00', '2030-11-07T01:44:06.941376+00:00'),
+    ('2030-11-07T00:15:06.123456+05:45', '2030-11-06T18:30:06.123456+00:00'),
+    # The repeated wall-clock hour during DST fallback names two distinct instants.
+    ('2030-11-03T01:30:00-04:00', '2030-11-03T05:30:00.000000+00:00'),
+    ('2030-11-03T01:30:00-05:00', '2030-11-03T06:30:00.000000+00:00'),
+], ids=['negative-offset-midnight', 'fractional-offset-midnight', 'dst-first-hour', 'dst-second-hour'])
+def test_report_started_at_preserves_instant_and_equivalent_replay(setup, mapping, started_at, expected):
+    host,a=scheduled(setup)
+    identity(host,a,started_at=started_at)
+    if mapping: host.identity=vars(host.identity)
+    original=copy.deepcopy(host.identity)
+    result=report(setup,host,a)
+    stored=result['reports'][0]['identity']['started_at']
+    assert stored==expected
+    assert datetime.fromisoformat(stored)==datetime.fromisoformat(started_at)
+    assert host.identity==original, 'Normalization must not rewrite the host evidence'
+    assert setup[1].get(a['id'])==result
+
+    # The same instant in UTC must deduplicate, without a new report or version.
+    identity(host,a,started_at=expected)
+    if mapping: host.identity=vars(host.identity)
+    assert report(setup,host,a)==result
+
+
+@pytest.mark.parametrize('mapping', [False, True], ids=['attributes', 'mapping'])
+def test_report_naive_started_at_is_not_assumed_utc(setup, mapping):
+    host,a=scheduled(setup)
+    identity(host,a,started_at='2030-11-03T01:30:00')
+    if mapping: host.identity=vars(host.identity)
+    with pytest.raises(CRMError,match='native started_at must be an ISO timestamp with timezone'):
+        report(setup,host,a)
+    assert setup[1].get(a['id'])==a
+
+
 def test_forged_model_identity_arguments_rejected_by_signature(setup):
     host,a=scheduled(setup)
     with pytest.raises(TypeError): report(setup,host,a,job_id=a['job_id'],execution_id='forged')

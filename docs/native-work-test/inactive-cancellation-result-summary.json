@@ -1,0 +1,182 @@
+{
+  "verified_date_utc": "2026-11-07",
+  "host_commit": "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19",
+  "pytest": "2 passed in 39.22s",
+  "guard": "Original source-pinned SAFETY_GUARD and base runner unchanged; fatal bootstrap negatives, zero forbidden audit events and full cleanup required.",
+  "scope": "Synthetic data, authenticated REST/native commands, real disposable scheduler/AIAgent, deterministic keyless loopback model. Completed-job cancellation issued only List, emitted inactive observation, preserved report and open business task.",
+  "cases": [
+    {
+      "isolation": "in_process",
+      "synthetic_model": true,
+      "live_model_quality_verified": false,
+      "desktop_notification_verified": false,
+      "python": "3.14.9 (main, Oct 21 2026, 17:48:02) [Clang 23.1.3 ]",
+      "command_session_durable": true,
+      "terminal_status": "completed",
+      "model_requests": 7,
+      "streaming_requests": 7,
+      "all_model_requests_at_or_after_due": true,
+      "ledger_started_at_or_after_due": true,
+      "local_output_verified": true,
+      "duplicate_extra_ticks": false,
+      "canonical_admission_verified": true,
+      "scheduled_discovery": {
+        "search_catalog": [
+          "crm_contact_get",
+          "crm_contact_list",
+          "crm_contact_report",
+          "crm_deal_get",
+          "crm_deal_list",
+          "crm_overview",
+          "crm_task_get",
+          "crm_task_list",
+          "crm_work_get",
+          "crm_work_list",
+          "crm_work_report"
+        ],
+        "total_available": 11,
+        "forbidden_descriptions_unavailable": [
+          "crm_task_update",
+          "crm_work_create",
+          "crm_work_schedule",
+          "cronjob_manage",
+          "delegate_task",
+          "send_message"
+        ]
+      },
+      "cancelled_before_due_never_executed": true,
+      "completed_cancel_observed_inactive_without_pause": true,
+      "cleanup": {
+        "enabled_jobs": 0,
+        "scheduler_stopped": true,
+        "plugin_host_stopped": true,
+        "endpoint_stopped": true
+      },
+      "tested_plugin_sha256": {
+        "hermes_crm/native_work.py": "4d7f36b09bdd19a68cc1b2801cfe45f9f4708f5e4b935663e53843e1bf13c62a",
+        "hermes_crm/native_work_operations.py": "a67961cc675f152955c65c61093ee6663ab4b0d7ba42b2a2fb4d696bb4616232",
+        "hermes_crm/native_work_commands.py": "981885a37f4e98bd62f796544c8afcb15736b30bf83bde1f908920d4e512a6ee",
+        "hermes_crm/native_work_operations_api.py": "c6a87be9f7994484e650c6995589ebed808a54593394590d85147b6082396f66",
+        "hermes_crm/plugin.py": "67f469e75438bd8dfc015c8c4cf4684a017f754578f08a13f44689d2c92a4d97",
+        "hermes_crm/native_api.py": "26cf81c7b55db8e5afa2c767dcf15ed65d592fdb837cec2eac322534b0499619",
+        "plugin.yaml": "995467f096214e37c6125f9848ab8cd83839d62b4d19cea8cc82173b6f113d21"
+      },
+      "commands": [
+        {
+          "verb": "schedule",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "cancel",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "schedule",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "cancel",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        }
+      ]
+    },
+    {
+      "isolation": "host",
+      "synthetic_model": true,
+      "live_model_quality_verified": false,
+      "desktop_notification_verified": false,
+      "python": "3.14.9 (main, Oct 21 2026, 17:48:02) [Clang 23.1.3 ]",
+      "command_session_durable": true,
+      "terminal_status": "completed",
+      "model_requests": 7,
+      "streaming_requests": 7,
+      "all_model_requests_at_or_after_due": true,
+      "ledger_started_at_or_after_due": true,
+      "local_output_verified": true,
+      "duplicate_extra_ticks": false,
+      "canonical_admission_verified": true,
+      "scheduled_discovery": {
+        "search_catalog": [
+          "crm_contact_get",
+          "crm_contact_list",
+          "crm_contact_report",
+          "crm_deal_get",
+          "crm_deal_list",
+          "crm_overview",
+          "crm_task_get",
+          "crm_task_list",
+          "crm_work_get",
+          "crm_work_list",
+          "crm_work_report"
+        ],
+        "total_available": 11,
+        "forbidden_descriptions_unavailable": [
+          "crm_task_update",
+          "crm_work_create",
+          "crm_work_schedule",
+          "cronjob_manage",
+          "delegate_task",
+          "send_message"
+        ]
+      },
+      "cancelled_before_due_never_executed": true,
+      "completed_cancel_observed_inactive_without_pause": true,
+      "cleanup": {
+        "enabled_jobs": 0,
+        "scheduler_stopped": true,
+        "plugin_host_stopped": true,
+        "endpoint_stopped": true
+      },
+      "tested_plugin_sha256": {
+        "hermes_crm/native_work.py": "4d7f36b09bdd19a68cc1b2801cfe45f9f4708f5e4b935663e53843e1bf13c62a",
+        "hermes_crm/native_work_operations.py": "a67961cc675f152955c65c61093ee6663ab4b0d7ba42b2a2fb4d696bb4616232",
+        "hermes_crm/native_work_commands.py": "981885a37f4e98bd62f796544c8afcb15736b30bf83bde1f908920d4e512a6ee",
+        "hermes_crm/native_work_operations_api.py": "c6a87be9f7994484e650c6995589ebed808a54593394590d85147b6082396f66",
+        "hermes_crm/plugin.py": "67f469e75438bd8dfc015c8c4cf4684a017f754578f08a13f44689d2c92a4d97",
+        "hermes_crm/native_api.py": "26cf81c7b55db8e5afa2c767dcf15ed65d592fdb837cec2eac322534b0499619",
+        "plugin.yaml": "995467f096214e37c6125f9848ab8cd83839d62b4d19cea8cc82173b6f113d21"
+      },
+      "commands": [
+        {
+          "verb": "schedule",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "cancel",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "schedule",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "cancel",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        }
+      ]
+    }
+  ],
+  "tested_source_sha256": {
+    "hermes_crm/native_work.py": "4d7f36b09bdd19a68cc1b2801cfe45f9f4708f5e4b935663e53843e1bf13c62a",
+    "hermes_crm/coverage.py": "f1d8607e07b4bc241f6d016f976a24061a27b35f56d81bacc0d7678f6e16da50",
+    "desktop/plugin.js": "184b93436d8cf8b56b18f1987fbc5d145fa5ffcb946b5193f2c6dca02f75420d",
+    "tests/test_native_work_commands_e2e.py": "7a297f460dfbbbf8f948f1015042b2a7bba051bd0966f769f33004b6a4153a38",
+    "tests/test_native_work_e2e.py": "4ff3de7608ecab41c6e9b147c2f6f908285aa808b59fa8539eb1fa596fb486c6",
+    "tests/test_native_work_cancellation.py": "766993a5be68f5468751c3a8436fe5833e95d73b22968a32b622c951e6b8e5c4"
+  },
+  "limits": [
+    "No real model/provider call, native-window click, external email/text, production data/configuration or user jobs.",
+    "Historical real-model cleanup pause remains unverified; this is separate new synthetic-model verification.",
+    "Already inactive is a historical observation, not a successful Pause or interrupted agent.",
+    "No restart recovery, universal reasoning quality, prompt-injection resistance or configured-MCP live test.",
+    "Business tasks remain open and saved reports await human review."
+  ]
+}

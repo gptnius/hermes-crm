@@ -162,5 +162,8 @@
     "No production data/configuration, credentials, external account or message delivery was used.",
     "No owner-process restart/crash recovery, visible notification, real-provider availability or configured-MCP live run was tested.",
     "Business tasks remain open; authenticated reports await human review."
-  ]
+  ],
+  "crm_commit": "eaeed5f16ec190db40560c880acd64849eb317de",
+  "published_crm_commit": "3ea680a7dfe817ee255990b3b5005ed87e73a962",
+  "scope_note": "Historical command-operation run before completed-inactive correction. Source hashes refer to this exact commit; newer results are separate."
 }

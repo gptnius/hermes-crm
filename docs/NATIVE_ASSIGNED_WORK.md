@@ -36,6 +36,14 @@ Scheduling uncertainty is persisted before host mutations. The paused-create res
 
 Task version, cancellation and approved time are checked again before resume. If time elapsed while the job was paused, the tool leaves it paused with a visible blocker. Explicit cancellation pauses a future schedule; it does not claim to interrupt an agent already running. Reports are deduplicated by execution/operation identity; conflicting duplicates are not silently overwritten.
 
+A freshly matched one-shot that is already completed, disabled and explicitly
+has no next run is recorded as **already inactive observed**, without attempting
+Pause. That observation is not pause success, a stopped execution or completed
+business work. It must match the exact bound job and existing public contract;
+old uncertainty, incomplete evidence and later contradictory/failed observations
+remain visible. Coverage and record details distinguish this inactive observation
+from an actual pause response.
+
 ## Storage and UI boundary
 
 Three profile-scoped tables store native assignments, events and reports. A separate operation table supports durable CRM confirmation and recovery. Existing CRM and experimental execution tables are unchanged. Incompatible table shapes or constraints fail closed rather than silently migrating. PostgreSQL remains explicit and isolated by the existing profile schema.
@@ -64,3 +72,10 @@ reads, report, local output and cancellation assertions pass. Only the loopback
 model responses are synthetic. This is not a native-window click, model-tool
 approval receipt or real-model quality check. See the command-to-run reproduction
 and current [verification report](VERIFICATION.md).
+
+
+A separate authorized Mac run on published `3ea680a` used Terra 6.1 xhigh and
+verified one synthetic internal-analysis result, authenticated reporting and local
+output. It did not exercise the newer completed-inactive correction, native-window
+clicks or future cancellation. See [the real-model check](VERIFICATION.md#real-model-scheduled-check)
+for its exact scope and unverified cleanup-pause outcome.

@@ -15,7 +15,7 @@ import json
 import uuid
 from collections.abc import Mapping
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import (Column, ForeignKey, Integer, MetaData, String, Table, Text,
                         UniqueConstraint, func, inspect, select, update)
@@ -186,9 +186,34 @@ class NativeWorkStore:
             raise CRMError('Unsupported native-work intent version', 503)
         return row
 
+    def _lock_row(self, conn, assignment_id):
+        """Serialize evidence-only appends with assignment changes on SQLite/PG."""
+        conn.execute(update(assignments).where(assignments.c.id == assignment_id,
+            assignments.c.workspace == self.workspace, assignments.c.profile == self.profile)
+            .values(version=assignments.c.version))
+        return self._row(conn, assignment_id)
+
+    @staticmethod
+    def _event_count(conn, assignment_id):
+        return conn.execute(select(func.count()).select_from(events).where(
+            events.c.assignment_id == assignment_id)).scalar_one()
+
     def _event(self, conn, row, kind, evidence):
+        # Observation events on invalidated/reported rows may not change their
+        # version. Share the assignment lock so an observation watermark can be
+        # checked atomically against every append, including failed observations.
+        locked = self._lock_row(conn, row['id'])
+        recorded = datetime.fromisoformat(now())
+        previous = conn.execute(select(func.max(events.c.created_at)).where(
+            events.c.assignment_id == row['id'])).scalar_one()
+        if previous is not None:
+            # Local evidence-recording order only: ties or clock rollback must
+            # not sort newer unknown evidence before an older positive event.
+            # Never use this timestamp for host execution identity or deadlines.
+            recorded = max(recorded, datetime.fromisoformat(previous) + timedelta(microseconds=1))
         conn.execute(events.insert().values(id=str(uuid.uuid4()), assignment_id=row['id'],
-            version=row['version'], kind=kind, evidence=_json(evidence), created_at=now()))
+            version=locked['version'], kind=kind, evidence=_json(evidence),
+            created_at=recorded.isoformat(timespec='microseconds')))
 
     def _change(self, conn, row, **values):
         count = conn.execute(update(assignments).where(assignments.c.id == row['id'],
@@ -479,6 +504,16 @@ class NativeWorkStore:
             return self.get(assignment_id)
         return self.get(assignment_id)
 
+    @staticmethod
+    def _completed_schedule_inactive(job):
+        """Only after matching the bound one-shot contract; not run-success evidence.
+
+        Require an explicit null next run, not a missing/truncated field. This
+        is one historical observation, not a guarantee against later host edits.
+        """
+        return (job.get('enabled') is False and job.get('state') == 'completed'
+                and 'next_run_at' in job and job['next_run_at'] is None)
+
     def _observe_bound(self, conn, row, job, response, *, source):
         payload = json.loads(row['payload'])
         evidence = {'source': source, 'job_id': row['job_id'], 'retry_create': False}
@@ -500,6 +535,10 @@ class NativeWorkStore:
                 reason = 'host_observed_no_authenticated_report'
             # Summary evidence, never full host objects, prompts, errors or provider settings.
             evidence['next_run_matches'] = next_run == payload['run_at']
+            evidence['future_schedule_inactive'] = (source == 'public_job_list'
+                                                    and self._completed_schedule_inactive(job))
+            if evidence['future_schedule_inactive']:
+                evidence['next_run_at'] = None
         if row['state'] not in INVALID and row['state'] != 'result_reported':
             self._change(conn, row, state=state, reason=reason)
         self._event(conn, row, 'job_observed', evidence)
@@ -525,9 +564,10 @@ class NativeWorkStore:
             return self._uncertain(assignment_id, 'reconciliation_unavailable', kind='reconcile_unknown',
                                    expected_version=initial['version'])
         with self.crm.engine.begin() as conn:
-            row = self._row(conn, assignment_id)
-            if row['version'] != initial['version']:
-                self._event(conn, row, 'reconcile_stale', {'state_changed_during_observation': True})
+            row = self._lock_row(conn, assignment_id)
+            if (row['version'] != initial['version']
+                    or self._event_count(conn, assignment_id) != len(initial['events'])):
+                self._event(conn, row, 'reconcile_stale', {'state_or_evidence_changed_during_observation': True})
             else:
                 candidates = [j for j in response['jobs'] if isinstance(j, dict) and
                               (j.get('job_id') == row['job_id'] if row['job_id'] else j.get('name') == self.job_name(row))]
@@ -559,37 +599,60 @@ class NativeWorkStore:
     def cancel(self, ctx, assignment_id, *, version, _operation_guard=None, **tool_context):
         """Invalidate locally, then pause this exact host job's future schedule.
 
-        Pausing does not stop an already running execution. No job is deleted.
+        A freshly observed completed/disabled one-shot needs no pause. Neither
+        observation nor pausing stops a running execution. No job is deleted.
         Lost replies stay uncertain; repeated cancellation requires a fresh
         version and a new public list observation of the same bound job.
         """
         self._host(ctx, scheduling=True)
         saved = self.invalidate(assignment_id, version=version, _operation_guard=_operation_guard)
         if not saved['job_id']: return saved
+        with self.crm.engine.connect() as conn:
+            snapshot = self._row(conn, assignment_id)
+        inactive = False
         try:
             response = _result(self._command_dispatch(ctx,
                 {'action': 'list', 'include_disabled': True}, tool_context, assignment_id, _operation_guard))
-            matches = [j for j in response.get('jobs', []) if isinstance(j, dict)
-                       and j.get('job_id') == saved['job_id'] and j.get('name') == saved['job_name']]
-            if response.get('success') is not True or len(matches) != 1:
+            if response.get('success') is not True or not isinstance(response.get('jobs'), list):
                 raise ValueError()
+            matches = [j for j in response['jobs'] if isinstance(j, dict) and j.get('job_id') == saved['job_id']]
+            if len(matches) != 1 or matches[0].get('name') != saved['job_name']:
+                raise ValueError()
+            observed = matches[0]
             self._host(ctx, scheduling=True)
-            result = _result(self._command_dispatch(ctx, {'action': 'pause',
-                'job_id': saved['job_id'], 'reason': 'CRM assignment cancelled; pause future schedule'},
-                tool_context, assignment_id, _operation_guard))
-            job = result.get('job')
-            verified = result.get('success') is True and isinstance(job, dict) \
-                and job.get('job_id') == saved['job_id'] and job.get('name') == saved['job_name'] \
-                and job.get('enabled') is False and job.get('state') == 'paused'
+            inactive = self._matches_job(snapshot, observed) and self._completed_schedule_inactive(observed)
+            verified = False
+            if not inactive:
+                result = _result(self._command_dispatch(ctx, {'action': 'pause',
+                    'job_id': saved['job_id'], 'reason': 'CRM assignment cancelled; pause future schedule'},
+                    tool_context, assignment_id, _operation_guard))
+                job = result.get('job')
+                verified = result.get('success') is True and isinstance(job, dict) \
+                    and job.get('job_id') == saved['job_id'] and job.get('name') == saved['job_name'] \
+                    and job.get('enabled') is False and job.get('state') == 'paused'
         except Exception:
+            inactive = False
             verified = False
         with self.crm.engine.begin() as conn:
-            row = self._row(conn, assignment_id)
-            self._change(conn, row, reason=('future_schedule_paused_running_run_not_cancelled' if verified
-                                            else 'pause_outcome_unknown_running_run_not_cancelled'))
-            self._event(conn, row, 'pause_observed' if verified else 'pause_unknown',
-                {'job_id': row['job_id'], 'future_schedule_paused': verified,
-                 'running_execution_cancelled': False})
+            row = self._lock_row(conn, assignment_id)
+            # Include evidence-only changes on already invalidated rows. The
+            # lock is also held by every event writer through its commit.
+            current = (row['version'] == saved['version'] == snapshot['version']
+                       and self._event_count(conn, assignment_id) == len(saved['events']))
+            inactive = inactive and current
+            verified = verified and current
+            if inactive:
+                self._change(conn, row, reason='future_schedule_already_inactive_running_run_not_cancelled')
+                self._event(conn, row, 'inactive_schedule_observed',
+                    {'source': 'public_job_list', 'job_id': row['job_id'], 'state': 'completed',
+                     'enabled': False, 'next_run_at': None, 'future_schedule_inactive': True,
+                     'pause_attempted': False, 'running_execution_cancelled': False})
+            else:
+                self._change(conn, row, reason=('future_schedule_paused_running_run_not_cancelled' if verified
+                                                else 'pause_outcome_unknown_running_run_not_cancelled'))
+                self._event(conn, row, 'pause_observed' if verified else 'pause_unknown',
+                    {'job_id': row['job_id'], 'future_schedule_paused': verified,
+                     'running_execution_cancelled': False})
         return self.get(assignment_id)
 
     def report(self, ctx, assignment_id, *, generation, summary, outcome='completed', operation_id='result'):

@@ -131,3 +131,12 @@ The selected, privacy-safe results and exact tested source hashes are in
 `command-result-summary.json`. Its evidence supplements the historical manifest
 and result summary above; it does not replace their original scope. Raw temporary
 homes, logs, sessions, databases, transcripts and tokens are not distributed.
+
+
+The completed-inactive correction extends this same command fixture with a final
+cancel request for the already completed first job. It must issue exactly one
+List and no Pause, record a distinct inactive observation, and preserve the
+report and open business task. The earlier future-cancellation assertion remains.
+The original guard and base runner are unchanged. Current selected results are
+in `inactive-cancellation-result-summary.json`; the older command result summary
+retains its exact pre-correction commit and source hashes.

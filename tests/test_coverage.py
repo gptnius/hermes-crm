@@ -118,6 +118,184 @@ def test_coverage_cancelled_unknown_and_safe_history_are_not_new_sibling_state(s
     assert store.get(newer['id'])['state'] == 'scheduled'
 
 
+def _inactive_evidence(job_id):
+    return dict(source='public_job_list', job_id=job_id, state='completed', enabled=False,
+                next_run_at=None, future_schedule_inactive=True, pause_attempted=False,
+                running_execution_cancelled=False)
+
+
+def _append_evidence(crm, assignment, kind, evidence, *, version=None, created_at='2099-01-01T00:00:00+00:00', event_id=None):
+    with crm.engine.begin() as conn:
+        conn.execute(events.insert().values(id=event_id or str(uuid.uuid4()), assignment_id=assignment['id'],
+            version=assignment['version'] if version is None else version, kind=kind,
+            evidence=json.dumps(evidence), created_at=created_at))
+
+
+def _coverage_assignment(crm, assignment):
+    return next(row for row in coverage_report(crm)['items']
+                if row['assignment'] and row['assignment']['id'] == assignment['id'])
+
+
+def test_coverage_inactive_cancel_is_historical_not_pause_or_new_sibling_state(setup):
+    crm, store, task = setup
+    host = Host()
+    old = store.schedule(host, create(setup, idempotency_key='completed-old')['id'])
+    host.jobs[old['job_id']].update(state='completed', enabled=False, next_run_at=None)
+    before = len(host.calls)
+    old = store.cancel(host, old['id'], version=old['version'])
+    assert [args['action'] for args, _ in host.calls[before:]] == ['list']
+    newer = store.schedule(host, create(setup, idempotency_key='future-new')['id'])
+    calls = len(host.calls)
+    row = _coverage_assignment(crm, old)
+    summary = row['assignment']
+    assert summary['future_schedule_inactive_observed'] is True
+    assert summary['inactive_observed_at'] == old['events'][-1]['created_at']
+    assert summary['future_schedule_pause_observed'] is False
+    assert summary['pause_observed_at'] is None
+    assert not {'unverified_pause', 'needs_scheduling_review'} & set(row['risk_flags'])
+    assert summary['latest_report'] is None and summary['host_terminal_success_verified'] is False
+    assert summary['business_task_completed'] is False
+    assert summary['business_task_completed_by_report'] is False
+    assert crm.get('tasks', task['id'])['status'] == 'open'
+    future = _coverage_assignment(crm, newer)
+    assert future['assignment']['state'] == 'scheduled'
+    assert future['assignment']['future_schedule_inactive_observed'] is False
+    assert future['coverage']['current_scheduled_or_reported_count'] == 1
+    assert store.get(newer['id'])['state'] == 'scheduled' and len(host.calls) == calls
+
+
+@pytest.mark.parametrize('task_done', [False, True])
+def test_coverage_inactive_observation_keeps_report_and_business_review_separate(setup, task_done):
+    crm, store, task = setup
+    host = Host()
+    saved = store.schedule(host, create(setup)['id'])
+    saved = report(setup, identity(host, saved), saved, outcome='blocked')
+    host.identity = None
+    if task_done: crm.update('tasks', task['id'], {'version': task['version'], 'status': 'done'})
+    host.jobs[saved['job_id']].update(state='completed', enabled=False, next_run_at=None)
+    saved = store.cancel(host, saved['id'], version=saved['version'])
+    row = _coverage_assignment(crm, saved)
+    assert {'awaiting_review', 'reported_blocked_failed'} <= set(row['risk_flags'])
+    assert ('needs_scheduling_review' in row['risk_flags']) is task_done
+    assert 'unverified_pause' not in row['risk_flags']
+    summary = row['assignment']
+    assert summary['future_schedule_inactive_observed'] is True
+    assert summary['latest_report']['outcome'] == 'blocked'
+    assert summary['latest_report']['review_status'] == ('stale_source_task' if task_done else 'awaiting_human_review')
+    assert summary['business_task_completed'] is task_done
+    assert summary['business_task_completed_by_report'] is False
+    assert summary['host_terminal_success_verified'] is False
+
+
+@pytest.mark.parametrize('kind', ['inactive_schedule_observed', 'job_observed'])
+@pytest.mark.parametrize('corruption', ['job_id', 'source', 'state', 'enabled', 'next_run_at',
+                                      'missing_next_run', 'missing_flag', 'flag_not_boolean',
+                                      'before_invalidation', 'same_version_before_invalidation'])
+def test_coverage_inactive_evidence_requires_exact_post_invalidation_shape(setup, kind, corruption):
+    crm, store, _ = setup
+    saved = store.schedule(Host(), create(setup)['id'])
+    saved = store.invalidate(saved['id'], version=saved['version'])
+    evidence = _inactive_evidence(saved['job_id'])
+    version, created_at = saved['version'], '2099-01-01T00:00:00+00:00'
+    if corruption in {'job_id', 'source', 'state', 'enabled', 'next_run_at'}:
+        evidence[corruption] = dict(job_id='other-job', source='unverified', state='running', enabled=0,
+                                    next_run_at='2099-02-01T00:00:00+00:00')[corruption]
+    elif corruption == 'missing_next_run': evidence.pop('next_run_at')
+    elif corruption == 'missing_flag': evidence.pop('future_schedule_inactive')
+    elif corruption == 'flag_not_boolean': evidence['future_schedule_inactive'] = 1
+    elif corruption == 'before_invalidation': version -= 1
+    else: created_at = '2000-01-01T00:00:00+00:00'
+    _append_evidence(crm, saved, kind, evidence, version=version, created_at=created_at)
+    row = _coverage_assignment(crm, saved)
+    assert row['assignment']['future_schedule_inactive_observed'] is False
+    assert row['assignment']['inactive_observed_at'] is None
+    assert {'unverified_pause', 'needs_scheduling_review'} <= set(row['risk_flags'])
+
+
+@pytest.mark.parametrize('field,value', [('pause_attempted', True), ('pause_attempted', None),
+                                        ('running_execution_cancelled', True), ('running_execution_cancelled', None)])
+def test_coverage_inactive_noop_requires_no_pause_and_no_running_cancel(setup, field, value):
+    crm, store, _ = setup
+    saved = store.schedule(Host(), create(setup)['id'])
+    saved = store.invalidate(saved['id'], version=saved['version'])
+    evidence = _inactive_evidence(saved['job_id']); evidence[field] = value
+    _append_evidence(crm, saved, 'inactive_schedule_observed', evidence)
+    row = _coverage_assignment(crm, saved)
+    assert row['assignment']['future_schedule_inactive_observed'] is False
+    assert 'unverified_pause' in row['risk_flags']
+
+
+def test_coverage_unknown_history_needs_fresh_contract_checked_observation(setup):
+    crm, store, _ = setup
+    host = Host()
+    saved = store.schedule(host, create(setup)['id'])
+    host.before = lambda args: (_ for _ in ()).throw(TimeoutError())
+    saved = store.cancel(host, saved['id'], version=saved['version'])
+    assert _coverage_assignment(crm, saved)['assignment']['future_schedule_inactive_observed'] is False
+    host.before = None
+    host.jobs[saved['job_id']].update(state='completed', enabled=False, next_run_at=None)
+    saved = store.reconcile(host, saved['id'])
+    row = _coverage_assignment(crm, saved)
+    assert row['assignment']['reason'] == 'pause_outcome_unknown_running_run_not_cancelled'
+    assert row['assignment']['latest_host_observation']['state'] == 'completed'
+    assert row['assignment']['future_schedule_inactive_observed'] is True
+    assert row['assignment']['future_schedule_pause_observed'] is False
+    assert 'unverified_pause' not in row['risk_flags']
+
+
+@pytest.mark.parametrize('kind', ['job_observed', 'pause_unknown', 'reconcile_unknown', 'reconcile_stale',
+                                 'reconciled_unbound', 'resume_unknown', 'inactive_schedule_observed'])
+def test_coverage_later_conflicting_or_unknown_evidence_revokes_inactive_observation(setup, kind):
+    crm, store, _ = setup
+    saved = store.schedule(Host(), create(setup)['id'])
+    saved = store.invalidate(saved['id'], version=saved['version'])
+    _append_evidence(crm, saved, 'inactive_schedule_observed', _inactive_evidence(saved['job_id']))
+    assert _coverage_assignment(crm, saved)['assignment']['future_schedule_inactive_observed'] is True
+    _append_evidence(crm, saved, kind, dict(job_id=saved['job_id'], state='running', enabled=True),
+                     created_at='2099-01-01T01:00:00+00:00')
+    row = _coverage_assignment(crm, saved)
+    assert row['assignment']['future_schedule_inactive_observed'] is False
+    assert row['assignment']['inactive_observed_at'] is None
+    assert row['assignment']['future_schedule_pause_observed'] is False
+    assert {'unverified_pause', 'needs_scheduling_review'} <= set(row['risk_flags'])
+
+
+@pytest.mark.parametrize('conflict_first', [False, True])
+@pytest.mark.parametrize('kind', ['job_observed', 'reconcile_unknown', 'reconcile_stale'])
+def test_coverage_tied_unknown_evidence_cannot_be_ordered_by_uuid(setup, conflict_first, kind):
+    crm, store, _ = setup
+    saved = store.schedule(Host(), create(setup)['id'])
+    saved = store.invalidate(saved['id'], version=saved['version'])
+    _append_evidence(crm, saved, 'inactive_schedule_observed', _inactive_evidence(saved['job_id']),
+                     event_id='z-safe' if conflict_first else 'a-safe')
+    _append_evidence(crm, saved, kind, dict(job_id=saved['job_id'], state='running', enabled=True),
+                     event_id='a-unknown' if conflict_first else 'z-unknown')
+    row = _coverage_assignment(crm, saved)
+    assert row['assignment']['future_schedule_inactive_observed'] is False
+    assert row['assignment']['future_schedule_pause_observed'] is False
+    assert 'unverified_pause' in row['risk_flags']
+
+
+@pytest.mark.parametrize('corruption', ['missing_invalidation', 'tied_invalidation', 'invalid_timestamp'])
+def test_coverage_inactive_evidence_needs_distinct_valid_invalidation_order(setup, corruption):
+    crm, store, _ = setup
+    saved = store.schedule(Host(), create(setup)['id'])
+    saved = store.invalidate(saved['id'], version=saved['version'])
+    created_at = '2099-01-01T00:00:00+00:00'
+    with crm.engine.begin() as conn:
+        if corruption == 'missing_invalidation':
+            conn.execute(events.delete().where(events.c.assignment_id == saved['id'], events.c.kind == 'intent_invalidated'))
+        elif corruption == 'tied_invalidation':
+            conn.execute(update(events).where(events.c.assignment_id == saved['id'], events.c.kind == 'intent_invalidated')
+                         .values(created_at=created_at, id='a-invalidated'))
+        else: created_at = 'invalid-time'
+    _append_evidence(crm, saved, 'inactive_schedule_observed', _inactive_evidence(saved['job_id']),
+                     created_at=created_at, event_id='z-inactive')
+    row = _coverage_assignment(crm, saved)
+    assert row['assignment']['future_schedule_inactive_observed'] is False
+    assert 'unverified_pause' in row['risk_flags']
+
+
 def test_coverage_cancelled_unbound_attempt_requires_review_but_never_scheduled_intent_does_not(setup):
     crm, store, _ = setup
     host = Host()

@@ -39,7 +39,9 @@ local output and authenticated run-report boundary.
 5. Inspect the durable operation and actual assignment state. A successful
    transport response is not proof the agent ran, produced a correct result or
    completed the business follow-up. Pausing future scheduling does not stop an
-   already running agent.
+   already running agent. A fully matched completed/disabled one-shot with an
+   explicit null next run needs no Pause; its distinct inactive observation does
+   not claim cancellation success and remains historical evidence.
 
 The UI describes this as **CRM-confirmed scheduling**, not a native approval
 receipt or proof that a human clicked. Authentication and a recorded confirmation

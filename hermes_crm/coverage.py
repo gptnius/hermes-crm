@@ -25,6 +25,22 @@ def _age(observed_at, timestamp):
     return max(0, int((datetime.fromisoformat(timestamp) - datetime.fromisoformat(observed_at)).total_seconds()))
 
 
+def _inactive_observation(event, evidence):
+    """A contract-checked completed one-shot, never a pause or run-success claim."""
+    try:
+        if datetime.fromisoformat(event['created_at']).tzinfo is None: return False
+    except (TypeError, ValueError): return False
+    kind = event['kind']
+    return (evidence.get('source') == 'public_job_list'
+            and type(event['version']) is int and event['version'] > 0
+            and evidence.get('future_schedule_inactive') is True
+            and evidence.get('state') == 'completed' and evidence.get('enabled') is False
+            and 'next_run_at' in evidence and evidence['next_run_at'] is None
+            and (kind == 'job_observed' or (kind == 'inactive_schedule_observed'
+                 and evidence.get('pause_attempted') is False
+                 and evidence.get('running_execution_cancelled') is False)))
+
+
 def _assignment(row, task, history, results, timestamp):
     """Keep separate saved intent, latest exact-job observation, and reports."""
     payload = json.loads(row['payload'])
@@ -40,9 +56,13 @@ def _assignment(row, task, history, results, timestamp):
     invalid = row['state'] in INVALID
     host = None
     pause = None
+    inactive = None
+    observation_key = None
+    previous_pause = previous_inactive = False
     attempted = False
     invalidated_version = max((e['version'] for e in history if e['kind'] == 'intent_invalidated'), default=0)
-    for event in history:
+    invalidated_index = max((i for i, e in enumerate(history) if e['kind'] == 'intent_invalidated'), default=-1)
+    for index, event in enumerate(history):
         evidence = json.loads(event['evidence'])
         kind = event['kind']
         if kind == 'create_started': attempted = True
@@ -51,15 +71,31 @@ def _assignment(row, task, history, results, timestamp):
                 if evidence.get('state') in {'paused', 'scheduled', 'running', 'completed', 'failed'} else 'unknown',
                 enabled=evidence.get('enabled'), source=evidence.get('source'),
                 observed_at=event['created_at'], age_seconds=_age(event['created_at'], timestamp))
-            if event['version'] >= invalidated_version:
-                pause = dict(observed=evidence.get('state') == 'paused' and evidence.get('enabled') is False,
-                             observed_at=event['created_at'])
-        elif kind in {'pause_observed', 'pause_unknown'} and row['job_id'] and evidence.get('job_id') == row['job_id']:
-            pause = dict(observed=kind == 'pause_observed' and evidence.get('future_schedule_paused') is True,
+        if event['version'] < invalidated_version or index <= invalidated_index:
+            continue
+        if kind in {'job_observed', 'pause_observed', 'pause_unknown', 'inactive_schedule_observed'} \
+                and row['job_id'] and evidence.get('job_id') == row['job_id']:
+            pause = dict(observed=(kind == 'pause_observed' and evidence.get('future_schedule_paused') is True)
+                         or (kind == 'job_observed' and evidence.get('state') == 'paused' and evidence.get('enabled') is False),
                          observed_at=event['created_at'])
-        elif kind in {'reconcile_unknown', 'reconciled_unbound', 'resume_unknown'}:
-            # A later failed observation must not preserve a current green pause claim.
+            inactive = dict(observed=invalid and invalidated_index >= 0 and _inactive_observation(event, evidence),
+                            observed_at=event['created_at'])
+            # UUIDs only stabilize presentation order. They cannot establish
+            # which of two contradictory same-time observations happened last.
+            key = (event['version'], event['created_at'])
+            if key == observation_key:
+                pause['observed'] = pause['observed'] and previous_pause
+                inactive['observed'] = inactive['observed'] and previous_inactive
+            if invalidated_index >= 0 and key == (invalidated_version, history[invalidated_index]['created_at']):
+                inactive['observed'] = False
+            observation_key = key
+            previous_pause, previous_inactive = pause['observed'], inactive['observed']
+        elif kind in {'reconcile_unknown', 'reconcile_stale', 'reconciled_unbound', 'resume_unknown'}:
+            # Later failed observations revoke both kinds of historical safety evidence.
             pause = dict(observed=False, observed_at=event['created_at'])
+            inactive = None
+            observation_key = (event['version'], event['created_at'])
+            previous_pause = previous_inactive = False
     latest_report = None
     if results:
         last = results[-1]
@@ -74,7 +110,10 @@ def _assignment(row, task, history, results, timestamp):
     summary.update(task_version=payload['task_version'], run_at=payload['run_at'], human_owner=payload['human_owner'],
         source_task_current=current, latest_host_observation=host, latest_report=latest_report,
         report_count=len(results), report_outcomes=sorted({r['outcome'] for r in results}),
-        future_schedule_pause_observed=bool(pause and pause['observed']), pause_observed_at=pause['observed_at'] if pause else None,
+        future_schedule_pause_observed=bool(pause and pause['observed']),
+        pause_observed_at=pause['observed_at'] if pause and not (inactive and inactive['observed']) else None,
+        future_schedule_inactive_observed=bool(inactive and inactive['observed']),
+        inactive_observed_at=inactive['observed_at'] if inactive and inactive['observed'] else None,
         business_task_completed=task['status'] == 'done', business_task_completed_by_report=False,
         host_terminal_success_verified=False)
     flags = set()
@@ -85,7 +124,8 @@ def _assignment(row, task, history, results, timestamp):
         if not invalid or results: flags.add('needs_scheduling_review')
     if row['state'] in {'unknown', 'create_unknown', 'resume_unknown', 'bound_paused'}:
         flags.add('needs_scheduling_review')
-    if invalid and (row['job_id'] or attempted) and not summary['future_schedule_pause_observed']:
+    if invalid and (row['job_id'] or attempted) and not (summary['future_schedule_pause_observed']
+                                                       or summary['future_schedule_inactive_observed']):
         flags.update(('unverified_pause', 'needs_scheduling_review'))
     if row['state'] == 'bound_paused' and payload['run_at'] < timestamp:
         flags.add('run_time_elapsed_while_paused')

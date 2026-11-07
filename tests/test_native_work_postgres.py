@@ -16,6 +16,7 @@ from sqlalchemy.schema import DropSchema
 from hermes_crm.domain import CRM, CRMError, tasks
 from hermes_crm.native_work import NativeWorkStore, assignments, events, reports
 import test_native_work as contract
+import test_native_work_cancellation as cancellation_contract
 
 URL = os.getenv('HERMES_CRM_TEST_POSTGRES_URL')
 pytestmark = pytest.mark.skipif(not URL, reason='Requires explicit disposable PostgreSQL URL')
@@ -67,6 +68,10 @@ REPLACED = {
 for _name, _check in vars(contract).items():
     if _name.startswith('test_') and callable(_check) and _name not in REPLACED:
         globals()['test_postgres_contract_' + _name[5:]] = _check
+
+for _name, _check in vars(cancellation_contract).items():
+    if _name.startswith('test_') and callable(_check):
+        globals()['test_postgres_cancellation_' + _name[5:]] = _check
 
 
 def test_postgres_only_new_tables_and_compatible_inspector(crm_factory):

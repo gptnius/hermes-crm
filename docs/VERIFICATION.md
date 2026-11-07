@@ -2,6 +2,84 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Completed inactive schedule handling
+
+Cancellation previously always attempted Pause after finding a bound job, even
+when that one-shot had already completed and was disabled. The pinned host
+rejects changing a terminal job to paused. The correction recognizes only a fresh,
+unique exact-job observation matching the existing assignment contract, with
+`state=completed`, `enabled=false` and an explicitly null next run. It records
+**already inactive observed** and sends no pause for that observation. This is
+historical host evidence, not a successful cancellation, interrupted agent,
+verified business completion or guarantee against a later host change.
+
+The inactive observation is distinct from pause success in the coverage queue
+and task details. Old unknowns are not rewritten. Missing, malformed, conflicting,
+foreign, stale or subsequently contradicted evidence cannot clear uncertainty.
+Report contents, human review and business-task completion remain separate.
+
+Every local assignment-event append shares a row lock. Cancellation and
+reconciliation compare both assignment version and an event-count watermark
+before accepting an observation, so event-only concurrent changes cannot be
+silently overwritten. New local event-recording times are monotonic under that
+lock, advancing by one microsecond when necessary to preserve ordering across
+equal clock ticks or rollback. This is local recording order, not a correction
+to native execution timestamps; actual deadline guards still use the real clock.
+
+No timestamp correction was needed: the report normalizes an offset-aware host
+start to UTC, preserving the instant. New timezone regressions cover midnight,
+fractional offsets, the repeated DST hour, equivalent replay and naive rejection;
+there is no execution-timestamp normalization change or historical report rewrite.
+
+Final correction checks on November 7, 2026:
+
+- Shipping-scope default Python: **718 passed, 421 opt-in cases skipped**, with
+  three dependency warnings. Dormant chat-request research remains excluded.
+- Actual disposable PostgreSQL 17.11: **281 contracts passed**, including
+  cancellation/observation races, equal ticks/rollback ordering and coverage.
+  The synthetic localhost-only cluster was stopped after the run.
+- Actual pinned-host ASGI/IPC, native-work and command routing: **six passed**;
+  one historical due-run placeholder remains explicitly skipped.
+- Guarded command-to-scheduled-agent fixture: **two passed**, both modes. The
+  completed first assignment's cancellation performs exactly one List and no
+  Pause, preserves its report and open business task, and records inactive
+  evidence. The separate future assignment is still paused before due and never
+  executes. The original guard/runner is unchanged; only the model endpoint is
+  synthetic. Both modes recorded zero forbidden audit events and cleaned up all
+  jobs, scheduler, plugin child and endpoint. See
+  [sanitized results](native-work-test/inactive-cancellation-result-summary.json).
+- All eight UI suites and the unchanged disabled bridge's **25 tests** pass;
+  Python/JS syntax and whitespace checks pass. Independent review found no
+  remaining actionable issue. Native-window and real-model validation of this
+  correction remain unperformed.
+
+## Real-model scheduled check
+
+A separately authorized isolated Mac test passed on published CRM commit
+`3ea680a7dfe817ee255990b3b5005ed87e73a962` and exact Hermes source
+`2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. Terra 6.1 with xhigh reasoning ran once
+at the approved time, read the synthetic assignment/task, reported the requested
+calculation (7 × 13 = 91 USD) and verified its saved report. Canonical native
+admission/result and local output were verified. The authenticated report awaited
+human review and the business task remained open.
+
+The run exposed only the eleven CRM read/report tools. Deferred discovery was
+disabled in this particular test. It used no new credentials/grants, outbound
+email/text, production data or production system changes. This is one bounded
+real-model internal-analysis check, not a guarantee of general reasoning quality,
+prompt-injection resistance, native-window interaction, model-chosen scheduling,
+restart recovery, or future-cancellation behavior.
+
+Cleanup invalidated local assignment intent, but its pause outcome remained
+unknown because the isolation guard rejected a shared host-lock write. No retry
+or guard relaxation occurred. Independently persisted job evidence showed that
+the one-shot had completed and disabled itself before cleanup, with no next run;
+zero enabled test jobs remained and the scheduler exited. This was **not** a
+verified pause/cancellation. The newer completed-inactive handling above has
+separate synthetic verification; it was not exercised in this historical real
+model run. The initially suspected timezone discrepancy was a reporting mistake:
+the UTC and local-offset values represent exactly the same instant.
+
 ## CRM-confirmed future-operation increment
 
 The CRM companion now offers explicit review and confirmation for an exact saved

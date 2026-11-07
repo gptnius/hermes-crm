@@ -26,11 +26,12 @@ def test_crm_command_real_due_scheduler_and_report(tmp_path, monkeypatch, isolat
     due_contract.test_native_work_real_due_scheduler_loopback_model(tmp_path, isolation)
     import json
     evidence = json.loads((tmp_path / 'evidence.json').read_text())
-    assert [item['verb'] for item in evidence['crm_user_commands']] == ['schedule','schedule','cancel']
+    assert [item['verb'] for item in evidence['crm_user_commands']] == ['schedule','cancel','schedule','cancel']
     assert all(item['provenance'] == 'authenticated_local_command' for item in evidence['crm_user_commands'])
     assert evidence['command_session_durable'] is True
     assert evidence['canonical_admission_verified'] and evidence['local_output_verified']
     assert evidence['cancelled_before_due_never_executed'] is True
+    assert evidence['completed_cancel_observed_inactive_without_pause'] is True
 
 
 def command_due_check(base):
@@ -64,6 +65,28 @@ def command_due_check(base):
         cancelled = tool('crm_work_cancel', {'assignment_id': cancelled['id'], 'version': cancelled['version']},
                          parent_agent=creator)""", """        cancelled = await user_command('schedule', cancelled, 'command-schedule-cancelled')
         cancelled = await user_command('cancel', cancelled, 'command-cancel-before-due')""")
+    replace("""        # A second real scheduled assignment is cancelled before its due instant.""", """        # The first one-shot has finished. Cancel must observe its actual public
+        # terminal summary without attempting the host's forbidden terminal pause.
+        before_completed_cancel = list(observed)
+        completed_cancel = await user_command('cancel', report, 'command-cancel-completed')
+        assert completed_cancel['state'] == 'cancelled'
+        assert completed_cancel['generation'] == report['generation'] + 1
+        assert completed_cancel['reason'] == 'future_schedule_already_inactive_running_run_not_cancelled'
+        assert observed == before_completed_cancel + ['list'], observed
+        inactive_event = completed_cancel['events'][-1]
+        assert inactive_event['kind'] == 'inactive_schedule_observed', inactive_event
+        assert inactive_event['evidence'] == {
+            'source':'public_job_list', 'job_id':report['job_id'], 'state':'completed',
+            'enabled':False, 'next_run_at':None, 'future_schedule_inactive':True,
+            'pause_attempted':False, 'running_execution_cancelled':False}
+        assert completed_cancel['reports'] == report['reports']
+        assert completed_cancel['host_terminal_success_verified'] is False
+        assert completed_cancel['business_task_completed_by_report'] is False
+        assert tool('crm_task_get', {'id': task['id']})['status'] == 'open'
+        assert len(model_requests) == before
+        assert len(executions.list_executions(job_id=work['job_id'])) == 1
+        evidence['completed_cancel_observed_inactive_without_pause'] = True
+        # A second real scheduled assignment is cancelled before its due instant.""")
     replace("""    finally:
         stop.set()""", """    finally:
         await command_connection.close()
