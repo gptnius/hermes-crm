@@ -11,10 +11,11 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 ## What works
 
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
-- Workbench UI: coordinated light/dark pages, bright dark-mode metadata, flat cards, underlined tabs, structured record/transfer drawers and an original licensed HermesCRM wordmark. See the [design system and coverage](docs/DESIGN_SYSTEM.md).
+- Workbench UI: coordinated light/dark pages, bright dark-mode metadata, flat cards, larger underlined navigation on its own row, clearly separated contact rows with blue name links, structured record/transfer drawers and an original licensed HermesCRM wordmark. See the [design system and coverage](docs/DESIGN_SYSTEM.md).
 - Native conversation companion: open CRM beside an existing verified main Hermes chat; copy a validated minimal record reference in one click, with an optional hideable preview, for manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: preset stage/attention views plus a typed report builder, shared saved definitions, version-pinned table/KPI/bar/line/donut cards and live contributing-record drilldowns. See [flexible reports](docs/FLEXIBLE_REPORTS.md).
+- Upcoming Tasks: the earliest six open tasks, including visibly overdue work, with current linked-contact context and direct task links. Business-task ownership is not inferred from the creator, reminders or current Hermes profile; saved agent-work intent and its human owner remain separate from scheduling and execution.
 - Recent Activities: five recent CRM audit summaries on the dashboard, with verified current-contact links; contact overviews put recent changes before follow-ups and retain older available history. These are record changes, not proof of customer communication.
 - Logged contact: explicit self-reported contact events with corrections, kept separate from CRM edits and optional Gmail observations.
 - Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.

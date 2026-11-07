@@ -507,7 +507,7 @@ class CRM(Customization):
             ids = [contact_id, *deal_ids, *[t['id'] for t in related_tasks]]
             return dict(contact=contact, deals=related_deals, tasks=related_tasks, activity=self.activities(ids,_conn=conn))
 
-    def overview(self, _conn=None):
+    def overview(self, _conn=None, *, include_task_assignments=False):
         # The prototype is intentionally bounded; dashboard SQL itself is not limited by list pagination.
         with (nullcontext(_conn) if _conn is not None else self._read_connection()) as conn:
             info=self.info(conn)
@@ -521,7 +521,22 @@ class CRM(Customization):
                 *self._contact_predicates(contact_type='lead', followup=state, timestamp=timestamp,conn=conn))).scalar_one()
                 for key, state in [('no_open_followup', 'missing'), ('overdue_followup', 'overdue')]}
             recent_activity=self.activities(_conn=conn)[:8]
-            upcoming_tasks=self.list('tasks',status='open',_conn=conn)[:6]
+            # Bound before joining. A deal-only task still has a linked contact;
+            # summary cards need no notes or custom values from either record.
+            task_fields = ('id', 'version', 'title', 'contact_id', 'deal_id', 'due_at', 'priority',
+                           'status', 'schedule_status', 'scheduler_job_id', 'created_at', 'updated_at')
+            upcoming = select(*[tasks.c[key] for key in task_fields]).where(tasks.c.status == 'open').order_by(
+                tasks.c.due_at, tasks.c.id).limit(6).subquery()
+            linked_contact = func.coalesce(upcoming.c.contact_id, deals.c.contact_id)
+            source = upcoming.outerjoin(deals, upcoming.c.deal_id == deals.c.id).outerjoin(
+                contacts, contacts.c.id == linked_contact)
+            upcoming_tasks = [dict(row) for row in conn.execute(select(
+                *[upcoming.c[key] for key in task_fields],
+                contacts.c.id.label('linked_contact_id'), contacts.c.name.label('contact_name'))
+                .select_from(source).order_by(upcoming.c.due_at, upcoming.c.id)).mappings()]
+            if include_task_assignments:
+                from .upcoming_tasks import add_assignment_summaries
+                add_assignment_summaries(self, conn, upcoming_tasks)
         open_deals = [d for d in all_deals if outcomes.get(d['stage']) == 'open']
         open_tasks = [t for t in all_tasks if t['status']=='open']
         return dict(info, contacts=count, open_deals=len(open_deals), pipeline_value=sum(d['value'] for d in open_deals),
@@ -536,7 +551,7 @@ class CRM(Customization):
         token = self.workspace_token()  # Bootstrap writes must precede the read transaction.
         with self._read_connection() as conn:
             return dict(meta=dict(self.info(conn), workspace_token=token),
-                        overview=self.overview(_conn=conn),
+                        overview=self.overview(_conn=conn, include_task_assignments=True),
                         contacts=self.list('contacts', _conn=conn),
                         deals=self.list('deals', _conn=conn),
                         tasks=self.list('tasks', _conn=conn),

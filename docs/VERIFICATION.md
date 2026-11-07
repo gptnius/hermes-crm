@@ -2,6 +2,69 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Navigation, contact rows and Upcoming Tasks
+
+The native and standalone navigation now occupies its own row, with 18px text,
+52px minimum targets and an underlined active page. Contact rows use alternating
+approved surfaces, retained separators and bold blue name links. The dashboard's
+Upcoming Tasks section shows the earliest six open tasks, including explicitly
+marked overdue work, the current linked contact and a blue exact-record link.
+
+Task records do not have an assignee field, so the UI says **Task assignee: Not
+recorded**. Separate saved Hermes work, when present, shows its actual human
+owner and stored state. It is not inferred from the current profile, audit actor
+or reminder. At most three assignment summaries per displayed task are returned,
+with the full history count and explicit unknown/stale states. Counts still scan
+that task's history. This read-only summary neither queries nor changes the
+scheduler. Assignment instructions/results, notes and custom values are omitted;
+agent overview responses retain their prior minimized contract.
+
+Cloud verification on the final code: **1,183 Python tests passed**, **564 optional
+cases skipped**, with two known dependency warnings. React/VM, standalone,
+routing, both design-contract suites, **25 bridge checks**, seven generator
+checks, JavaScript syntax and whitespace checks passed. The fresh cloud fixture
+uses React/test-renderer 19.3.0. Exact pinned-host source and optional actual
+nanostores fixtures were unavailable, so those source/runtime assertions were
+skipped rather than claimed as new host verification.
+
+Independent review found no remaining blocker. It checked malformed summaries,
+all saved assignment states, direct-contact precedence and missing-reference
+behavior, bounded projections, exact-ID fresh standalone reads, preservation of
+notes/custom fields when editing, and late-response/navigation/Escape guards.
+Both surfaces fail closed on malformed counts, owners, executors or states.
+
+A separate disposable PostgreSQL 17.11 ARM64 run passed **578 mixed checks**,
+with zero failures or skips on the exact 173-file source snapshot. The new
+Upcoming Tasks file passed five actual PostgreSQL cases, five SQLite cases and
+one local native-API fixture. The total also includes local/compiler report and
+activity cases and is not exclusively PostgreSQL-backed. All source hashes were
+unchanged. Both owned tmpfs-only loopback containers were removed and independently
+confirmed absent. Only known dependency and intentional malformed-primary-key
+fixture warnings remained. No active app, user profile, provider or key changed.
+
+Final isolated rendering passed **12 native/standalone combinations**: light and
+dark at 1280, 640 and 390 pixels. A visible standalone explanation-inset defect
+was corrected; all six standalone combinations then passed again, including
+expanded disclosures. Four additional delayed-response and narrow-table-scroll
+cases passed. Actual screenshots were inspected across all original combinations
+and the six final standalone reruns. No unresolved visual defect was found in
+this scope. The final correction changed only two standalone UI files and one
+style test; all backend/Python-test bytes match the PostgreSQL-tested snapshot.
+
+The sandboxed offscreen renderer used Electron 44.9.3, Chromium 152.0.7977.167
+and React 19.3.0, with synthetic SDK/REST responses, separate temporary browser
+state and HTTP(S) blocked. It checked the navigation row, contact/task link
+styles, row distinction, wrapped long text, saved-work states, precise fresh-ID
+navigation, separate editing/cancellation, late-response suppression and
+contained table scrolling. No fixture writes or external requests occurred.
+Hidden-window Tab/Enter input did not activate controls, so actual keyboard
+traversal, focus-visible outlines, Escape behavior and assistive-technology
+behavior were **not** verified by this render run. DOM activation/programmatic
+focus checks and the separate automated keyboard-handler tests are not a
+physical-host accessibility audit. All owned offscreen harness processes exited;
+read-only process checks found none remaining. The active review app remained
+untouched.
+
 ## Recent Activities and current-contact navigation
 
 The dashboard now shows five recent CRM audit summaries with server-resolved

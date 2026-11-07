@@ -132,6 +132,38 @@ function taskRows(rows) {
         .join("")
     : empty("All clear. No tasks to show.");
 }
+function taskAssignmentLines(task) {
+  const work = task.agent_work;
+  const states = {
+    pending: "Saved, not scheduled", scheduled: "Schedule recorded; execution unverified",
+    result_reported: "Result reported; awaiting human review", bound_paused: "Bound schedule paused",
+    cancelled: "Cancelled intent; schedule status not checked", superseded: "Superseded intent; schedule status not checked",
+    create_unknown: "Scheduling outcome unknown", resume_unknown: "Scheduling outcome unknown", unknown: "Scheduling outcome unknown",
+  };
+  if (work?.status !== "available" || !Number.isSafeInteger(work.total) || work.total < 0
+      || !Array.isArray(work.items) || work.items.length !== Math.min(work.total, 3)
+      || !work.items.every(item => item && typeof item === "object" && !Array.isArray(item)
+        && typeof item.id === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(item.id)
+        && item.executor === "Hermes" && typeof item.state === "string" && Object.hasOwn(states, item.state)
+        && typeof item.human_owner === "string" && item.human_owner.trim() && item.human_owner.length <= 160
+        && typeof item.source_task_current === "boolean"))
+    return ["Agent work: Unavailable; review in Hermes Desktop."];
+  if (work.total === 0) return ["Agent work: None saved"];
+  const lines = work.items.map(item =>
+    `Agent executor: Hermes · Human owner (agent work): ${item.human_owner} · ${states[item.state]}${item.source_task_current === false ? " · Earlier task version" : ""}`);
+  if (work.total > work.items.length) lines.push(`${work.total} saved assignments; latest ${work.items.length} shown. Open task in Hermes Desktop for full history.`);
+  return lines;
+}
+function upcomingTasks(rows) {
+  return rows.length ? `<div class="upcoming-list">${rows.map(task => {
+    const overdue = task.status === "open" && new Date(task.due_at) < new Date();
+    const linked = typeof task.linked_contact_id === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(task.linked_contact_id)
+      && typeof task.contact_name === "string" && task.contact_name.trim();
+    const contact = linked ? `<button class="name-button" data-action="contact" data-id="${esc(task.linked_contact_id)}">Contact: ${esc(task.contact_name)}</button>`
+      : task.contact_id || task.deal_id ? "Contact: Unavailable" : "Contact: No linked contact";
+    return `<article class="upcoming-task"><button class="name-button task-title" data-action="task" data-id="${esc(task.id)}">${esc(task.title)}</button><div class="task-meta">${contact}</div><div class="task-meta">Due ${esc(new Date(task.due_at).toLocaleString())} · ${esc(label(task.priority))} priority ${overdue ? badge("overdue") : ""}</div><div class="task-assignment">Task assignee: Not recorded</div>${taskAssignmentLines(task).map(line => `<div class="task-assignment">${esc(line)}</div>`).join("")}</article>`;
+  }).join("")}</div>` : empty("No open tasks. Start with a contact or a task.");
+}
 function activityContact(a, currentContactId) {
   return a.linked_contact_id !== currentContactId && a.link_basis === "current_relationship" && typeof a.linked_contact_id === "string"
     && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(a.linked_contact_id)
@@ -258,7 +290,7 @@ async function render() {
           )
           .join(
             "",
-          )}</div><div class="grid"><section class="card"><div class="card-head"><div><h2>Sales pipeline</h2><div class="subtitle">Deal value by stage, including Won and Lost.</div></div><a class="text-link" href="#deals">View deals ↗</a></div>${stageChart(ps)}<div class="attention-reports"><h3>Lead attention</h3><button class="button" data-action="attention" data-followup="missing">${Number(o.lead_attention?.no_open_followup || 0)} leads with no open follow-up</button><button class="button" data-action="attention" data-followup="overdue">${Number(o.lead_attention?.overdue_followup || 0)} leads with overdue follow-ups</button><p class="subtitle">Based on stored tasks, not agent execution.</p></div></section><section class="card"><div class="card-head"><div><h2>Your next steps</h2><div class="subtitle">${o.open_tasks} open tasks · ${o.overdue_tasks} overdue</div></div><a href="#tasks" class="text-link">View all ↗</a></div>${taskRows(state.tasks.filter((t) => t.status !== "done").slice(0, 4))}</section></div><div class="grid"><section class="card"><div class="card-head"><div><h2>People in your orbit</h2><div class="subtitle">Every great opportunity starts with a connection.</div></div><a href="#contacts" class="text-link">All contacts ↗</a></div>${contactTable(state.contacts.slice(0, 5))}</section><section class="card"><div class="card-head"><h2>Recent Activities</h2><a href="#activity" class="text-link">View all ↗</a></div><p class="subtitle activity-disclaimer">Latest 5 CRM record changes. Contact links reflect current relationships, not historical ownership. Communications are not synced in this feed.</p>${activityRows(list(o.activity).slice(0, 5))}</section></div>`;
+          )}</div><div class="grid"><section class="card"><div class="card-head"><div><h2>Sales pipeline</h2><div class="subtitle">Deal value by stage, including Won and Lost.</div></div><a class="text-link" href="#deals">View deals ↗</a></div>${stageChart(ps)}<div class="attention-reports"><h3>Lead attention</h3><button class="button" data-action="attention" data-followup="missing">${Number(o.lead_attention?.no_open_followup || 0)} leads with no open follow-up</button><button class="button" data-action="attention" data-followup="overdue">${Number(o.lead_attention?.overdue_followup || 0)} leads with overdue follow-ups</button><p class="subtitle">Based on stored tasks, not agent execution.</p></div></section><section class="card"><div class="card-head"><div><h2>Upcoming Tasks</h2><div class="subtitle">${o.open_tasks} open tasks · ${o.overdue_tasks} overdue</div></div><a href="#tasks" class="text-link">View all ↗</a></div><div class="upcoming-context"><p class="subtitle">Earliest open tasks, including overdue.</p><details class="task-assignment"><summary>About task assignments</summary><p>Task assignees are not stored. Agent-work owners are separate. Agent work shows saved intent, not a live execution check.</p></details></div>${upcomingTasks(state.tasks)}</section></div><div class="grid"><section class="card"><div class="card-head"><div><h2>People in your orbit</h2><div class="subtitle">Every great opportunity starts with a connection.</div></div><a href="#contacts" class="text-link">All contacts ↗</a></div>${contactTable(state.contacts.slice(0, 5))}</section><section class="card"><div class="card-head"><h2>Recent Activities</h2><a href="#activity" class="text-link">View all ↗</a></div><p class="subtitle activity-disclaimer">Latest 5 CRM record changes. Contact links reflect current relationships, not historical ownership. Communications are not synced in this feed.</p>${activityRows(list(o.activity).slice(0, 5))}</section></div>`;
     } else if (state.page === "contacts") {
       const result = await api("reports/contacts" + queryString({q: state.query, ...state.filters, limit: 50, offset: state.offset}));
       if (token !== state.render) return;
@@ -520,6 +552,22 @@ async function contactDetail(id) {
     if (requestEpoch === modalEpoch) toast(e.message);
   }
 }
+async function taskDetail(id) {
+  // Exact fresh task data, never a contact target or a cached edit version.
+  const requestEpoch = ++modalEpoch;
+  try {
+    const [task, meta] = await Promise.all([api("tasks/" + encodeURIComponent(id)), api("meta")]);
+    if (requestEpoch !== modalEpoch) return;
+    if (task?.id !== id) throw new Error("The task could not be verified. Refresh and try again.");
+    adoptCatalog(meta);
+    const overdue = task.status === "open" && new Date(task.due_at) < new Date();
+    showModal(modalHead(task.title) + `<div class="detail-body"><dl class="detail-meta"><div><dt>Status</dt><dd>${badge(task.status)} ${overdue ? badge("overdue") : ""}</dd></div><div><dt>Due (your timezone)</dt><dd>${esc(new Date(task.due_at).toLocaleString())}</dd></div><div><dt>Priority</dt><dd>${esc(label(task.priority))}</dd></div><div><dt>Task assignee</dt><dd>Not recorded</dd></div><div><dt>Contact</dt><dd>${task.contact_id ? `<button class="name-button" data-action="contact" data-id="${esc(task.contact_id)}">Open linked contact</button>` : task.deal_id ? "Linked through deal" : "No linked contact"}</dd></div></dl>${task.notes ? `<div class="notes">${esc(task.notes)}</div>` : ""}${customFieldDetails("tasks", task)}<p class="subtitle">Review any separate saved agent assignments in Hermes Desktop. A task due date does not schedule agent work.</p></div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-task">Edit task</button></div>`);
+    state.tasks = mergeRecords(state.tasks, [task]);
+    $("#edit-task").onclick = () => openForm("task", task);
+  } catch (e) {
+    if (requestEpoch === modalEpoch) toast(e.message);
+  }
+}
 function mergeRecords(cached, fresh) {
   const records = new Map(cached.map((record) => [record.id, record]));
   fresh.forEach((record) => records.set(record.id, record));
@@ -557,8 +605,7 @@ document.addEventListener("click", (e) => {
     if (d) openForm("deal", d);
   }
   if (a === "task") {
-    const t = state.tasks.find((x) => String(x.id) === b.dataset.id);
-    if (t) openForm("task", t);
+    taskDetail(b.dataset.id);
   }
   if (a === "toggle-task") toggleTask(b.dataset.id, b);
   if (a === "stage") openReport({stage: b.dataset.stage}, `${stageLabel(b.dataset.stage)} stage: contacts linked to matching deals`);

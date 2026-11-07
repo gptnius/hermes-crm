@@ -154,6 +154,82 @@ function defer(endpoint) {
   assert.equal(run("state.tasks[0].version"), 3);
   console.log("PASS: cancelled details do not mutate cache; fresh details replace versions");
 
+  // Dashboard titles open freshly read task records, not contacts or cached edits.
+  run('closeModal()');
+  fixtures.overview.tasks = [{id:'t',title:'Cached task',status:'open',priority:'high',due_at:'2000-01-01T00:00:00Z',contact_name:'<Linked person>',linked_contact_id:'outside',agent_work:{status:'available',total:0,items:[]}}];
+  await run("state.page='overview';render()");
+  const upcoming = nodes.get('#content').innerHTML;
+  assert(upcoming.includes('Upcoming Tasks') && upcoming.includes('class="name-button task-title"'));
+  assert(upcoming.includes('Contact: &lt;Linked person&gt;'));
+  assert(upcoming.includes('Task assignee: Not recorded') && upcoming.includes('Agent work: None saved'));
+  assert(upcoming.includes('High priority') && upcoming.includes('Overdue'));
+  fixtures.meta = {profile:'default',catalog:{stages:[],fields:{tasks:[{key:'test_value',label:'Custom value'}]}}};
+  fixtures['tasks/t'] = {id:'t',title:'Fresh exact task',version:12,status:'open',priority:'normal',due_at:'2030-01-01T00:00:00Z',notes:'Existing private task notes',custom_fields:{test_value:'Retained custom data'}};
+  const beforeTaskReads = requests.length, beforeTaskMethods = methods.length;
+  handlers.click({target:{closest:()=>({dataset:{action:'task',id:'t'}})}});
+  await tick();
+  const freshTask = nodes.get('#modal-body').innerHTML;
+  assert(freshTask.includes('Fresh exact task') && freshTask.includes('Existing private task notes'));
+  assert(freshTask.includes('Retained custom data'));
+  assert(requests.slice(beforeTaskReads).includes('/api/tasks/t'));
+  assert(!requests.slice(beforeTaskReads).some(url => url.includes('/contacts/')));
+  assert(methods.slice(beforeTaskMethods).every(method => method === 'GET'));
+  assert.equal(run("state.tasks.find(t=>t.id==='t').version"),12);
+  await nodes.get('#edit-task').onclick();
+  assert(nodes.get('#modal-body').innerHTML.includes('Existing private task notes'));
+  assert(nodes.get('#modal-body').innerHTML.includes('Retained custom data'));
+  run('closeModal()');
+  let finishTask = defer('tasks/t');
+  let taskRequest = run("taskDetail('t')");
+  run("location.hash='#activity';route()");
+  finishTask({...fixtures['tasks/t'],title:'Late task',version:99});
+  await taskRequest;
+  assert.equal(nodes.get('#modal').open,false);
+  assert.equal(run("state.tasks.find(t=>t.id==='t').version"),12);
+  finishTask = defer('tasks/t');
+  taskRequest = run("taskDetail('t')");
+  handlers.keydown({key:'Escape'});
+  finishTask(fixtures['tasks/t']);
+  await taskRequest;
+  assert.equal(nodes.get('#modal').open,false);
+  finishTask = defer('tasks/t');
+  taskRequest = run("taskDetail('t')");
+  pending.delete('tasks/t');
+  await run("taskDetail('t')");
+  finishTask({...fixtures['tasks/t'],title:'Older repeated task',version:100});
+  await taskRequest;
+  assert(nodes.get('#modal-body').innerHTML.includes('Fresh exact task'));
+  assert(!nodes.get('#modal-body').innerHTML.includes('Older repeated task'));
+  run('closeModal()');
+  fixtures['tasks/t'] = {id:'wrong',title:'Wrong record'};
+  await run("taskDetail('t')");
+  assert.equal(nodes.get('#modal').open,false);
+  assert(nodes.get('#toast').textContent.includes('could not be verified'));
+  const savedLines = run(`taskAssignmentLines({agent_work:{status:'available',total:5,items:[
+    {id:'w1',executor:'Hermes',human_owner:'Real owner',state:'pending',source_task_current:true},
+    {id:'w2',executor:'Hermes',human_owner:'Former',state:'cancelled',source_task_current:false},
+    {id:'w3',executor:'Hermes',human_owner:'Reviewer',state:'result_reported',source_task_current:true}
+  ]}}).join(' | ')`);
+  assert(savedLines.includes('Human owner (agent work): Real owner · Saved, not scheduled'));
+  assert(savedLines.includes('Cancelled intent; schedule status not checked · Earlier task version'));
+  assert(savedLines.includes('Result reported; awaiting human review'));
+  assert(savedLines.includes('5 saved assignments; latest 3 shown'));
+  assert(run("taskAssignmentLines({schedule_status:'scheduled'}).join(' ')").includes('Unavailable'));
+  assert(!run("taskAssignmentLines({schedule_status:'scheduled'}).join(' ')").includes('Agent executor: Hermes'));
+  const validItem = {id:'w',executor:'Hermes',human_owner:'Owner',state:'scheduled',source_task_current:true};
+  for (const malformed of [
+    {total:1,items:[null]}, {total:-1,items:[]}, {total:1,items:[]}, {total:0,items:[validItem]},
+    ...[{human_owner:{}},{human_owner:' '},{source_task_current:undefined},{executor:'Made-up agent'},
+      {state:'constructor'},{state:'__proto__'},{state:'unrecognized'}].map(patch => ({total:1,items:[{...validItem,...patch}]})),
+  ]) {
+    const result = run(`taskAssignmentLines(${JSON.stringify({agent_work:{status:'available',...malformed}})}).join(' ')`);
+    assert(result.includes('Unavailable'));
+    assert(!result.includes('None saved') && !result.includes('Schedule recorded') && !result.includes('[object Object]'));
+  }
+  fixtures.overview.tasks = [];
+  fixtures.meta = {profile:'default',demo:true};
+  console.log('PASS: factual upcoming task cards, exact fresh task data, notes/custom fields, read-only opening and navigation/Escape/repeated-click guards');
+
   run("closeModal()");
   finish = defer("reports/contacts?limit=50&offset=0");
   request = run("state.page='contacts';render()");

@@ -22,8 +22,8 @@ permissions, model access or execution guarantees.
 - Primary, secondary, status and link text/background pairs are checked at a
   minimum 4.5:1 contrast. The native dark secondary role is full-opacity #D6DCE5;
   disabled-control colors are not reused for active metadata.
-- Titles use 28/32, sections 18/24, body 14/21, secondary text 13/18 and short
-  labels 12/16 pixels. Narrow titles use 24/28. Data uses tabular numerals.
+- Titles use 28/32, sections and primary navigation 18/24, body 14/21, secondary text 13/18 and short
+  labels 12/16 pixels. Primary navigation occupies its own row beneath the brand. Narrow titles use 24/28. Data uses tabular numerals.
 - Four-pixel corners and a 4/8/12/16/24/32 spacing scale apply to cards,
   controls, forms and drawers. Circular chart geometry is an intentional exception.
 - Native controls are at least 36 pixels high, 44 with a coarse pointer.
@@ -40,8 +40,8 @@ permissions, model access or execution guarantees.
 | Area | Application |
 | --- | --- |
 | Shared shell | Compact wordmark, underlined tabs, page title, scope, actions, help, footer disclosure |
-| Overview | Consistent KPI cards, compact attention strip, stage donut and readable clickable summaries, activity rows |
-| Contacts | Aligned filters, labeled table columns, identity/company/type/linked stages, pagination |
+| Overview | Consistent KPI cards, compact attention strip, stage donut and readable clickable summaries, Upcoming Tasks with contact/assignment context, activity rows |
+| Contacts | Aligned filters, labeled table columns, alternating row surfaces, blue bold name links, identity/company/type/linked stages, pagination |
 | Pipeline | Flat stage columns, visible zero counts, scannable opportunity cards and exact cent-aware currency |
 | Tasks | Follow-ups first, readable state labels, saved coverage evidence in expandable detail |
 | Activity | Flat scan-friendly rows, consistent metadata and empty state |

@@ -228,6 +228,21 @@ Open a record and choose **Edit** to change it. If a version conflict appears,
 refresh and review the latest record rather than overwriting another change.
 CRM activity records edits; it does not prove a customer was contacted.
 
+## Review upcoming tasks
+
+The dashboard's **Upcoming Tasks** card shows the earliest six open tasks,
+including overdue items. Open the blue task title to fetch that exact task's
+current record. The contact shown is its current relationship, not an assignment
+or evidence of customer communication. Missing links stay explicitly unknown or
+unlinked rather than being guessed from the displayed contact list.
+
+Business tasks do not currently have an assignee field. **Task assignee: Not
+recorded** is not a claim that nobody is responsible. Any separate saved Hermes
+agent-work intent is shown with its recorded human owner and state; it is not
+silently treated as the business-task assignee. Saving, scheduling, reporting and
+completing the business task are different actions. Review task details and
+assignment history before assuming work will run or has finished.
+
 ## Read recent activity
 
 The dashboard's **Recent Activities** card shows the latest five available CRM

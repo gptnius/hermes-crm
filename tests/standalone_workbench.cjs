@@ -9,6 +9,16 @@ const html = fs.readFileSync(path.join(base,'index.html'),'utf8');
 const js = fs.readFileSync(path.join(base,'app.js'),'utf8');
 for (const token of ['#f5f7fa','#ffffff','#18191b','#5f636b','#d8dfe8','#8c929b','#1f4dff','#eaf0fe', '#101216','#181b21','#f2f4f8','#d6dce5','#343b46','#697586','#365deb','#8faaff','#243254']) assert(css.includes(token), token);
 for (const feature of ['prefers-color-scheme: dark','forced-colors: active','prefers-reduced-motion: reduce','pointer: coarse',':focus-visible','[hidden]','nav a.active::after']) assert(css.includes(feature), feature);
+assert.match(css, /\.workbench-header\s*\{[^}]*display: grid;[^}]*grid-template-areas: "brand context" "nav nav"/);
+assert.match(css, /nav\s*\{[^}]*grid-area: nav;[^}]*min-width: 0;[^}]*overflow-x: auto/);
+assert.match(css, /nav a\s*\{[^}]*flex-shrink: 0;[^}]*min-height: 52px;[^}]*font-size: 18px; line-height: 24px/);
+assert.match(css, /nav a:focus-visible\s*\{ outline-offset: -4px/);
+assert.match(css, /nav a\.active::after\s*\{[^}]*bottom: 0; height: 3px/);
+assert.match(css, /tbody tr:nth-child\(even\)\s*\{ background: var\(--hover\)/);
+assert.match(css, /tbody tr:focus-within\s*\{ background: var\(--selection\)/);
+assert.match(css, /\.name-button\s*\{[^}]*color: var\(--link\);[^}]*font-weight: 700/);
+assert.match(css, /\.name-button:focus-visible\s*\{ text-decoration: underline/);
+assert.match(css, /\.task-assignment\s*\{[^}]*color: var\(--muted\);[^}]*overflow-wrap: anywhere/);
 assert(!/backdrop-filter|linear-gradient|box-shadow|opacity:\s*0\./.test(css));
 assert(!html.includes('brandmark'));
 assert(html.includes('class="wordmark"'));
@@ -23,10 +33,13 @@ function luminance(hex) {
 }
 function contrast(a,b) { const x=luminance(a),y=luminance(b); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05); }
 for (const [foreground, backgrounds] of [
-  ['#18191b',['#ffffff','#f5f7fa','#eaf0fe']], ['#5f636b',['#ffffff','#f5f7fa','#eaf0fe']],
-  ['#f2f4f8',['#181b21','#101216','#243254']], ['#d6dce5',['#181b21','#101216','#243254']],
-  ['#1f4dff',['#ffffff','#f5f7fa','#eaf0fe']], ['#8faaff',['#181b21','#101216','#243254']],
+  ['#18191b',['#ffffff','#f5f7fa','#eaf0fe','#edf1f7']], ['#5f636b',['#ffffff','#f5f7fa','#eaf0fe','#edf1f7']],
+  ['#f2f4f8',['#181b21','#101216','#243254','#222832']], ['#d6dce5',['#181b21','#101216','#243254','#222832']],
+  ['#1f4dff',['#ffffff','#f5f7fa','#eaf0fe','#edf1f7']], ['#8faaff',['#181b21','#101216','#243254','#222832']],
   ['#ffffff',['#1f4dff','#365deb']], ['#b42318',['#fff0ee']], ['#ffb4ab',['#402329']],
   ['#17633d',['#e8f4ed']], ['#91e4b9',['#1c372c']], ['#854000',['#fff3e3']], ['#ffd18a',['#3e301d']],
 ]) for (const bg of backgrounds) assert(contrast(foreground,bg)>=4.5, `${foreground} on ${bg} contrast ${contrast(foreground,bg).toFixed(2)}`);
-console.log('PASS: Workbench palette, bright dark metadata, contrast pairs ≥4.5, flat geometry, all route tabs, focus/touch/forced-color/reduced-motion contracts');
+console.log('PASS: Workbench palette, bright dark metadata, contrast pairs ≥4.5, flat geometry, prominent route tabs, striped contacts and blue record links, upcoming-task metadata, focus/touch/forced-color/reduced-motion contracts');
+
+assert.ok(css.includes(".upcoming-context { padding: 0 24px 16px; }"), "Upcoming-task explanation must align with the card inset");
+assert.ok(css.includes(".upcoming-context { padding: 0 16px 16px; }"), "Upcoming-task explanation keeps the responsive inset");

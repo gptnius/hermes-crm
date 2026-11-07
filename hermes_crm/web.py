@@ -43,7 +43,7 @@ def create_app(crm=None):
     @app.get('/api/meta')
     def meta(): return crm.info()
     @app.get('/api/overview')
-    def overview(): return crm.overview()
+    def overview(): return crm.overview(include_task_assignments=True)
     @app.get('/api/activity')
     def activities(): return crm.activities()
     @app.get('/api/contacts/{record_id}')

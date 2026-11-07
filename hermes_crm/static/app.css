@@ -36,16 +36,17 @@ button { transition: background-color 120ms, border-color 120ms; }
 button:disabled { opacity: 1; cursor: default; background: var(--disabled); color: var(--disabled-ink); border-color: var(--line); }
 ::selection { background: var(--selection); color: var(--ink); }
 /* The same flat, underlined navigation as the approved Workbench specimen. */
-.workbench-header { display: flex; align-items: center; gap: 32px; min-height: 72px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel); }
-.brand { flex-shrink: 0; color: var(--ink); font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.8px; }
+.workbench-header { display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "brand context" "nav nav"; align-items: center; gap: 12px 24px; padding: 16px 32px 0; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { grid-area: brand; justify-self: start; min-width: 0; color: var(--ink); font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.8px; }
 .brand:hover { text-decoration: none; }
 .wordmark { display: block; width: 180px; height: 24px; max-width: 100%; }
-nav { display: flex; gap: 24px; align-self: stretch; }
-nav a { position: relative; display: flex; align-items: center; min-height: 44px; color: var(--muted); white-space: nowrap; padding: 16px 0; }
+nav { grid-area: nav; display: flex; gap: 24px; min-width: 0; width: 100%; overflow-x: auto; }
+nav a { position: relative; display: flex; flex-shrink: 0; align-items: center; min-height: 52px; color: var(--muted); font-size: 18px; line-height: 24px; font-weight: 500; white-space: nowrap; padding: 12px 4px; }
 nav a:hover { color: var(--ink); text-decoration: none; }
-nav a.active { color: var(--ink); font-weight: 600; }
-nav a.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: 16px; height: 2px; background: currentColor; }
-.workspace-context { margin-left: auto; display: flex; gap: 12px; align-items: center; font-size: 12px; line-height: 16px; color: var(--muted); }
+nav a:focus-visible { outline-offset: -4px; }
+nav a.active { color: var(--ink); font-weight: 700; }
+nav a.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: currentColor; }
+.workspace-context { grid-area: context; min-width: 0; display: flex; gap: 12px; align-items: center; font-size: 12px; line-height: 16px; color: var(--muted); }
 .profile-label { overflow-wrap: anywhere; }
 .demo-label { padding: 4px 8px; border-radius: 4px; background: var(--warning-bg); color: var(--warning); white-space: nowrap; }
 .topbar { padding: 16px 32px 0; max-width: 1600px; margin: auto; }
@@ -78,18 +79,25 @@ p { margin: 8px 0; }
 .card { min-width: 0; overflow: hidden; }
 .card-head { padding: 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .card-head .subtitle { margin-top: 4px; }
+.upcoming-context { padding: 0 24px 16px; }
 .text-link { display: inline-flex; align-items: center; min-height: 36px; border: 0; background: none; color: var(--link); font-size: 13px; line-height: 18px; }
 .task-row { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; gap: 12px; align-items: flex-start; }
 .check { min-width: 36px; height: 36px; border: 1px solid var(--input-border); background: var(--panel); border-radius: 4px; padding: 0; color: var(--link); }
 .check:hover:not(:disabled) { background: var(--selection); }
 .check[aria-pressed="true"] { background: var(--success-bg); color: var(--success); }
 .task-copy { flex: 1; min-width: 0; }
-.task-copy button, .name-button { background: none; border: 0; text-align: left; padding: 4px 0; min-height: 36px; color: var(--ink); font-size: 14px; line-height: 21px; font-weight: 600; overflow-wrap: anywhere; }
-.task-copy button:hover, .name-button:hover { color: var(--link); text-decoration: underline; }
+.task-copy button, .name-button { background: none; border: 0; text-align: left; padding: 4px 0; min-height: 36px; color: var(--link); font-size: 14px; line-height: 21px; font-weight: 700; overflow-wrap: anywhere; text-underline-offset: 3px; }
+.task-copy button:hover:not(:disabled), .name-button:hover:not(:disabled), .task-copy button:focus-visible, .name-button:focus-visible { text-decoration: underline; }
+.task-copy button:disabled, .name-button:disabled { color: var(--disabled-ink); }
 .task-meta { font-size: 13px; line-height: 18px; color: var(--muted); margin-top: 4px; }
+.upcoming-list { display: grid; min-width: 0; }
+.upcoming-task { min-width: 0; padding: 16px 24px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.upcoming-task .task-title { display: block; max-width: 100%; }
+.task-assignment { font-size: 13px; line-height: 18px; color: var(--muted); margin: 4px 0 0; overflow-wrap: anywhere; }
+.task-meta .badge { margin: 0 4px 4px 0; }
 .due, .badge { display: inline-block; font-size: 12px; line-height: 16px; padding: 4px 8px; border-radius: 4px; background: var(--hover); color: var(--muted); }
 .due { flex-shrink: 0; margin-top: 4px; }
-.due.overdue, .badge.lost { color: var(--danger); background: var(--danger-bg); }
+.due.overdue, .badge.overdue, .badge.lost { color: var(--danger); background: var(--danger-bg); }
 .badge.customer, .badge.won, .badge.done { color: var(--success); background: var(--success-bg); }
 .badge.proposal, .badge.negotiation, .badge.high { color: var(--warning); background: var(--warning-bg); }
 .toolbar { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 16px 24px; border-bottom: 1px solid var(--line); }
@@ -105,6 +113,8 @@ table { width: 100%; border-collapse: collapse; text-align: left; white-space: n
 th { font-size: 12px; line-height: 16px; color: var(--muted); background: var(--bg); font-weight: 600; padding: 12px 24px; border-bottom: 1px solid var(--line); }
 td { padding: 12px 24px; min-height: 56px; border-bottom: 1px solid var(--line); font-size: 14px; line-height: 21px; }
 tr:last-child td { border-bottom: 0; }
+tbody tr { background: var(--panel); }
+tbody tr:nth-child(even) { background: var(--hover); }
 tbody tr:hover, tbody tr:focus-within { background: var(--selection); }
 .person { display: flex; align-items: center; gap: 12px; }
 .avatar { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 4px; font-size: 12px; background: var(--bg); color: var(--muted); }
@@ -167,24 +177,23 @@ dialog::backdrop { background: #0009; }
 .pagination { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--line); }
 .report-count { padding: 12px 24px; margin: 0; }
 @media (max-width: 1100px) {
-  .workbench-header { flex-wrap: wrap; gap: 0 24px; padding: 16px 24px 0; }
-  nav { order: 3; width: 100%; overflow-x: auto; gap: 24px; }
-  nav a.active::after { bottom: 8px; }
+  .workbench-header { padding: 16px 24px 0; }
   main { padding: 24px; } .topbar { padding: 16px 24px 0; }
   .grid { grid-template-columns: minmax(0,1fr); }
   .stat { padding: 16px; }
 }
 @media (max-width: 650px) {
-  .workbench-header { padding: 16px 16px 0; gap: 12px; }
-  .workspace-context { flex-wrap: wrap; justify-content: flex-end; gap: 4px 8px; }
+  .workbench-header { padding: 16px 16px 0; gap: 12px; grid-template-columns: minmax(0,1fr); grid-template-areas: "brand" "context" "nav"; }
+  .workspace-context { flex-wrap: wrap; gap: 4px 8px; }
   .workspace-context .workspace-name { display: none; }
-  nav { gap: 24px; } nav a { padding-top: 8px; }
+  nav { gap: 20px; }
   main { padding: 24px 16px; } .topbar { padding: 16px 16px 0; }
   .page-head { align-items: flex-start; flex-direction: column; gap: 16px; }
   .stats { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
   .stat-value { font-size: 24px; line-height: 32px; }
-  .card-head, .toolbar, .task-row, .activity-row, .modal-head, .form-body, .detail-body, .form-actions { padding: 16px; }
+  .card-head, .toolbar, .task-row, .upcoming-task, .activity-row, .modal-head, .form-body, .detail-body, .form-actions { padding: 16px; }
   .card-head { flex-wrap: wrap; gap: 8px; }
+  .upcoming-context { padding: 0 16px 16px; }
   .activity-disclaimer { padding: 0 16px 16px; }
   .task-row { flex-wrap: wrap; } .task-row .due { margin-left: 48px; }
   .form-row, .detail-meta { grid-template-columns: minmax(0,1fr); }

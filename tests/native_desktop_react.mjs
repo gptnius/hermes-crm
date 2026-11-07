@@ -130,6 +130,8 @@ let snapshotError = "", testCatalog;
 let delayReport = false, releaseReport;
 let delayDetail = false,
   releaseDetail;
+let delayTaskDetail = false;
+const releaseTaskDetails = [];
 let workRows = [], workError = "", delayWork = false, releaseWork;
 let writeError = "", delayWrite = false, releaseWrite;
 const pluginDisposers = [];
@@ -155,6 +157,8 @@ const ctx = {
       return new Promise((resolve) => {
         releaseDetail = resolve;
       });
+    if (path.split("?")[0] === "/tasks/t1" && delayTaskDetail)
+      return new Promise(resolve => releaseTaskDetails.push(resolve));
     if (path.startsWith("/reports/contacts?") && delayReport) return new Promise(resolve => { releaseReport = resolve; });
     const routes = {
       "/meta": {
@@ -275,6 +279,78 @@ const click = async (title) => {
 assert.match(text(), /Overview/);
 assert.match(text(), /Weighted forecast/);
 assert.equal(intervals.size, 1, "Strict Mode replay leaves one live interval");
+// Dashboard rows distinguish task ownership from saved agent intent and read exact tasks.
+assert.match(text(), /Upcoming Tasks/);
+assert.doesNotMatch(text(), /Up next/);
+assert.match(text(), /Task assignee: Not recorded/);
+assert.match(text(), /Agent work: Unavailable/);
+assert.doesNotMatch(text(), /Agent executor: Hermes/); // Reminder scheduling is not assigned work.
+overview.tasks = [{...task, title:'Cached dashboard title', contact_name:'Linked contact outside cache', linked_contact_id:'outside', due_at:'2000-01-01T00:00:00Z', priority:'high', agent_work:{status:'available',total:0,items:[]}}];
+await click('Refresh');
+assert.equal(button('Cached dashboard title').props.className, 'hc-link-button hc-task-title');
+assert.match(text(), /Agent work: None saved/);
+assert.match(text(), /Overdue/);
+assert.match(text(), /High priority/);
+assert.ok(button('Contact: Linked contact outside cache'));
+const beforeUpcomingWrites = writes.length;
+task.notes = 'Fresh task notes retained';
+await click('Cached dashboard title');
+assert.ok(calls.some(call => call.path === '/tasks/t1?workspace_token=token-work'));
+assert.match(text(), /Fresh task notes retained/);
+assert.match(flatten(root.root.findByProps({className:'hc-record'}).children), /Follow up/);
+assert.equal(writes.length, beforeUpcomingWrites);
+await click('Close');
+task.notes = '';
+overview.tasks[0].agent_work = {status:'available',total:5,items:[
+  {id:'w1',executor:'Hermes',human_owner:'A real owner',state:'pending',source_task_current:true},
+  {id:'w2',executor:'Hermes',human_owner:'Former owner',state:'cancelled',source_task_current:false},
+  {id:'w3',executor:'Hermes',human_owner:'Other owner',state:'unknown',source_task_current:true},
+]};
+await click('Refresh');
+assert.match(text(), /Agent executor: Hermes · Human owner \(agent work\): A real owner · Saved, not scheduled/);
+assert.match(text(), /Cancelled intent; schedule status not checked · Earlier task version/);
+assert.match(text(), /Scheduling outcome unknown/);
+assert.match(text(), /5 saved assignments; latest 3 shown/);
+const validAssignmentSummary = overview.tasks[0].agent_work;
+const validAssignmentItem = validAssignmentSummary.items[0];
+for (const malformed of [
+  {total:1,items:[null]}, {total:-1,items:[]}, {total:1,items:[]}, {total:0,items:[validAssignmentItem]},
+  ...[{human_owner:{}},{human_owner:' '},{source_task_current:undefined},{executor:'Made-up agent'},
+    {state:'constructor'},{state:'__proto__'},{state:'unrecognized'}].map(patch => ({total:1,items:[{...validAssignmentItem,...patch}]})),
+]) {
+  overview.tasks[0].agent_work = {status:'available',...malformed};
+  await click('Refresh');
+  assert.match(text(), /Agent work: Unavailable/);
+  assert.doesNotMatch(text(), /Agent work: None saved|Agent executor: Hermes|\[object Object\]/);
+}
+overview.tasks[0].agent_work = validAssignmentSummary;
+await click('Refresh');
+delayTaskDetail = true;
+await click('Cached dashboard title');
+await click('Overview');
+await act(async()=>releaseTaskDetails.shift()({...task, notes:'Late navigation record'}));
+assert.equal(root.root.findAllByProps({className:'hc-record'}).length, 0);
+assert.doesNotMatch(text(), /Late navigation record/);
+await click('Cached dashboard title');
+await click('Cached dashboard title');
+await act(async()=>releaseTaskDetails.shift()({...task, notes:'Older repeated click'}));
+assert.equal(root.root.findAllByProps({className:'hc-record'}).length, 0);
+await act(async()=>releaseTaskDetails.shift()({...task, notes:'Latest repeated click'}));
+assert.match(text(), /Latest repeated click/);
+assert.doesNotMatch(text(), /Older repeated click/);
+await click('Close');
+await click('Cached dashboard title');
+await click('Cancel loading');
+await act(async()=>releaseTaskDetails.shift()({...task, notes:'Cancelled task read'}));
+assert.equal(root.root.findAllByProps({className:'hc-record'}).length, 0);
+await click('Cached dashboard title');
+await act(async()=>releaseTaskDetails.shift()({...task, id:'wrong-id', notes:'Wrong task response'}));
+assert.equal(root.root.findAllByProps({className:'hc-record'}).length, 0);
+assert.match(text(), /task could not be verified/);
+delayTaskDetail = false;
+overview.tasks = [task];
+await click('Refresh');
+assert.equal(writes.length, beforeUpcomingWrites);
 // Verified activity links do not depend on the capped contact snapshot.
 const auditRows = Array.from({length: 7}, (_, i) => ({id: `audit-${i}`, summary: `Audit summary ${i}`, actor: 'Human', action: 'updated', created_at: '2026-11-07T13:00:00Z', linked_contact_id: 'outside', linked_contact_name: 'Ada Example', link_basis: 'current_relationship'}));
 auditRows[1].linked_contact_id = '../bad';

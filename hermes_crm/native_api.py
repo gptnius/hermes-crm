@@ -125,7 +125,7 @@ def snapshot():
 @router.get('/overview')
 def overview():
     with service() as crm:
-        return crm.overview()
+        return crm.overview(include_task_assignments=True)
 
 
 @router.get('/activity')
