@@ -370,3 +370,59 @@ The source prototype is public at https://github.com/gptnius/hermes-crm. Its ini
 4. Complete the runtime gates before calling this a fully validated release or preparing any authorized contest submission. A clearly labeled source prototype can remain public while those gates are open.
 
 CRM records were synthetic. No production CRM or deployment was modified, and no private repository history or credentials were copied into the plugin. The host authentication auto-discovery attempt is disclosed above rather than treating a separate home as complete credential isolation. Dependency deprecation warnings are recorded in test output; no application test failure remains in the supported checks above.
+
+## Optional read-only Gmail pilot (2026-11-07)
+
+This increment is default off and was tested only with synthetic provider
+responses. No OAuth sign-in, account discovery, mailbox read, send, external
+service, native application or production change occurred during validation.
+The new manual-contact reader is separate from the still-disabled generic email
+send/reconciliation contract and adds no agent tool or data to `crm_read`.
+
+- Full source test suite: **856 passed, 437 optional checks skipped**, two
+  dependency deprecation warnings. Optional skips are not counted as passes.
+- Reader tests: **67 passed**; the original design examples remain separate.
+  Strict method/path and response limits, contact query validation, identity
+  checks, headers, empty pages, duplicates, time budgets and partial coverage
+  use invented data and denied network access.
+- Storage/API tests: **17 passed**, including durable replay, rollback, contact
+  edits, revision ABA, explicit cancellation and local-action receipts.
+- Actual disposable PostgreSQL 17.11: **15 passed**, including concurrent reads
+  and disconnect, rollback, namespace separation, schema validation and replay.
+  The fresh TCP-loopback-only database was stopped afterward; no hosted database
+  or Supabase behavior was exercised.
+- Native UI: eight SDK/React suites passed, including the email panel's explicit
+  reviews, pending-read cancellation, response validation, durable receipts,
+  stale-route suppression, plain text and storage-destination consent. The
+  deterministic single-module build check and JavaScript syntax passed. These
+  are not pixel screenshots or physical Desktop interaction tests.
+- Actual pinned Hermes host source
+  `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`: **two guarded native API tests passed**,
+  covering in-process and hosted isolation, authentication, disabled-email
+  endpoints, workspace tokens and secondary-profile routing/IPC. They used
+  Python 3.14, FastAPI 0.133.1, Starlette 1.9.0 and Pydantic 2.14.1. The guard
+  denied external networking, original-home access and agent/model launches.
+  Only installed SQLAlchemy distribution files were copied into fresh test
+  dependencies; the guard was not relaxed.
+- The real host OAuth parser/admission checks passed separately without invoking
+  authentication or a provider request. The manifest's requested scopes and
+  origins were validated, not an actual consent grant or token's scope ceiling.
+- Independent code/document review found no remaining issue under the disclosed
+  original-workspace completion semantics.
+
+An alternate environment (Python 3.12, FastAPI 0.141.1, Starlette 1.6.0,
+Pydantic 2.13.4) failed the in-process native host test in repeated hot-mount
+fallback recursion. The unchanged pre-Gmail baseline reproduced the same
+failure. Hosted isolation passed in that environment, but it is **not** a fully
+verified native dependency combination. No host code, installed application or
+system configuration was modified to obtain the passing result above.
+
+The first PostgreSQL attempt started its test server in a separate command;
+that process did not survive to the test command. It produced connection-refused
+setup failures, not application passes. Starting the fresh cluster and tests in
+the same bounded command produced the 15-pass result and confirmed shutdown.
+
+Live Gmail authorization/refresh, actual contact-query matching and mailbox
+content, Workspace policy, physical Desktop visual QA, broader incremental sync,
+OAuth scope attestation and production readiness remain unverified. Read the
+current [setup, privacy and cancellation limits](GMAIL_SETUP.md).

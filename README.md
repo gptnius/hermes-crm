@@ -2,7 +2,7 @@
 
 A small, local-first CRM that your existing Hermes agent can use. Contacts, pipeline, follow-ups and activity share one datastore inside a native Hermes Desktop pane, with an optional standalone web demo.
 
-**Prototype, not production software.** Synthetic demo data is opt-in. No customer data, private repository history, paid account, external model API or messaging integration is included. Nothing sends outreach.
+**Prototype, not production software.** Synthetic demo data is opt-in. No customer data, private repository history, paid account, external model API or outbound messaging integration is included. Nothing sends outreach.
 
 ## What works
 
@@ -16,6 +16,7 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
+- Optional Gmail metadata history: default off, manual own-mailbox verification and reviewed contact/date reads through host-owned OAuth, a separate durable ledger and native contact timeline. Synthetic tests only; no live account connected or verified. See [setup and limits](docs/GMAIL_SETUP.md).
 
 See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [the next-release agent-work roadmap](docs/NEXT_RELEASE_PLAN.md), [architecture and safety](docs/ARCHITECTURE.md), [Hermes integration](docs/HERMES_INTEGRATION.md) and [verification report](docs/VERIFICATION.md).
 
@@ -100,6 +101,8 @@ Supabase is supported as a PostgreSQL connection option, not via its REST SDK. A
 
 ```bash
 python -m pytest -q
+python scripts/build_email_panel.py --check
+node --experimental-vm-modules tests/desktop_email_history.mjs
 node --check hermes_crm/static/app.js
 ```
 

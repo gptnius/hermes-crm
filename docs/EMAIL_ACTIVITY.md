@@ -1,6 +1,11 @@
-# Email activity contract: disabled foundation
+# Email send/evidence contract: disabled foundation
 
-This slice does not connect a mailbox, read an account, send mail, add email tools,
+This document describes the original integration-agnostic contract. A separate
+optional read-only Gmail pilot is now implemented but unverified against a live
+account; see [Gmail setup](GMAIL_SETUP.md). It does not activate this send adapter
+or convert observed mailbox labels into sending/delivery proof.
+
+The original contract slice does not connect a mailbox, read an account, send mail, add email tools,
 change the database, or add email controls. `hermes_crm/email_contracts.py` is a
 pure, integration-agnostic contract with an always-disabled adapter. No runtime
 surface imports it. Its tests use synthetic data only.
@@ -32,10 +37,11 @@ not establish that an account or scopes are configured; the adapter stays disabl
 
 - `plugin-catalog/gmail.yaml` advertises a separate community Gmail plugin. A
   catalog entry is not an installed plugin, an authorized account, or a callable
-  integration contract. The external plugin source and live behavior were not
-  inspected or tested in this slice. Its catalog description says opening an
-  unread message marks it read, so even an eventual history lookup needs a
-  verified non-mutating read path.
+  integration contract. A later source-only review at its catalog pin found
+  separate nonmutating GET routes and a mark-read POST used by the UI. Its public
+  projection still lacks stable Google account identity and complete message/
+  history metadata. Its private license and private credential helpers are not
+  an integration route to copy. No live behavior or account was tested.
 - `plugins/platforms/email/adapter.py` is the gateway's email conversation
   transport. `_new_reply` generates an RFC Message-ID locally; `_run_send` wraps
   the SMTP sender's result as `SendResult`. SMTP submission acceptance is not
@@ -53,6 +59,14 @@ RFC Message-ID alone is sender-controlled and is neither a global dedup key nor
 proof of sending. A provider sent-folder label can also reflect an import or
 manual relabel, so label membership alone must not be described as transport
 verification.
+
+The original CRM-owned read-only Gmail design is described in
+[GMAIL_READONLY_PLAN.md](GMAIL_READONLY_PLAN.md). It would use the existing host-owned
+OAuth facade rather than borrowed skill/plugin credentials, with separately
+approved minimal scopes and account binding. Only a design and offline synthetic
+specification are being developed at this stage. No manifest OAuth declaration,
+runtime import, tool, connection control, synchronization or provider request is
+enabled by that work.
 
 ## Implemented data boundaries
 

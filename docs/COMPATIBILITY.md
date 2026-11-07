@@ -36,3 +36,14 @@ Official sources:
 - https://github.com/NousResearch/hermes-agent/tree/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
 - https://github.com/NousResearch/hermes-agent/tree/3c27eb6234bf91b8ceee9e9071591b31e9b148cb
 - https://github.com/NousResearch/hermes-agent/tree/29112bef099274229cadff79cdff7bf7b99c4b77
+
+### Optional Gmail pilot dependency check
+
+The optional Gmail routes passed the pinned host's real authentication/profile
+fixture in both isolation modes with Python 3.14 / FastAPI 0.133.1 /
+Starlette 1.9.0 / Pydantic 2.14.1. Another environment using Python 3.12 /
+FastAPI 0.141.1 / Starlette 1.6.0 / Pydantic 2.13.4 hit host hot-mount recursion
+in-process; the pre-Gmail baseline reproduced it. Do not treat that combination
+as verified or silently change an installed host's dependencies. No host changes
+are included. OAuth declaration compatibility is source-tested; live Gmail and
+native email-panel visual behavior are not yet verified.

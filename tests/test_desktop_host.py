@@ -5,6 +5,7 @@ HERMES_SOURCE must point to an official Hermes source checkout with its imports
 available to this interpreter. The complete server runs only as an ASGI test app.
 """
 import json
+import importlib.metadata
 import os
 from pathlib import Path
 import shutil
@@ -48,11 +49,24 @@ def test_official_dashboard_discovery_auth_crud_tools_and_profiles(tmp_path, iso
     guard = tmp_path / 'guard'
     guard.mkdir()
     (guard / 'sitecustomize.py').write_text(SAFETY_GUARD)
+    # Supply only the installed distribution needed from user-site. The guarded
+    # child must never inspect the original HOME or inherit its credentials.
+    dependencies = tmp_path / 'dependencies'
+    dependencies.mkdir()
+    distribution = importlib.metadata.distribution('sqlalchemy')
+    for relative in distribution.files or ():
+        if relative.parts[0] != 'sqlalchemy' and not relative.parts[0].endswith('.dist-info'):
+            continue
+        source_file = distribution.locate_file(relative)
+        if source_file.is_file():
+            target = dependencies / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_file, target)
     env = {
         'HOME': str(user_home), 'USERPROFILE': str(user_home), 'HERMES_HOME': str(home),
         'HERMES_ENABLE_PROJECT_PLUGINS': '0',
         'HERMES_BUNDLED_PLUGINS': str(tmp_path / 'no-bundled-plugins'),
-        'PYTHONPATH': os.pathsep.join((str(guard), str(source))),
+        'PYTHONPATH': os.pathsep.join((str(guard), str(source), str(dependencies))),
         'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONUNBUFFERED': '1',
         'CRM_DESKTOP_TEST_ROOT': str(tmp_path), 'CRM_DESKTOP_TEST_SOURCE': str(source),
         'CRM_DESKTOP_TEST_FORBIDDEN_HOME': str(original_home),
@@ -226,6 +240,17 @@ with patch.object(socket, 'create_connection', deny_network), \
         'workspace_token': token, 'idempotency_key': 'native-host-contact',
         'data': {'name': 'Synthetic Native Contact', 'email': 'synthetic@example.invalid'}})
     contact_id = created['id']
+    # Optional Gmail surfaces share real host auth/profile routing but default
+    # off. These checks never resolve credentials or invoke the provider helper.
+    for email_path in ('/email/status', '/email/setup', '/email/contacts/' + contact_id):
+        assert client.get(prefix + email_path, params={'workspace_token': token}).status_code == 401
+        request('GET', email_path, 409, params={'workspace_token': 'stale-profile-token'})
+        local = request('GET', email_path, params={'workspace_token': token})
+        if email_path.endswith('status'):
+            assert local['enabled'] is False and local['connected'] is False and local['revision'] == 0
+    assert request('GET', '/email/contacts/' + contact_id, params={'workspace_token': token})['items'] == []
+    request('POST', '/email/verify', 503, json={'workspace_token': token, 'operation_id': '11111111-1111-4111-8111-111111111111',
+        'expected_revision': 0, 'mailbox': 'own@example.test', 'consent': True})
     assert tool('crm_contact_get', {'id': contact_id})['name'] == 'Synthetic Native Contact'
     updated = tool('crm_contact_update', {'id': contact_id, 'version': created['version'], 'company': 'Synthetic LLC'})
     detail = request('GET', '/contacts/' + contact_id)
@@ -368,6 +393,11 @@ with patch.object(socket, 'create_connection', deny_network), \
     other_contact = request('POST', '/contacts?profile=crm-test-other', 201, json={
         'workspace_token': other_meta['workspace_token'], 'data': {'name': 'Other Profile Only', 'lifecycle': 'customer'}})
     other_token = other_meta['workspace_token']
+    assert request('GET', '/email/status', params={'workspace_token': other_token, 'profile': 'crm-test-other'})['enabled'] is False
+    request('GET', '/email/status', 409, params={'workspace_token': token, 'profile': 'crm-test-other'})
+    request('GET', '/email/status', 409, params={'workspace_token': other_token})
+    assert request('GET', '/email/contacts/' + other_contact['id'],
+        params={'workspace_token': other_token, 'profile': 'crm-test-other'})['items'] == []
     other_queue = request('GET', '/reports/coverage', params=other_work_scope)
     assert other_queue['total'] == 1 and other_queue['items'][0]['contacts'][0]['id'] == other_contact['id']
     assert other_queue['items'][0]['kind'] == 'missing_next_action'

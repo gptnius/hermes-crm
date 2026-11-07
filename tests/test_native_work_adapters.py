@@ -142,7 +142,8 @@ def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
         assert not {'identity', 'execution_id', 'job_id', 'parent_agent', 'tool_context',
                     'model', 'provider', 'enabled_toolsets', 'deliver'} & params['properties'].keys()
     manifest = (Path(__file__).resolve().parents[1]/'plugin.yaml').read_text()
-    advertised = {line.strip()[2:] for line in manifest.splitlines() if line.startswith('  - ')}
+    import yaml
+    advertised = set(yaml.safe_load(manifest)['provides_tools'])
     assert advertised == expected
     assert tuple(TOOLSETS) == ('crm_read', 'crm_work_read', 'crm_work_report', 'no_mcp')
     assert 'crm_work_schedule' not in TOOLSETS and 'crm_write' not in TOOLSETS

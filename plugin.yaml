@@ -37,3 +37,36 @@ config_schema:
     env: HERMES_CRM_DATABASE_URL
     label: PostgreSQL connection URL
     description: Optional. Used only when PostgreSQL is selected. Keep credentials in the host secret store.
+  gmail_history_enabled:
+    type: bool
+    default: false
+    label: Optional Gmail history
+    description: Manual metadata reads only after your own separate Gmail sign-in and explicit contact/window confirmation. Never sends mail.
+  gmail_client_id:
+    type: secret
+    env: HERMES_CRM_GMAIL_CLIENT_ID
+    label: Optional Gmail OAuth client ID
+    description: Your Google Desktop app client ID. Hermes owns the grant; CRM never reads this field.
+  gmail_client_secret:
+    type: secret
+    env: HERMES_CRM_GMAIL_CLIENT_SECRET
+    label: Optional Gmail OAuth client secret
+    description: Your matching Google Desktop app client secret, stored by Hermes. Never paste credentials in CRM or chat.
+# Optional: missing client variables must not disable the ordinary CRM.
+optional_env:
+  - name: HERMES_CRM_GMAIL_CLIENT_ID
+    secret: true
+  - name: HERMES_CRM_GMAIL_CLIENT_SECRET
+    secret: true
+oauth:
+  - id: gmail-history-readonly
+    authorize_url: https://accounts.google.com/o/oauth2/v2/auth
+    token_url: https://oauth2.googleapis.com/token
+    scopes:
+      - https://www.googleapis.com/auth/gmail.readonly
+      - openid
+      - https://www.googleapis.com/auth/userinfo.email
+    client_id_env: HERMES_CRM_GMAIL_CLIENT_ID
+    client_secret_env: HERMES_CRM_GMAIL_CLIENT_SECRET
+    hosts: [gmail.googleapis.com, openidconnect.googleapis.com]
+    authorize_params: {access_type: offline, prompt: consent}

@@ -87,6 +87,12 @@ def meta():
 from .native_work_operations_api import build_router
 router.include_router(build_router(service, require_workspace))
 
+# Separate authenticated endpoints: mailbox metadata never enters crm_read or
+# the ordinary contact/snapshot responses. Loading routes performs no OAuth.
+from .gmail_history_api import build_router as build_email_router
+from .gmail_runtime import gmail_runtime
+router.include_router(build_email_router(service, require_workspace, gmail_runtime))
+
 
 @router.get('/snapshot')
 def snapshot():

@@ -12,8 +12,10 @@ Keep `DisabledEmailAdapter` disabled. The pinned, unchanged wrapper can search,
 read and submit mail, but does not expose enough information to implement the
 CRM's approved-message and history contracts faithfully. This does not establish
 anything about a user's account or its existing grants, and it does not mean a
-Google Workspace integration is impossible. A separately reviewed extension to
-the host or skill is needed before connecting this CRM adapter.
+Google Workspace integration is impossible. The separate CRM-owned read-only pilot is now implemented, default off and
+not live-verified; see [setup and limits](GMAIL_SETUP.md). The
+existing host-owned OAuth request facade is a credible alternative to extending
+or borrowing the skill, but requires its own explicitly authorized connection.
 
 ## Verified capabilities and missing boundaries
 
@@ -54,9 +56,52 @@ search 279–336; get 340–376; send/reply 380–482; CLI arguments 1153–1188
 Additional host references: `tools/skills_tool.py` and
 `tools/credential_files.py`. These locations refer to the exact commit above.
 
-## Smallest credible next increment
+## Additional source-only interfaces assessed
 
-First establish a supported, per-call profile-bound transport that provides:
+The pinned host exposes `credentialed_provider_request` for a plugin's declared
+OAuth provider. Hermes owns and refreshes the grant, restricts exact HTTPS origins,
+returns responses without credentials, and does not follow redirects. Grants are
+plugin/profile-specific: CRM cannot borrow another plugin's grant or the Workspace
+skill's token. A CRM-owned read-only Gmail connection would therefore be separate,
+optional and explicitly authorized. The later pilot declares an optional OAuth entry. No client configuration,
+grant or account call has been activated during development.
+
+The catalog Gmail plugin was subsequently inspected at
+`c8cd0c2d140561a1dffb7432c6d02b63b2374888`. Its GET search/message/thread routes are
+nonmutating; marking a message read is a separate POST called by its UI. This
+corrects the earlier catalog-only impression that every read necessarily mutates
+labels. It still binds account identity by email, omits message internal timestamps
+and history IDs in its public projection, and offers no complete mailbox-history
+contract. Its manifest declares a private license; do not vendor it or import its
+private credential helpers.
+
+Direct `gws` source was also examined, not an installed binary or account. Its
+inspected command path takes parameter JSON from arguments, loads ambient `.env`,
+and supports multiple credential fallback sources. It is not the verified,
+profile-bound structured transport required by this CRM. No command was executed.
+
+The next design uses Google identity plus Gmail's documented read APIs through
+the host-owned facade, not these wrappers. See [the read-only Gmail plan](GMAIL_READONLY_PLAN.md)
+for scopes, explicit mailbox binding, cursor/history handling and residual trust
+assumptions. That plan and its offline tests do not enable a connection.
+
+## Subsequent increment: read-only history pilot
+
+The subsequent pilot implements explicit own-mailbox verification and bounded
+contact-query metadata reads, not a send adapter. Synthetic tests cover identity,
+contact/profile binding, fixed GET operations, bounded pagination, provenance,
+deduplication, transaction fencing and visible coverage limits. No live account
+or provider integration test has passed. Mailbox-wide incremental history remains
+future scope and must disclose any unrelated metadata it examines. See the
+current setup document before activating the optional feature.
+
+Exact-content send approval and submission receipts are not prerequisites for
+read-only history. They belong to the separate later feature below.
+
+## Separate later send-adapter requirements
+
+Before any send integration, establish a supported per-call profile-bound
+transport that provides:
 
 1. Verified authenticated account identity and explicit backend selection, using
    existing authorized scopes where sufficient. Do not discover or copy secrets
@@ -69,8 +114,8 @@ First establish a supported, per-call profile-bound transport that provides:
 4. Complete, nonmutating readback and bounded pagination/history, with explicit
    coverage and cursor-expiry behavior.
 
-Then build and test a disabled-by-default concrete adapter with synthetic
-transport fixtures before any authorized live-account test. Keep submission,
+Only then build and test a disabled-by-default send adapter with synthetic
+transport fixtures before any separately authorized sending test. Keep submission,
 independently observed sent state, incoming mailbox observations and unknown
 outcomes separate. Do not deduplicate by thread, subject or header Message-ID.
 No provider integration is enabled by this assessment.
