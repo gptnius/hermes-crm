@@ -607,3 +607,76 @@ def test_process_interruption_keeps_precommitted_unknown_boundary(setup,phase):
         saved=report(setup,identity(host,saved),saved)
         assert saved['state']=='result_reported' and len(saved['reports'])==1
     assert setup[0].get('tasks',setup[2]['id'])['status']=='open'
+
+
+@pytest.mark.parametrize('value', [None, True, False, 0, -1, '1', 1.0, [], {}])
+def test_expected_task_version_is_strict_positive_integer(setup, value):
+    with pytest.raises(CRMError, match='positive integer'):
+        create(setup, expected_task_version=value)
+    assert setup[1].list() == []
+
+
+def test_expected_task_version_replay_binds_presence_and_original_approval(setup):
+    crm, store, task = setup
+    approved = create(setup, expected_task_version=1)
+    assert approved['payload']['expected_task_version'] == 1
+    crm.update('tasks', task['id'], {'version': 1, 'status': 'done'})
+    replay = create(setup, expected_task_version=1)
+    assert replay['id'] == approved['id'] and replay['version'] == approved['version']
+    assert replay['payload'] == approved['payload'] and len(replay['events']) == 1
+    assert replay['business_task_completed'] and not replay['source_task_current']
+    for change in ({'expected_task_version': 2}, {}):
+        with pytest.raises(CRMError, match='payload conflict'): create(setup, **change)
+
+
+def test_expected_task_version_does_not_reinterpret_legacy_request(setup):
+    original = create(setup)
+    assert 'expected_task_version' not in original['payload']
+    assert create(setup)['id'] == original['id']
+    with pytest.raises(CRMError, match='payload conflict'): create(setup, expected_task_version=1)
+
+
+def test_expected_task_version_rejects_changed_source_without_intent_or_events(setup):
+    setup[0].update('tasks', setup[2]['id'], {'version': 1, 'title': 'Changed subject'})
+    with pytest.raises(CRMError, match='version changed'): create(setup, expected_task_version=1)
+    assert setup[1].list() == []
+    with setup[0].engine.connect() as conn: assert conn.execute(select(events)).all() == []
+    assert create(setup, expected_task_version=2)['payload']['task_version'] == 2
+
+
+@pytest.mark.parametrize('change', [{'title': 'Concurrent edit'}, {'status': 'done'}])
+def test_expected_task_version_guards_edit_between_read_and_insert(setup, monkeypatch, change):
+    crm, store, task = setup
+    original = store._guard_task
+    def raced(conn, row):
+        crm.update('tasks', task['id'], dict(change, version=1))
+        original(conn, row)
+    monkeypatch.setattr(store, '_guard_task', raced)
+    with pytest.raises(CRMError, match='Source task changed'): create(setup, expected_task_version=1)
+    assert store.list() == []
+    with crm.engine.connect() as conn: assert conn.execute(select(events)).all() == []
+
+
+def test_expected_task_version_concurrent_exact_key_is_one_intent(setup):
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        rows = list(pool.map(lambda _: create(setup, expected_task_version=1), range(6)))
+    assert len({row['id'] for row in rows}) == 1
+    assert len(setup[1].list()) == 1
+    assert len(rows[-1]['events']) == 1
+
+
+@pytest.mark.parametrize('table_name', ['crm_native_assignments', 'crm_native_work_events'])
+def test_expected_task_version_first_insert_rolls_back(setup, table_name):
+    def reject(conn, cursor, statement, parameters, context, executemany):
+        stmt = getattr(context.compiled, 'statement', None)
+        if getattr(stmt, 'is_insert', False) and stmt.table.name == table_name:
+            raise RuntimeError('Synthetic insertion failure')
+    event.listen(setup[0].engine, 'before_cursor_execute', reject)
+    try:
+        with pytest.raises(RuntimeError, match='Synthetic'):
+            create(setup, expected_task_version=1)
+    finally:
+        event.remove(setup[0].engine, 'before_cursor_execute', reject)
+    assert setup[1].list() == []
+    with setup[0].engine.connect() as conn: assert conn.execute(select(events)).all() == []
+    assert create(setup, expected_task_version=1)['state'] == 'pending'

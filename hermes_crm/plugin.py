@@ -17,6 +17,10 @@ class _WorkInput(BaseModel):
 
 class _WorkCreate(_WorkInput):
     task_id: str = Field(min_length=1, max_length=36)
+    # Omission supports existing callers; explicit null is not an integer.
+    expected_task_version: int = Field(default=None, ge=1,
+        json_schema_extra=lambda schema: schema.pop('default', None),
+        description='Reviewed task version, required for prepared UI requests. Compared atomically when saving intent.')
     human_owner: str = Field(min_length=1, max_length=160)
     prompt: str = Field(min_length=1, max_length=50000)
     success_criteria: str = Field(min_length=1, max_length=10000)

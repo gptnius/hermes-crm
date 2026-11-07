@@ -36,7 +36,7 @@ The final isolated checks on November 6, 2026 passed: 97 SQLite execution cases;
 - Requested toolsets can widen through host defaults. Full inventory inspection detects this before sending task text, but is a snapshot, not an atomic tool-name ceiling. A host-enforced strict ceiling and admission-bound scope hash are needed for the stronger confinement guarantee.
 - Captured gateway RPC routes do not pin `ctx.rest` to the same workspace. A future adapter must retain workspace-token/CAS checks and synchronous connection/profile invalidation.
 - A lost first submission response may leave cancellation requested with no known admission ID. This is an unresolved outcome, not confirmed cancellation; do not send a replacement task to discover the ID.
-- The public UI cron-management surface does not provide the required restricted scheduling lifecycle. The existing explicit reminder tool is separate from durable assigned-task execution.
+- The `cron.manage` RPC lacks restricted creation fields and the full lifecycle. The separate Desktop/dashboard cron REST API supports paused creation and toolsets, but has no reviewed adapter to the CRM intent/approval contract here. Neither is used as a direct scheduling shortcut. The existing explicit reminder and active-tool assigned-work paths remain separate from this disabled immediate bridge.
 - Real-model behavior, owner-process restart recovery, human-visible results, closed-pane dispatch and operational monitoring remain unverified. Saved intent alone is not scheduled or executable coverage.
 
 ## Reproduce the isolated tests

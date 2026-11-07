@@ -88,7 +88,7 @@ Test deterministic synthetic success/failure paths, concurrent requests, rollbac
 
 ### Public-interface gate
 
-The pinned SDK exposes route-bound gateway RPC and visible composer handoff. However, its `cron.manage` RPC cannot forward the required restricted toolset or provide the full trigger/history lifecycle. Direct `cron.submit` is an admission component, not a replacement for the scheduler's durable fire claim and bookkeeping.
+The pinned SDK exposes route-bound gateway RPC and visible composer handoff. However, its `cron.manage` RPC cannot forward the required restricted toolset or provide the full trigger/history lifecycle. The separate Desktop/dashboard cron REST API accepts paused creation and explicit toolsets, but is not wired to the CRM assignment ledger or interactive tool-policy workflow and is not used as a direct scheduling shortcut. Direct `cron.submit` is an admission component, not a replacement for the scheduler's durable fire claim and bookkeeping.
 
 The real interactive plugin tool context can dispatch `cronjob_manage`. Scheduled assignments from the UI remain blocked until a complete supported, restricted scheduler path is verified. A composer handoff, if offered, must be labeled honestly as **Ask Hermes to run**; composer acceptance is not durable admission. Do not borrow a registration context inside REST, read private job files, create a hidden runner or bypass canonical scheduling.
 
@@ -120,6 +120,8 @@ References are workflow/layout guidance rather than assets to copy:
 - https://knowledge.hubspot.com/records/create-records-on-the-updated-index-page
 
 A bounded first handoff is implemented: **Chat with Hermes** opens a right-docked CRM view beside the already loaded, verified primary native conversation. It preserves the current CRM view, blocks relocation while a form is open and checks session/source/profile ownership. Selected-record reference preview/copy includes only connection, profile, kind, ID and version. The user pastes, reviews and sends through the native composer. There are no composer reads/writes, automatic submissions, new sessions or fabricated transcript. Source-contract and React checks are separate from the remaining live native-window/model tests; see NATIVE_CHAT.md.
+
+The next source increment adds a task-specific Preview/Copy request builder, atomic `expected_task_version` intent binding, and server-paged coverage/history reports. It uses the same genuine native conversation and explicit user Send. Requests are not dispatched by the UI, evidence totals are not unique lead counts, and stored observations do not establish live execution coverage. See [the assignment workflow](ASSIGNMENT_UI.md) for current behavior and [verification](VERIFICATION.md) for tested scope.
 
 The tested SDK does not export the full native ChatPane, and its composer insertion helper does not provide the race-free draft/target contract needed for automatic context insertion in this build. A future custom transcript would own streaming/replay, queues, cancellation and approval/question handling. Do not present a text box that only submits prompts as a complete agent chat. Future attachment or broader session support must preserve the user's drafts, exact session ownership and host permissions.
 

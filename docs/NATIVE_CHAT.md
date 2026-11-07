@@ -20,6 +20,10 @@ The plugin does not call the native composer write or submit helpers. On the tes
 
 Record context is data, not authorization to take an action. The user still tells the native agent what to do, and the host retains its normal approval behavior. Existing CRM tools can read and modify records in the current profile. This UI fetches records for display and copy validation, but does not dispatch agent work or modify records merely by opening the view or copying a reference. There is no email integration, sent/received capture or automatic outreach in this increment.
 
+## Task-specific requests
+
+Saved follow-ups also support a reviewed [assignment request workflow](ASSIGNMENT_UI.md). It prepares explicit task/version/time instructions and exact-assignment scheduling/check/cancel requests. Preview and Copy re-read scoped source records; the backend atomically binds the expected task version when saving new intent. Preparation remains local and does not submit, schedule or approve an action. The same native conversation and no-composer-access boundary apply.
+
 ## Routing and lifecycle
 
 The integration uses public `host.openWorkspace`, an explicit side dock, `host.revealPane`, `host.navigate`, read-only host state and the plugin's existing scoped CRM transport. It checks the connection, profile, active and focused session ownership, workspace identity and activation generation. Changes invalidate old actions before they can copy a stale record reference. Repeated open/close, old disposer callbacks and plugin unload must not leave orphan workspaces or close a replacement workspace.

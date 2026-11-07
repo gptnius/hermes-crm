@@ -11,7 +11,7 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: six-stage value donut with keyboard/hover details, unique-contact drillthrough and preset missing/overdue follow-up reports.
 - Pipeline: six stages, integer-cent USD amounts, company/value filters and weighted forecast.
-- Follow-ups: timezone-aware due dates, priority, completion, activity history and read-only native-assignment results awaiting review.
+- Follow-ups: timezone-aware due dates, priority, completion, paged assignment history and a server-counted coverage queue. Task-specific Preview/Copy prepares a request for explicit native chat Send; it does not dispatch work. See [assignment workflow](docs/ASSIGNMENT_UI.md).
 - Native Hermes: 22 tools across separate record, assigned-work and native-report permission sets, active-profile storage, optimistic version checks and idempotent creates.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit active-agent paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded scheduled-agent tests with deterministic local model responses; real-model behavior remains unverified. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
@@ -107,7 +107,7 @@ Tests use temporary synthetic data. See docs/VERIFICATION.md for exact tested en
 
 ## Deliberate limits
 
-This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, imports, attachments, migrations from another CRM or background daemon. Contact reports use server pagination with filtered totals. Legacy lists, deal/task views and form choices are bounded at 500 records, and activity at 100; displayed deal-list totals cover returned records. This is a small-workspace prototype, not a large CRM data browser. Direct Desktop submission remains disabled; native future assignments are a bounded, separately tested path. Custom saved views and a report/dashboard builder are not implemented. A future migration system is needed before changing a deployed schema. No public repository, catalog PR, contest entry or production deployment is created by running the app.
+This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, imports, attachments, migrations from another CRM or background daemon. Contact reports use server pagination with filtered totals. Coverage and assignment history use server pages with exact evidence-item totals; their current implementation scans local history and is not optimized for large datasets. Legacy lists, deal/task list views and form choices are bounded at 500 records, and activity at 100; displayed deal-list totals cover returned records. This is a small-workspace prototype, not a large CRM data browser. Direct Desktop submission remains disabled; native future assignments are a bounded, separately tested path. Custom saved views and a report/dashboard builder are not implemented. A future migration system is needed before changing a deployed schema. No public repository, catalog PR, contest entry or production deployment is created by running the app.
 
 ## License
 

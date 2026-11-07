@@ -145,7 +145,7 @@ const ctx = {
       if (delayWrite) return new Promise(resolve => { releaseWrite = resolve; });
       return {};
     }
-    if (path.startsWith("/work?")) {
+    if (path.startsWith("/reports/work?")) {
       if (workError) throw new Error(workError);
       if (delayWork) return new Promise(resolve => { releaseWork = resolve; });
     }
@@ -170,6 +170,8 @@ const ctx = {
       "/contacts/c1": { contact, deals: relatedDeals, tasks: [task], activity: activityRows },
       "/tasks/t1": task,
       "/work": workRows,
+      "/reports/work": { items: workRows, total: workRows.length, limit: 25, offset: Number(new URLSearchParams(path.split("?")[1]).get("offset") || 0), observed_at: "2026-11-06T13:00:00+00:00" },
+      "/reports/coverage": { items: [], total: 0, limit: 50, offset: 0, workspace_token: `token-${profile.get()}${backendTokenSuffix}`, observed_at: "2026-11-06T13:00:00+00:00" },
     };
     const value =
       path === "/snapshot"
@@ -678,16 +680,16 @@ workRows = [{ id: "w1", state: "result_reported", reason: "native_run_reported",
   job_id: "job1", payload: { human_owner: "Review owner", run_at: task.due_at, prompt: "Research the contact", success_criteria: "Provide sourced findings" },
   reports: [{ id: "r1", outcome: "completed", summary: "Research draft ready", review_status: "awaiting_human_review", created_at: task.due_at }],
   events: [{ id: "e1", kind: "registered", created_at: task.due_at }] }];
-await click("Retry history");
+await click("Refresh saved status");
 assert.match(text(), /Human owner/);
 assert.match(text(), /Review owner/);
 assert.match(text(), /Agent reported: Completed/);
 assert.match(text(), /Awaiting Human Review/);
-assert.match(text(), /Host terminal success has not been verified/);
-const workParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/work?")).path.split("?")[1]);
+assert.match(text(), /does not verify host terminal success/);
+const workParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/reports/work?")).path.split("?")[1]);
 assert.equal(workParams.get("task_id"), "t1");
 assert.equal(workParams.get("workspace_token"), "token-work");
-assert.equal(workParams.get("limit"), "100");
+assert.equal(workParams.get("limit"), "25");
 assert.equal(writes.length, beforeHistoryWrites, "History is read-only");
 // Both accepted manual and interval snapshots refetch assigned-work history.
 // A superseded request cannot overwrite the newest assignment observation.
@@ -695,20 +697,20 @@ const historySummary = () => flatten(root.root.findAllByType("summary").map(node
 const expandedReport = root.root.findByType("details");
 await act(async () => expandedReport.props.onToggle({ currentTarget: { open: true } }));
 assert.equal(root.root.findByType("details").props.open, true);
-let historyCalls = calls.filter(call => call.path.startsWith("/work?")).length;
+let historyCalls = calls.filter(call => call.path.startsWith("/reports/work?")).length;
 workRows = [{ ...workRows[0], state: "cancelled", source_task_current: false }];
 await click("Refresh");
-assert.equal(calls.filter(call => call.path.startsWith("/work?")).length, historyCalls + 1);
+assert.equal(calls.filter(call => call.path.startsWith("/reports/work?")).length, historyCalls + 1);
 assert.match(historySummary(), /Cancelled/);
 assert.equal(root.root.findByType("details"), expandedReport, "Manual refresh retains the keyed report panel");
 assert.equal(root.root.findByType("details").props.open, true, "Manual refresh preserves expansion");
 assert.doesNotMatch(historySummary(), /Result Reported/);
-assert.match(text(), /Changed since assignment/);
+assert.match(text(), /Changed or completed since assignment/);
 historyCalls++;
 workRows = [{ ...workRows[0], state: "superseded" }];
 await act(async () => { for (const tick of intervals) tick(); });
 await flush();
-assert.equal(calls.filter(call => call.path.startsWith("/work?")).length, historyCalls + 1);
+assert.equal(calls.filter(call => call.path.startsWith("/reports/work?")).length, historyCalls + 1);
 assert.match(historySummary(), /Superseded/);
 assert.equal(root.root.findByType("details"), expandedReport, "Polling does not unmount the keyed report panel");
 assert.equal(root.root.findByType("details").props.open, true, "Polling preserves expansion");
@@ -727,7 +729,7 @@ await act(async () => staleHistoryRefresh([{ ...workRows[0], state: "result_repo
   payload: { ...workRows[0].payload, human_owner: "Stale refresh owner" } }]));
 assert.match(historySummary(), /Cancelled/);
 assert.doesNotMatch(text(), /Stale refresh owner/);
-assert.match(text(), /Changed since assignment/);
+assert.match(text(), /Changed or completed since assignment/);
 assert.equal(writes.length, beforeHistoryWrites, "Refreshed history remains read-only");
 assert.equal(root.root.findByType("details"), expandedReport);
 assert.equal(root.root.findByType("details").props.open, true);
@@ -745,7 +747,7 @@ assert.equal(root.root.findByType("details"), expandedReport);
 assert.equal(root.root.findByType("details").props.open, true, "Failed refresh preserves expansion");
 workError = "";
 workRows = [{ ...workRows[0], state: "cancelled", source_task_current: false }];
-await click("Retry history");
+await click("Refresh saved status");
 assert.match(historySummary(), /Cancelled/);
 assert.doesNotMatch(text(), /not reverified|could not be refreshed/);
 assert.equal(root.root.findByType("details").props.open, true, "Recovery preserves expansion");
@@ -755,10 +757,10 @@ assert.equal(root.root.findByType("details").props.open, false, "Refresh also pr
 await click("Close");
 workRows = { unsupported: true };
 await openRecord("Follow up");
-assert.match(text(), /supported history response/);
+assert.match(text(), /Saved history could not be read/);
 assert.doesNotMatch(text(), /No native assignments are recorded/);
 workRows = [];
-await click("Retry history");
+await click("Refresh saved status");
 assert.match(text(), /No native assignments are recorded/);
 workError = "Empty history could not be refreshed";
 await click("Refresh");

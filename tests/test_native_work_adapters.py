@@ -359,3 +359,86 @@ def test_adapter_backend_exceptions_never_disclose_credentials(adapters, monkeyp
         response = adapters.client.get(path, params={'workspace_token': 'token'})
         assert response.status_code == 503
         assert 'secret-password' not in response.text and 'private.example' not in response.text
+
+
+@pytest.mark.parametrize('value', [None, True, False, 0, -1, '1', 1.0, [], {}])
+def test_create_handler_expected_version_strict_before_backend(adapters, value):
+    args = dict(task_id='synthetic', human_owner='Owner', prompt='Analyze', success_criteria='Report',
+                run_at='2030-04-01T12:00:00Z', idempotency_key='strict', expected_task_version=value)
+    result = adapters.ctx.invoke('crm_work_create', args)
+    assert result['ok'] is False and result['status'] == 422
+    assert not adapters.factory_calls and not adapters.ctx.calls
+
+
+def test_create_schema_advertises_atomic_expected_task_version(adapters):
+    schema = adapters.ctx.tools['crm_work_create']['schema']['parameters']
+    version = schema['properties']['expected_task_version']
+    assert version['type'] == 'integer' and version['minimum'] == 1
+    assert 'default' not in version
+    assert 'expected_task_version' not in schema['required']
+    row, args = create_intent(adapters)
+    result = adapters.ctx.invoke('crm_work_create', dict(args, idempotency_key='reviewed', expected_task_version=1))
+    assert result['ok'] and result['data']['payload']['expected_task_version'] == 1
+    crm = adapters.factory()
+    try: crm.update('tasks', args['task_id'], {'version': 1, 'title': 'Changed'})
+    finally: crm.close()
+    stale = adapters.ctx.invoke('crm_work_create', dict(args, idempotency_key='stale', expected_task_version=1))
+    assert stale['status'] == 409 and not stale['ok']
+    recovered = adapters.ctx.invoke('crm_work_create', dict(args, idempotency_key='reviewed', expected_task_version=1))
+    assert recovered['ok'] and recovered['data']['id'] == result['data']['id']
+    assert not adapters.ctx.calls
+
+
+def test_paginated_work_and_coverage_are_read_only_profile_bound(adapters):
+    row, args = create_intent(adapters)
+    token = row['workspace']
+    for path in ('/reports/work', '/reports/coverage'):
+        assert adapters.client.get(path).status_code == 422
+        assert adapters.client.get(path, params={'workspace_token': 'stale'}).status_code == 409
+        assert adapters.client.post(path, json={'workspace_token': token}).status_code in {404, 405}
+        result = adapters.client.get(path, params={'workspace_token': token, 'profile': 'not-authority', 'limit': 1}).json()
+        assert result['total'] == 1 and result['limit'] == 1 and result['offset'] == 0
+        assert result['observed_at']
+        assert adapters.client.get(path, params={'workspace_token': token, 'offset': 1}).json()['items'] == []
+    page = adapters.client.get('/reports/work', params={'workspace_token': token, 'task_id': args['task_id']}).json()
+    assert page['items'] == [row]
+    evidence = adapters.client.get('/reports/coverage', params={'workspace_token': token}).json()
+    assert evidence['workspace_token'] == token and evidence['profile'] == 'alpha'
+    assert evidence['items'][0]['assignment']['id'] == row['id']
+    assert evidence['items'][0]['task']['id'] == args['task_id']
+    assert adapters.ctx.calls == []
+    adapters.state['profile'] = 'beta'
+    for path in ('/reports/work', '/reports/coverage'):
+        assert adapters.client.get(path, params={'workspace_token': token}).status_code == 409
+    crm = adapters.factory()
+    try: other_token = crm.workspace_token()
+    finally: crm.close()
+    assert adapters.client.get('/reports/work', params={'workspace_token': other_token}).json()['total'] == 0
+    assert adapters.client.get('/reports/coverage', params={'workspace_token': other_token}).json()['total'] == 0
+    assert adapters.ctx.calls == []
+
+
+@pytest.mark.parametrize('path', ['/reports/work', '/reports/coverage'])
+@pytest.mark.parametrize('query', ['extra=x', 'limit=1&limit=2', 'limit=1.0', 'offset=1.0', 'offset=-1',
+                                  'offset=2000000001', 'limit=101', 'workspace_token=duplicate'])
+def test_read_reports_reject_ambiguous_or_unbounded_queries(adapters, path, query):
+    row, _ = create_intent(adapters)
+    response = adapters.client.get(f'{path}?workspace_token={row["workspace"]}&{query}')
+    assert response.status_code in {400, 422}
+    assert not adapters.ctx.calls
+
+
+def test_coverage_endpoint_rejects_bad_status_and_preserves_integrity_error(adapters):
+    from sqlalchemy import update
+    from hermes_crm.native_work import assignments
+    row, _ = create_intent(adapters)
+    assert adapters.client.get('/reports/coverage', params={'workspace_token': row['workspace'], 'status': 'green'}).status_code == 400
+    assert adapters.client.get('/reports/coverage', params={'workspace_token': row['workspace'], 'q': 'x'*201}).status_code == 422
+    crm = adapters.factory()
+    try:
+        with crm.engine.begin() as conn:
+            conn.execute(update(assignments).values(digest='0'*64))
+    finally: crm.close()
+    response = adapters.client.get('/reports/coverage', params={'workspace_token': row['workspace']})
+    assert response.status_code == 503 and 'integrity' in response.json()['detail']['error']
+    assert not adapters.ctx.calls

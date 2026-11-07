@@ -14,10 +14,11 @@ import hashlib
 import json
 import uuid
 from collections.abc import Mapping
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from sqlalchemy import (Column, ForeignKey, Integer, MetaData, String, Table, Text,
-                        UniqueConstraint, inspect, select, update)
+                        UniqueConstraint, func, inspect, select, update)
 from sqlalchemy.exc import IntegrityError
 
 from .domain import CRMError, now, tasks
@@ -26,6 +27,7 @@ SCHEMA_VERSION = 1
 TOOLSETS = ('crm_read', 'crm_work_read', 'crm_work_report', 'no_mcp')
 EXECUTION_SOURCE = 'builtin'
 INVALID = frozenset({'cancelled', 'superseded'})
+_UNSET = object()
 metadata = MetaData()
 tasks.to_metadata(metadata)
 assignments = Table('crm_native_assignments', metadata,
@@ -110,14 +112,40 @@ def _identity(ctx):
     return result
 
 
+@contextmanager
+def read_snapshot(crm):
+    """A transaction-local, consistent snapshot; never change database settings.
+
+    SQLite's legacy driver does not BEGIN for SELECT. PostgreSQL's default
+    READ COMMITTED would otherwise allow the next SELECT to see newer data.
+    """
+    with crm.engine.connect() as conn:
+        if crm.backend == 'postgres':
+            conn = conn.execution_options(isolation_level='REPEATABLE READ')
+            with conn.begin():
+                conn.exec_driver_sql('SET TRANSACTION READ ONLY')
+                yield conn
+        else:
+            conn.exec_driver_sql('BEGIN')
+            try:
+                yield conn
+            finally:
+                conn.rollback()
+
+
 class NativeWorkStore:
-    def __init__(self, crm):
+    def __init__(self, crm, *, initialize=True, connection=None, workspace=None):
         self.crm, self.profile = crm, crm.profile
-        self.workspace = crm.workspace_token()
+        self.workspace = workspace if workspace is not None else crm.workspace_token()
         schema = crm.engine.get_execution_options().get('schema_translate_map', {}).get(None)
-        inspector = inspect(crm.engine)
-        for table in (assignments, events, reports):
-            if inspector.has_table(table.name, schema=schema):
+        inspector = inspect(connection if connection is not None else crm.engine)
+        present = [inspector.has_table(table.name, schema=schema)
+                   for table in (assignments, events, reports)]
+        if any(present) and not all(present):
+            raise CRMError('Native-work schema is incomplete; explicit migration required', 503)
+        self.available = all(present)
+        for table, exists in zip((assignments, events, reports), present):
+            if exists:
                 reflected = inspector.get_columns(table.name, schema=schema)
                 columns = {c['name']: c for c in reflected}
                 compatible = set(columns) == set(table.c.keys())
@@ -140,9 +168,13 @@ class NativeWorkStore:
                                for c in inspector.get_foreign_keys(table.name, schema=schema)}
                 if not compatible or observed_fk != expected_fk:
                     raise CRMError('Native-work schema is incompatible; explicit migration required', 503)
-        metadata.create_all(crm.engine, tables=[assignments, events, reports])
+        if initialize:
+            metadata.create_all(crm.engine, tables=[assignments, events, reports])
+            self.available = True
 
     def _row(self, conn, assignment_id):
+        if not self.available:
+            raise CRMError('Assignment not found in current workspace/profile', 404)
         row = conn.execute(select(assignments).where(
             assignments.c.id == assignment_id, assignments.c.workspace == self.workspace,
             assignments.c.profile == self.profile)).mappings().first()
@@ -200,18 +232,25 @@ class NativeWorkStore:
         )
 
     def create(self, *, task_id, human_owner, prompt, success_criteria, run_at,
-               idempotency_key, profile=None):
+               idempotency_key, profile=None, expected_task_version=_UNSET):
         profile = self.profile if profile is None else profile
         if profile != self.profile: raise CRMError('Cross-profile assignment is not supported', 403)
         for name, value, maximum in [('task_id', task_id, 36), ('human_owner', human_owner, 160),
                 ('prompt', prompt, 50000), ('success_criteria', success_criteria, 10000),
                 ('idempotency_key', idempotency_key, 160)]:
             _text(value, name, maximum)
+        if expected_task_version is not _UNSET and (
+                type(expected_task_version) is not int or expected_task_version < 1):
+            raise CRMError('expected_task_version must be a positive integer')
         run_at = _instant(run_at, 'run_at')
         request = dict(schema_version=SCHEMA_VERSION, task_id=task_id, human_owner=human_owner,
             prompt=prompt, success_criteria=success_criteria, run_at=run_at,
             workspace=self.workspace, profile=profile, action='internal_crm_analysis',
             enabled_toolsets=list(TOOLSETS), generation=1, execution_source=EXECUTION_SOURCE)
+        # Presence is part of the approved request, not a value inferred from the
+        # current task. Legacy absent-field payloads remain exactly replayable.
+        if expected_task_version is not _UNSET:
+            request['expected_task_version'] = expected_task_version
         def existing(conn):
             row = conn.execute(select(assignments).where(assignments.c.workspace == self.workspace,
                 assignments.c.profile == profile, assignments.c.idempotency_key == idempotency_key)).mappings().first()
@@ -228,6 +267,8 @@ class NativeWorkStore:
                     task = conn.execute(select(tasks).where(tasks.c.id == task_id)).mappings().first()
                     if task is None: raise CRMError('Task not found', 404)
                     if task['status'] != 'open': raise CRMError('Task is not open', 409)
+                    if expected_task_version is not _UNSET and task['version'] != expected_task_version:
+                        raise CRMError('Source task version changed; review the current task before creating an assignment', 409)
                     payload = _json(dict(request, task_version=task['version'], task_status=task['status'],
                                          business_due_at=task['due_at']))
                     row = dict(id=str(uuid.uuid4()), task_id=task_id, workspace=self.workspace,
@@ -247,37 +288,57 @@ class NativeWorkStore:
 
     def get(self, assignment_id):
         with self.crm.engine.connect() as conn:
-            row = self._row(conn, assignment_id)
-            row['payload'] = json.loads(row['payload'])
-            row.pop('claim_id')  # Internal scheduling ownership is not model-facing authority.
-            row['job_name'] = self.job_name(row)
-            row['events'] = [dict(r) for r in conn.execute(select(events).where(
-                events.c.assignment_id == assignment_id).order_by(events.c.version, events.c.created_at, events.c.id)).mappings()]
-            for event in row['events']: event['evidence'] = json.loads(event['evidence'])
-            row['reports'] = [dict(r) for r in conn.execute(select(reports).where(
-                reports.c.assignment_id == assignment_id).order_by(reports.c.created_at, reports.c.id)).mappings()]
-            for report in row['reports']:
-                report['identity'] = json.loads(report['identity'])
-                report['provenance'] = 'native_run_reported'
-                report['review_status'] = 'awaiting_human_review'
-            task = conn.execute(select(tasks.c.version, tasks.c.status).where(tasks.c.id == row['task_id'])).mappings().first()
-            row['current_task_version'] = task['version'] if task else None
-            row['current_task_status'] = task['status'] if task else None
-            row['source_task_current'] = bool(task and task['version'] == row['payload']['task_version'] and task['status'] == 'open')
-            row['review_status'] = ('awaiting_human_review' if row['source_task_current'] else 'stale_source_task') if row['reports'] else 'no_report'
-            row['business_task_completed'] = bool(task and task['status'] == 'done')
-            row['business_task_completed_by_report'] = False
-            row['host_terminal_success_verified'] = False
-            return row
+            return self._detail(conn, assignment_id)
+
+    def _detail(self, conn, assignment_id):
+        row = self._row(conn, assignment_id)
+        row['payload'] = json.loads(row['payload'])
+        row.pop('claim_id')  # Internal scheduling ownership is not model-facing authority.
+        row['job_name'] = self.job_name(row)
+        row['events'] = [dict(r) for r in conn.execute(select(events).where(
+            events.c.assignment_id == assignment_id).order_by(events.c.version, events.c.created_at, events.c.id)).mappings()]
+        for event in row['events']: event['evidence'] = json.loads(event['evidence'])
+        row['reports'] = [dict(r) for r in conn.execute(select(reports).where(
+            reports.c.assignment_id == assignment_id).order_by(reports.c.created_at, reports.c.id)).mappings()]
+        for report in row['reports']:
+            report['identity'] = json.loads(report['identity'])
+            report['provenance'] = 'native_run_reported'
+            report['review_status'] = 'awaiting_human_review'
+        task = conn.execute(select(tasks.c.version, tasks.c.status).where(tasks.c.id == row['task_id'])).mappings().first()
+        row['current_task_version'] = task['version'] if task else None
+        row['current_task_status'] = task['status'] if task else None
+        row['source_task_current'] = bool(task and task['version'] == row['payload']['task_version'] and task['status'] == 'open')
+        row['review_status'] = ('awaiting_human_review' if row['source_task_current'] else 'stale_source_task') if row['reports'] else 'no_report'
+        row['business_task_completed'] = bool(task and task['status'] == 'done')
+        row['business_task_completed_by_report'] = False
+        row['host_terminal_success_verified'] = False
+        return row
 
     def list(self, *, task_id=None, limit=100):
         if type(limit) is not int or not 1 <= limit <= 500: raise CRMError('Invalid limit')
+        if not self.available: return []
         query = select(assignments.c.id).where(assignments.c.workspace == self.workspace,
                                              assignments.c.profile == self.profile)
         if task_id is not None: query = query.where(assignments.c.task_id == task_id)
         with self.crm.engine.connect() as conn:
             ids = conn.execute(query.order_by(assignments.c.created_at, assignments.c.id).limit(limit)).scalars().all()
         return [self.get(i) for i in ids]
+
+    def page(self, *, task_id=None, limit=25, offset=0):
+        self.crm._integer(limit, 'limit', 1, 100)
+        self.crm._integer(offset, 'offset')
+        if task_id is not None: _text(task_id, 'task_id', 36)
+        result = dict(items=[], total=0, limit=limit, offset=offset, observed_at=now())
+        predicates = [assignments.c.workspace == self.workspace, assignments.c.profile == self.profile]
+        if task_id is not None: predicates.append(assignments.c.task_id == task_id)
+        with read_snapshot(self.crm) as conn:
+            reader = NativeWorkStore(self.crm, initialize=False, connection=conn, workspace=self.workspace)
+            if not reader.available: return result
+            result['total'] = conn.execute(select(func.count()).select_from(assignments).where(*predicates)).scalar_one()
+            ids = conn.execute(select(assignments.c.id).where(*predicates)
+                .order_by(assignments.c.created_at, assignments.c.id).limit(limit).offset(offset)).scalars()
+            result['items'] = [reader._detail(conn, assignment_id) for assignment_id in ids]
+        return result
 
     def _matches_job(self, row, job, *, paused=False):
         """Check the public formatted view. It cannot prove a full remote prompt hash."""

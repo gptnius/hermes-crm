@@ -1,6 +1,6 @@
 # Make agent assignments usable from CRM
 
-Proposed implementation plan, not an enabled feature. Reviewed against CRM `04b69ac1cd093481ab1d43634a1a144425bb2f3a` and official Hermes `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. This investigation changed no source, tests, providers or deployments.
+Original implementation plan reviewed against CRM `04b69ac1cd093481ab1d43634a1a144425bb2f3a` and official Hermes `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. The request builder, atomic expected-version check and paged coverage/history reports now exist in source; see [the current workflow and limits](ASSIGNMENT_UI.md) and [executed verification](VERIFICATION.md). Direct dispatch alternatives, durable review, cadences and wider automation below remain future work. Baseline line references are historical design evidence, not current line numbers.
 
 ## Recommendation
 
@@ -61,9 +61,9 @@ Check/cancel requests must name the exact assignment. Check uses `crm_work_get` 
 
 ### Residual authorization/version boundary
 
-Copy-time checks are observations, not atomic approval carried to execution. Today `_WorkCreate` has no expected-task-version argument; creation captures whatever open task version exists inside its transaction (`hermes_crm/plugin.py:18–27`; `hermes_crm/native_work.py:202–240`). An agent can re-read and compare the copied version, but an edit can still occur between that read and create.
+Copy-time checks are observations, not atomic approval carried to execution. At the reviewed baseline, `_WorkCreate` had no expected-task-version argument; creation captured whatever open task version existed inside its transaction (`hermes_crm/plugin.py:18–27`; `hermes_crm/native_work.py:202–240`). An agent can re-read and compare the copied version, but an edit can still occur between that read and create.
 
-For a stronger reviewed-task contract, separately add an `expected_task_version` create argument and reject a mismatch inside the same transaction/guard that freezes intent. Require it for prepared requests. This is a small backend contract change, but it is not accomplished by frontend checks and is not part of this documentation-only change. Do not describe the initial request builder as a secure execution-authorization token. The existing schedule path continues to recheck the frozen task version, cancellation and future time before resume (`native_work.py:312–389`).
+The current source adds optional `expected_task_version` and rejects a mismatch inside the same transaction/guard that freezes intent. New prepared requests include it. Legacy omitted-field requests remain compatible, and exact replay cannot silently replace the original expected version. This is a backend guarantee; it is not accomplished by frontend checks alone. Do not describe the initial request builder as a secure execution-authorization token. The existing schedule path continues to recheck the frozen task version, cancellation and future time before resume (`native_work.py:312–389`).
 
 ## 2. Show only states supported by evidence
 
@@ -102,7 +102,7 @@ Useful queue predicates:
 
 When multiple assignments remain relevant, show all unresolved risks rather than choosing one convenient green status. Read queues do not reconcile, retry, cancel or advance a cadence. A genuinely durable future coverage monitor, notification policy, explicit hold/exclusion model and recurring next-step advancement are later work, not implied by this panel.
 
-The current assignment listing sorts oldest-first and returns a bounded list without pagination/total (`native_work.py:273–280`; `native_api.py:111–122`). That is sufficient for labeled task history but not proof of global completeness or a reliable newest-assignment selector. Add server pagination/filtered counts before presenting an all-leads coverage queue.
+The legacy assignment listing sorts oldest-first and returns a bounded list without pagination/total (`native_work.py:273–280`; `native_api.py:111–122`). That is sufficient for labeled task history but not proof of global completeness or a reliable newest-assignment selector. The new read-only report endpoints provide server pagination/filtered counts. Coverage totals count evidence rows, not unique leads, and current classification remains proportional to complete local history.
 
 ## 4. Credible research → contacts → personalized draft workflow
 

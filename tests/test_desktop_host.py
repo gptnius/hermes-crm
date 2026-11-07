@@ -4,11 +4,13 @@ No Desktop launch, model execution, cron writes, or user profiles are involved.
 HERMES_SOURCE must point to an official Hermes source checkout with its imports
 available to this interpreter. The complete server runs only as an ASGI test app.
 """
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import textwrap
 
 import pytest
 
@@ -18,25 +20,132 @@ import pytest
 def test_official_dashboard_discovery_auth_crud_tools_and_profiles(tmp_path, isolation):
     source = Path(os.environ['HERMES_SOURCE']).resolve()
     repo = Path(__file__).resolve().parents[1]
-    home = tmp_path / 'home'
+    original_home = Path.home().resolve()
+    assert original_home != Path(original_home.anchor)
+    assert all(not path.is_relative_to(original_home) for path in (
+        tmp_path.resolve(), source, Path(sys.executable).resolve(),
+        Path(sys.prefix).resolve(), Path(sys.base_prefix).resolve()))
+    revision = subprocess.run(['git', '-C', str(source), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    assert revision == '2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19'
+    user_home = tmp_path / 'user'
+    home = user_home / '.hermes'
     package = home / 'plugins' / 'hermes-crm'
     shutil.copytree(repo, package, ignore=shutil.ignore_patterns(
-        '.git', '__pycache__', '.pytest_cache', 'node_modules', 'build', '*.egg-info', 'artifacts'))
+        '.git', '__pycache__', '.pytest_cache', 'node_modules', 'build', '*.egg-info', 'artifacts',
+        '.env', '.env.*', '.venv', '.codex', '.agents', '*.db'))
     config = f'plugins:\n  isolation: {isolation}\n  enabled: [hermes-crm]\n  entries:\n    hermes-crm:\n      settings:\n        backend: sqlite\n'
     (home / 'config.yaml').write_text(config)
     other = home / 'profiles' / 'crm-test-other'
     other.mkdir(parents=True)
     (other / 'config.yaml').write_text(config)
-    env = {key: value for key, value in os.environ.items()
-           if not key.startswith(('HERMES_', 'OPENAI_', 'ANTHROPIC_'))}
-    env.update(HERMES_HOME=str(home), HERMES_ENABLE_PROJECT_PLUGINS='0',
-               HERMES_BUNDLED_PLUGINS=str(tmp_path / 'no-bundled-plugins'),
-               PYTHONPATH=str(source), PYTHONDONTWRITEBYTECODE='1')
+    # Construct a new environment rather than filtering inherited credentials.
+    # The same safety guard is required in the actual hosted-profile IPC child.
+    for profile_home in (home, other):
+        scratch = profile_home / 'cache/scratch'
+        scratch.mkdir(parents=True)
+        (scratch / '.last_prune').touch()
+    guard = tmp_path / 'guard'
+    guard.mkdir()
+    (guard / 'sitecustomize.py').write_text(SAFETY_GUARD)
+    env = {
+        'HOME': str(user_home), 'USERPROFILE': str(user_home), 'HERMES_HOME': str(home),
+        'HERMES_ENABLE_PROJECT_PLUGINS': '0',
+        'HERMES_BUNDLED_PLUGINS': str(tmp_path / 'no-bundled-plugins'),
+        'PYTHONPATH': os.pathsep.join((str(guard), str(source))),
+        'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONUNBUFFERED': '1',
+        'CRM_DESKTOP_TEST_ROOT': str(tmp_path), 'CRM_DESKTOP_TEST_SOURCE': str(source),
+        'CRM_DESKTOP_TEST_FORBIDDEN_HOME': str(original_home),
+    }
+    # Python otherwise logs and swallows sitecustomize exceptions. Verify the
+    # exact wrapper fails closed for both the main runner and real IPC child.
+    invalid_guard = tmp_path / 'invalid-guard'
+    invalid_guard.mkdir()
+    setup_line = "root = Path(os.environ['CRM_DESKTOP_TEST_ROOT']).resolve()"
+    assert setup_line in SAFETY_GUARD
+    (invalid_guard / 'sitecustomize.py').write_text(SAFETY_GUARD.replace(
+        setup_line, "raise RuntimeError('INTENTIONAL_GUARD_SETUP_FAILURE')"))
+    invalid_env = dict(env, PYTHONPATH=os.pathsep.join((str(invalid_guard), str(source))))
+    invalid = subprocess.run([sys.executable, '-P', '-c', "raise RuntimeError('UNGUARDED_FIXTURE_RAN')"],
+        cwd=tmp_path, env=invalid_env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15)
+    assert invalid.returncode == 97 and 'UNGUARDED_FIXTURE_RAN' not in invalid.stderr, invalid
+    invalid_child = subprocess.run([sys.executable, '-P', '-m', 'hermes_cli.plugin_host_child'],
+        cwd=tmp_path, env=invalid_env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15)
+    assert invalid_child.returncode == 97, invalid_child
+    assert not list(tmp_path.glob('guard-ready-*.json'))
     result = subprocess.run([sys.executable, '-P', '-c', HOST_CHECK], cwd=tmp_path,
-                            env=env, capture_output=True, text=True, timeout=120)
+                            env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'PASS native host' in result.stdout
     assert not list(home.rglob('jobs.json')), 'Validation must never create cron jobs'
+    assert not (tmp_path / 'forbidden-action.log').exists(), result.stdout + result.stderr
+    guard_loads = list(tmp_path.glob('guard-ready-*.json'))
+    assert len(guard_loads) >= 2, 'Secondary-profile IPC child must inherit guard'
+    assert all(json.loads(path.read_text())['hook_ready'] is True for path in guard_loads)
+
+
+SAFETY_GUARD = r'''
+import importlib.abc
+import json
+import os
+from pathlib import Path
+import socket
+import sys
+
+root = Path(os.environ['CRM_DESKTOP_TEST_ROOT']).resolve()
+forbidden_home = Path(os.environ['CRM_DESKTOP_TEST_FORBIDDEN_HOME']).resolve()
+assert forbidden_home.is_absolute() and forbidden_home != Path(forbidden_home.anchor)
+assert all(not path.is_relative_to(forbidden_home) for path in (
+    root, Path(os.environ['CRM_DESKTOP_TEST_SOURCE']).resolve(), Path(sys.executable).resolve(),
+    Path(sys.prefix).resolve(), Path(sys.base_prefix).resolve()))
+homes = {root / 'user/.hermes', root / 'user/.hermes/profiles/crm-test-other'}
+assert Path(os.environ['HOME']).resolve() == root / 'user'
+assert Path(os.environ['HERMES_HOME']).resolve() in homes
+assert not any(key.endswith(('_API_KEY', '_TOKEN', '_SECRET', '_PASSWORD')) for key in os.environ)
+
+def forbidden(action):
+    with (root / 'forbidden-action.log').open('a') as handle:
+        handle.write(str(action) + '\n')
+    raise AssertionError('Forbidden in read-only Desktop host validation: ' + str(action))
+
+def audit(event, args):
+    if event in {'open', 'os.listdir', 'os.scandir'} and args and isinstance(args[0], (str, bytes)):
+        if Path(os.fsdecode(args[0])).resolve().is_relative_to(forbidden_home):
+            forbidden('original HOME file access')
+    if event in {'socket.connect', 'socket.bind', 'socket.getaddrinfo', 'socket.gethostbyname',
+                 'socket.gethostbyaddr', 'socket.getnameinfo', 'socket.sendto', 'socket.sendmsg',
+                 'os.system', 'os.posix_spawn', 'os.exec', 'os.fork'}:
+        forbidden(event)
+    if event == 'subprocess.Popen':
+        executable, argv, cwd, env = args
+        import re
+        git_read = (list(argv) in [
+            ['git', 'rev-parse', 'HEAD'], ['git', 'rev-parse', '--short=7', 'HEAD'],
+            ['git', 'branch', '--show-current'], ['git', 'log', '-1', '--format=%ct', 'HEAD'],
+            ['git', '--no-optional-locks', 'status', '--porcelain', '-uno'],
+            ['git', 'tag', '--merged', 'HEAD', '--list', 'v[0-9]*'],
+        ] or (len(argv) == 4 and list(argv[:3]) == ['git', 'rev-list', '--count']
+              and re.fullmatch(r'v[0-9.]+\.\.HEAD', argv[3])))
+        if git_read and Path(cwd).resolve() == Path(os.environ['CRM_DESKTOP_TEST_SOURCE']).resolve():
+            return
+        if list(argv) != [sys.executable, '-m', 'hermes_cli.plugin_host_child'] or Path(cwd).resolve() not in homes:
+            forbidden('process launch: ' + repr(argv))
+        if not env or str(root / 'guard') not in env.get('PYTHONPATH', '').split(os.pathsep):
+            forbidden('plugin child missing safety guard')
+
+sys.addaudithook(audit)
+
+class NoAgentImport(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == 'run_agent': forbidden('agent/model launch import')
+
+sys.meta_path.insert(0, NoAgentImport())
+(root / ('guard-ready-' + str(os.getpid()) + '.json')).write_text(json.dumps({'pid': os.getpid(), 'hook_ready': True}))
+'''
+# Inherited unchanged by the real plugin child; broken setup terminates before
+# the app can import or execute, rather than becoming a sitecustomize warning.
+SAFETY_GUARD = ('import os\ntry:\n' + textwrap.indent(SAFETY_GUARD, '    ')
+                + '\nexcept BaseException:\n    os._exit(97)\n')
 
 
 HOST_CHECK = r'''
@@ -45,6 +154,11 @@ import os
 from pathlib import Path
 import socket
 from unittest.mock import patch
+
+
+root = Path(os.environ['CRM_DESKTOP_TEST_ROOT'])
+guard_ready = json.loads((root / ('guard-ready-' + str(os.getpid()) + '.json')).read_text())
+assert guard_ready == {'pid': os.getpid(), 'hook_ready': True}
 
 
 def deny_network(*args, **kwargs):
@@ -80,10 +194,13 @@ with patch.object(socket, 'create_connection', deny_network), \
     assert 'crm_contact_get' in manager._plugin_tool_names, manager._plugins
     assert 'crm_contact_report' in manager._plugin_tool_names, manager._plugins
 
-    def tool(name, args):
+    def raw_tool(name, args):
         entry = registry.get_entry(name, scope=manager.scope_key)
         assert entry is not None, name
-        response = json.loads(entry.handler(args))
+        return json.loads(entry.handler(args))
+
+    def tool(name, args):
+        response = raw_tool(name, args)
         assert response['ok'], response
         return response['data']
 
@@ -98,6 +215,8 @@ with patch.object(socket, 'create_connection', deny_network), \
     assert client.get(prefix + '/meta').status_code == 401
     assert client.get(prefix + '/work', params={'workspace_token': 'not-authentication'}).status_code == 401
     assert client.get(prefix + '/work/not-an-assignment', params={'workspace_token': 'not-authentication'}).status_code == 401
+    for path in ('/reports/work', '/reports/coverage'):
+        assert client.get(prefix + path, params={'workspace_token': 'not-authentication'}).status_code == 401
     assert client.post(prefix + '/contacts', json={}).status_code == 401
     meta = request('GET', '/meta')
     token = meta['workspace_token']
@@ -125,11 +244,23 @@ with patch.object(socket, 'create_connection', deny_network), \
     # History must resolve the same workspace AND profile string in both adapters.
     work_task = tool('crm_task_create', {
         'title': 'Synthetic native-work analysis', 'due_at': '2099-01-02T00:00:00Z'})
-    work = tool('crm_work_create', {
-        'task_id': work_task['id'], 'human_owner': 'Synthetic Native Owner',
+    create_schema = registry.get_entry('crm_work_create', scope=manager.scope_key).schema['parameters']
+    version_schema = create_schema['properties']['expected_task_version']
+    assert version_schema['type'] == 'integer' and version_schema['minimum'] == 1
+    assert 'default' not in version_schema
+    assert 'expected_task_version' not in create_schema['required']
+    work_request = {
+        'task_id': work_task['id'], 'expected_task_version': work_task['version'], 'human_owner': 'Synthetic Native Owner',
         'prompt': 'Summarize this existing CRM task using internal records only.',
         'success_criteria': 'One concise internal summary for human review.',
-        'run_at': '2099-01-01T00:00:00Z', 'idempotency_key': 'native-host-work-intent'})
+        'run_at': '2099-01-01T00:00:00Z', 'idempotency_key': 'native-host-work-intent'}
+    work = tool('crm_work_create', work_request)
+    assert work['payload']['expected_task_version'] == work_task['version']
+    for bad_version in (None, True, '1', 1.0, 0):
+        rejected = raw_tool('crm_work_create', {**work_request, 'expected_task_version': bad_version})
+        assert not rejected['ok'] and rejected['status'] == 422, rejected
+    stale = raw_tool('crm_work_create', {**work_request, 'expected_task_version': 2, 'idempotency_key': 'stale'})
+    assert not stale['ok'] and stale['status'] == 409, stale
     assert work['state'] == 'pending' and work['job_id'] is None, work
     assert work['workspace'] == token and work['profile'] == meta['profile'], (work, meta)
     assert request('GET', '/work', params={'workspace_token': token}) == [work]
@@ -137,9 +268,23 @@ with patch.object(socket, 'create_connection', deny_network), \
     assert request('GET', '/work', params={'workspace_token': token, 'task_id': work_task['id']}) == [work]
     assert tool('crm_work_get', {'assignment_id': work['id']}) == work
     assert tool('crm_work_list', {'task_id': work_task['id']}) == [work]
-    for work_path in ('/work', '/work/' + work['id']):
+    for work_path in ('/work', '/work/' + work['id'], '/reports/work', '/reports/coverage'):
         request('GET', work_path, 422)
         request('GET', work_path, 409, params={'workspace_token': 'stale-profile-token'})
+    page = request('GET', '/reports/work', params={'workspace_token': token, 'task_id': work_task['id'], 'limit': 1})
+    assert page['total'] == 1 and page['items'] == [work] and page['observed_at']
+    assert request('GET', '/reports/work', params={'workspace_token': token, 'offset': 1})['items'] == []
+    queue = request('GET', '/reports/coverage', params={'workspace_token': token, 'status': 'agent_not_scheduled'})
+    assert queue['total'] == 1 and queue['total_unit'] == 'evidence_items'
+    assert queue['workspace_token'] == token and queue['profile'] == meta['profile']
+    row = queue['items'][0]
+    assert row['task']['id'] == work_task['id'] and row['assignment']['id'] == work['id']
+    assert row['assignment']['source_task_current'] and row['assignment']['latest_report'] is None
+    assert 'intent_not_scheduled' in row['risk_flags']
+    for path in ('/reports/work', '/reports/coverage'):
+        request('GET', path, 400, params={'workspace_token': token, 'unknown_filter': 'x'})
+        assert client.post(prefix + path, headers=headers, json={'workspace_token': token}).status_code in {404, 405}
+    request('GET', '/reports/coverage', 400, params={'workspace_token': token, 'status': 'green'})
     assert not list(home.rglob('jobs.json')), 'Saving intent and reading history must not schedule'
     assert request('GET', '/overview')
     # The registered agent report and REST report share filters and aggregates.
@@ -160,8 +305,24 @@ with patch.object(socket, 'create_connection', deny_network), \
             params={'workspace_token': token, 'profile': profile_alias}) == [work]
         assert request('GET', '/work/' + work['id'],
             params={'workspace_token': token, 'profile': profile_alias}) == work
+        assert request('GET', '/reports/work', params={'workspace_token': token, 'profile': profile_alias})['items'] == [work]
+        assert request('GET', '/reports/coverage', params={'workspace_token': token, 'profile': profile_alias,
+            'status': 'agent_not_scheduled'})['items'][0]['assignment']['id'] == work['id']
     request('GET', '/reports/contacts', 409,
             params={**report_filters, 'workspace_token': 'stale-profile-token'})
+    # Original approved version replays exactly after the source is completed;
+    # changed approval with the same key conflicts, and no replacement is saved.
+    tool('crm_task_update', {'id': work_task['id'], 'version': work_task['version'], 'status': 'done'})
+    replay = tool('crm_work_create', work_request)
+    assert replay['id'] == work['id'] and replay['payload'] == work['payload']
+    assert not replay['source_task_current'] and replay['business_task_completed']
+    assert len(replay['events']) == 1
+    work = replay
+    changed = raw_tool('crm_work_create', {**work_request, 'expected_task_version': 2})
+    assert not changed['ok'] and changed['status'] == 409, changed
+    review = request('GET', '/reports/coverage', params={'workspace_token': token, 'status': 'needs_scheduling_review'})
+    assert review['total'] == 1 and review['items'][0]['task']['status'] == 'done'
+    assert review['items'][0]['assignment']['id'] == work['id']
 
 
     # Official request middleware must apply consent again after routes are mounted.
@@ -177,8 +338,12 @@ with patch.object(socket, 'create_connection', deny_network), \
     assert other_meta['workspace_token'] != token
     other_work_scope = {'workspace_token': other_meta['workspace_token'], 'profile': 'crm-test-other'}
     assert request('GET', '/work', params=other_work_scope) == []
+    for path in ('/reports/work', '/reports/coverage'):
+        empty = request('GET', path, params=other_work_scope)
+        assert empty['total'] == 0 and empty['items'] == []
+    assert request('GET', '/reports/work', params={**other_work_scope, 'task_id': work_task['id']})['total'] == 0
     request('GET', '/work/' + work['id'], 404, params=other_work_scope)
-    for work_path in ('/work', '/work/' + work['id']):
+    for work_path in ('/work', '/work/' + work['id'], '/reports/work', '/reports/coverage'):
         request('GET', work_path, 409, params={**other_work_scope, 'workspace_token': token})
         request('GET', work_path, 409, params={'workspace_token': other_meta['workspace_token']})
     assert request('GET', '/work', params={'workspace_token': token}) == [work]
@@ -188,6 +353,11 @@ with patch.object(socket, 'create_connection', deny_network), \
     other_contact = request('POST', '/contacts?profile=crm-test-other', 201, json={
         'workspace_token': other_meta['workspace_token'], 'data': {'name': 'Other Profile Only', 'lifecycle': 'customer'}})
     other_token = other_meta['workspace_token']
+    other_queue = request('GET', '/reports/coverage', params=other_work_scope)
+    assert other_queue['total'] == 1 and other_queue['items'][0]['contacts'][0]['id'] == other_contact['id']
+    assert other_queue['items'][0]['kind'] == 'missing_next_action'
+    assert 'Synthetic Native' not in json.dumps(other_queue)
+    assert request('GET', '/reports/work', params=other_work_scope)['items'] == []
     request('POST', '/deals?profile=crm-test-other', 201, json={
         'workspace_token': other_token, 'data': {'title': 'Other Profile Won',
         'contact_id': other_contact['id'], 'stage': 'won', 'value': 500}})
@@ -217,5 +387,5 @@ with patch.object(socket, 'create_connection', deny_network), \
     request('GET', '/meta?profile=crm-test-other', 404)
     request('GET', '/meta')
     assert not list(home.rglob('jobs.json'))
-    print('PASS native host: real discovery, allowlist, project refusal, mount, auth, CRUD, tools, stale versions, stale workspace, runtime disable, filtered report/tool parity, registered work intent/history parity, secondary-profile report/work token and IPC isolation; no jobs or model execution')
+    print('PASS native host: real discovery, allowlist, project refusal, mount, auth, CRUD, tools, stale versions, stale workspace, runtime disable, filtered report/tool parity, atomic reviewed-version create/replay, paginated work and coverage routes, secondary-profile report/work token and IPC isolation; clean HOME/environment and inherited network/agent guard; no network server, jobs or model execution')
 '''

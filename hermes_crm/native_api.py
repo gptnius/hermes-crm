@@ -9,6 +9,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from .coverage import coverage_report
 from .domain import CRMError, CONTACT_REPORT_FILTERS, LIST_FILTERS, validate_query
 from .native_work import NativeWorkStore
 from .runtime import open_profile_crm
@@ -108,6 +109,26 @@ def contact_report(request: Request, q: str = '', stage: str | None = None, cont
                                   email=email, followup=followup, limit=limit, offset=offset)
 
 
+@router.get('/reports/coverage')
+def coverage(request: Request, workspace_token: str = Query(..., min_length=1, max_length=80),
+             q: str = Query('', max_length=200), status: str = 'any',
+             limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0, le=2_000_000_000)):
+    with service() as crm:
+        validate_query(request.query_params, {'workspace_token', 'profile', 'q', 'status', 'limit', 'offset'})
+        require_workspace(crm, workspace_token)
+        return coverage_report(crm, q=q, status=status, limit=limit, offset=offset)
+
+
+@router.get('/reports/work')
+def work_page(request: Request, workspace_token: str = Query(..., min_length=1, max_length=80),
+              task_id: str | None = Query(None, min_length=1, max_length=36),
+              limit: int = Query(25, ge=1, le=100), offset: int = Query(0, ge=0, le=2_000_000_000)):
+    with service() as crm:
+        validate_query(request.query_params, {'workspace_token', 'profile', 'task_id', 'limit', 'offset'})
+        require_workspace(crm, workspace_token)
+        return NativeWorkStore(crm, initialize=False).page(task_id=task_id, limit=limit, offset=offset)
+
+
 @router.get('/work')
 def work_history(request: Request,
                  workspace_token: str = Query(..., min_length=1, max_length=80),
@@ -119,7 +140,7 @@ def work_history(request: Request,
         # A query parameter is not authority to select another CRM database.
         validate_query(request.query_params, {'workspace_token', 'profile', 'task_id', 'limit'})
         require_workspace(crm, workspace_token)
-        return NativeWorkStore(crm).list(task_id=task_id, limit=limit)
+        return NativeWorkStore(crm, initialize=False).list(task_id=task_id, limit=limit)
 
 
 @router.get('/work/{assignment_id}')
@@ -128,7 +149,7 @@ def work_detail(request: Request, assignment_id: str = Path(..., min_length=1, m
     with service() as crm:
         validate_query(request.query_params, {'workspace_token', 'profile'})
         require_workspace(crm, workspace_token)
-        return NativeWorkStore(crm).get(assignment_id)
+        return NativeWorkStore(crm, initialize=False).get(assignment_id)
 
 
 @router.get('/{kind}')

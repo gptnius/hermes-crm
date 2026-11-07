@@ -13,7 +13,7 @@ The first slice supports future one-shots only. It has no run-now shortcut, recu
 
 ## Tools and permissions
 
-- `crm_work_create`: save intent only.
+- `crm_work_create`: save intent only, with optional atomic `expected_task_version` binding. New UI-prepared requests include it; older callers can omit it. Exact idempotency replay preserves the original approved snapshot rather than adopting a newer task version.
 - `crm_work_get` and `crm_work_list`: read current-workspace assignment/history.
 - `crm_work_schedule`: explicit paused-create, bind and resume.
 - `crm_work_reconcile`: observe host job summaries without recreating, resuming or adopting jobs.
@@ -40,9 +40,9 @@ Task version, cancellation and approved time are checked again before resume. If
 
 Three new profile-scoped tables store native assignments, events and reports. Existing CRM and experimental execution tables are unchanged. Incompatible table shapes or constraints fail closed rather than silently migrating. PostgreSQL remains explicit and isolated by the existing profile schema.
 
-The native API exposes read-only `/work` and `/work/{assignment_id}` routes. They require the captured workspace token and use the same per-call profile factory as tools. Host routing parameters do not independently select a database. There is no REST scheduling endpoint and no borrowed tool context.
+The native API exposes read-only `/work` and `/work/{assignment_id}` routes, plus paged `/reports/work` history and `/reports/coverage` evidence. They require the captured workspace token and use the same per-call profile factory as tools. Host routing parameters do not independently select a database. There is no REST scheduling endpoint and no borrowed tool context.
 
-The native task record displays assignment history, observed job state, source-task freshness and authenticated reports awaiting review. An unavailable history request is not shown as an empty history. The UI does not schedule, dispatch, retry or approve work. Native chat and a supported interactive assignment control remain separate work.
+The native task record displays assignment history, observed job state, source-task freshness and authenticated reports awaiting review. An unavailable history request is not shown as an empty history. The UI does not schedule, dispatch, retry or approve work. It can prepare a task-specific request with Preview/Copy beside the genuine native chat; the user pastes, reviews and uses native Send. The coverage queue uses complete local evidence before paging, not bounded task/history caches. See [assignment UI](ASSIGNMENT_UI.md) for version binding, recovery actions and exact limits.
 
 ## Verification status
 
