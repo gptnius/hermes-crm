@@ -250,6 +250,24 @@ class CRM(Customization):
             if values.get('contact_id') and deal['contact_id'] != values['contact_id']:
                 raise CRMError('Task contact must match its deal contact')
 
+    def _insert_created(self, conn, kind, values, custom_patch, actor, default_probability=False):
+        """Insert an already model-validated record in the caller's locked transaction.
+
+        Shared by individual create and bounded contact imports. All reference,
+        catalog, custom-value and audit invariants remain here.
+        """
+        values = dict(values)
+        custom_values = self._validate_custom(conn, kind, custom_patch)
+        if kind == 'deals': self._deal_stage(conn, values, default_probability)
+        self._references(conn, kind, values)
+        timestamp = now()
+        record = dict(id=str(uuid.uuid4()), version=1, created_at=timestamp, updated_at=timestamp, **values)
+        conn.execute(TABLES[kind].insert().values(**record))
+        self._save_custom(conn, kind, record['id'], custom_values)
+        record['custom_fields'] = custom_values
+        self._audit(conn, kind, record, 'created', actor)
+        return record
+
     def create(self, kind, data, actor='local', key=None):
         data = dict(data)
         custom_patch = data.pop('custom_fields', {})
@@ -268,15 +286,7 @@ class CRM(Customization):
                     if existing:
                         if existing['digest'] != digest: raise CRMError('Idempotency key already used for different data', 409)
                         return json.loads(existing['response'])
-                custom_values = self._validate_custom(conn,kind,custom_patch)
-                if kind == 'deals': self._deal_stage(conn,values,'probability' not in data)
-                self._references(conn, kind, values)
-                timestamp = now()
-                record = dict(id=str(uuid.uuid4()), version=1, created_at=timestamp, updated_at=timestamp, **values)
-                conn.execute(TABLES[kind].insert().values(**record))
-                self._save_custom(conn,kind,record['id'],custom_values)
-                record['custom_fields'] = custom_values
-                self._audit(conn, kind, record, 'created', actor)
+                record = self._insert_created(conn, kind, values, custom_patch, actor, 'probability' not in data)
                 if key: conn.execute(idempotency.insert().values(key=key, digest=digest, response=json.dumps(record)))
                 return record
         except IntegrityError:

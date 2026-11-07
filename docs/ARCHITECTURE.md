@@ -56,6 +56,24 @@ migration. Encrypted exports include only known CRM tables through a consistent
 transaction, never host files or keys. Offline decoding is not a restore system.
 See [threat boundaries, duplication inventory and recovery limits](PROTECTION.md).
 
+## Contact CSV transfer
+
+`contact_transfer.py` provides contact-only mapping, normalized preview, exact
+custom-field validation, duplicate candidates and single-transaction selected
+creates. Ordinary creates and batch imports share `_insert_created`; legacy
+idempotency digests remain unchanged. Versioned namespaced batch receipts reuse
+the existing receipt table, store minimal outcomes, and bind scope/input/approval.
+Preview fingerprints are freshness checks, not authentication or proof of human
+consent. The commit repeats validation under the same catalog/write lock.
+
+CSV exports query a consistent filtered contact snapshot and selected ordinary
+columns, enforce whole-result bounds and escape spreadsheet-sensitive text.
+The native artifact runtime uses private plaintext files with scoped durable
+reservations, size/hash verification and original-outcome recovery; cancellation
+does not delete files. No protected content, keys, providers, job calls or new
+agent toolsets are introduced. The native download binding is captured before
+preparation. See [transfer boundaries and retention](CONTACT_TRANSFER.md).
+
 ## Profile boundaries
 
 Native operations resolve Hermes' plugin_data_dir and plugin_db on every call. No global DB connection caches a previous profile. SQLite uses Hermes' connection policy. PostgreSQL uses a dedicated crm_ schema derived from the active profile's resolved data directory and reads the connection secret through the host profile scope.

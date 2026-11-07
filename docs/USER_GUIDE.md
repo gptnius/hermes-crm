@@ -23,6 +23,7 @@ with no live-account verification yet.
 - [Work with your Hermes agent](#work-with-your-hermes-agent)
 - [Save and schedule future internal work](#save-and-schedule-future-internal-work)
 - [Optional Gmail history](#optional-gmail-history)
+- [Import and export contact CSV](#import-and-export-contact-csv)
 - [Optional protected notes and exports](#optional-protected-notes-and-exports)
 - [Storage, profiles and backups](#storage-profiles-and-backups)
 - [Troubleshooting](#troubleshooting)
@@ -54,7 +55,7 @@ with no live-account verification yet.
 contacts, pipeline, follow-ups, activity and preset dashboard views without
 Hermes Desktop. It does not provide the native report builder, contact-log
 panel, customization editor/custom-value controls, Gmail pilot, chat companion
-protected-note/export controls or native assignment/scheduler controls. It displays configured stages and
+contact CSV, protected-note/export controls or native assignment/scheduler controls. It displays configured stages and
 preserves retained custom values during ordinary edits.
 It is not a hosted web application or a substitute for native integration tests.
 
@@ -397,6 +398,30 @@ agent context or the self-reported contact log. **Disconnect locally** and
 **Forget local email history** do not revoke Google's grant; host/Google grant
 management is separate. Read the full guide's retention and cancellation limits.
 
+## Import and export contact CSV
+
+Open **Contact CSV** in Contacts. For import, choose a UTF-8 CSV, explicitly
+preview the columns and map or ignore each one. Review normalized values,
+validation errors and duplicate candidates, select the valid rows you intend
+to create, and confirm. Existing records are never overwritten or merged.
+Current active contact custom fields can be mapped by their stable keys.
+Contact type is separate from linked deal Stage; the importer does not create
+opportunities or infer relationship mappings.
+
+For export, review the current contact filters and selected columns. Defaults
+omit Notes and custom values; protected notes and keys cannot be included.
+Preparing a CSV creates a retained plaintext artifact, and Download invokes
+Hermes's native Save dialog separately. Closing or canceling does not delete
+the artifact. Exports prefix spreadsheet-sensitive cells and report the count;
+imports do not automatically undo those prefixes.
+
+A lost response is not proof of failure. Use **Check original receipt** rather
+than starting another import/export. The first increment supports at most
+1,000 import rows/2 MiB and 10,000 export rows/4 MiB; excess data is rejected,
+not silently truncated. Read [contact transfer, duplicate rules and retention](CONTACT_TRANSFER.md)
+before importing valuable data. This is a native, contact-first portability
+feature, not a full CRM migration or backup/restore.
+
 ## Optional protected notes and exports
 
 Ordinary CRM use requires no encryption keys. The native **Protected note**
@@ -499,7 +524,7 @@ before configuring one.
 ## Limits and verification
 
 - No public authentication, shared-user roles, tenant isolation, external
-  messaging, calendar sync, imports, attachments or automatic outreach.
+  messaging, calendar sync, general migration imports, attachments or automatic outreach.
 - No multiple pipelines, required/unique/calculated fields, arbitrary SQL/joins/formulas, dashboard-global filters or
   historical conversion funnels. Report dates/day buckets use UTC.
 - Contact reports are server-paged, but legacy lists, deal/task views, related
@@ -530,6 +555,8 @@ python scripts/build_email_panel.py --check
 python scripts/build_report_panels.py --check
 python scripts/build_customization_panel.py --check
 python scripts/build_protection_panel.py --check
+python scripts/build_contact_transfer_panel.py --check
+node --experimental-vm-modules tests/desktop_contact_transfer.mjs
 node --experimental-vm-modules tests/desktop_protection.mjs
 export HERMES_CRM_REACT_TEST_ROOT="$(mktemp -d /tmp/hermes-crm-react-tests.XXXXXX)"
 npm install --prefix "$HERMES_CRM_REACT_TEST_ROOT" --ignore-scripts --no-audit --no-fund react@19.3.0 react-test-renderer@19.3.0

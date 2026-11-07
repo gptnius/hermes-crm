@@ -106,6 +106,11 @@ from .protection_api import build_router as build_protection_router
 from .protection_runtime import resolve_keyring
 router.include_router(build_protection_router(service, require_workspace, resolve_keyring))
 
+# Contact CSV transfer is native, workspace-bound and explicitly user-triggered.
+# It adds no model tools, providers or scheduled capabilities.
+from .contact_transfer_api import build_router as build_contact_transfer_router
+router.include_router(build_contact_transfer_router(service, require_workspace))
+
 
 @router.get('/snapshot')
 def snapshot():

@@ -62,8 +62,10 @@ no field deletion, required-field enforcement, uniqueness, formula, multi-select
 or automatic data conversion in this increment.
 
 These are ordinary stored CRM fields, **not encrypted or protected fields**.
-Do not use them for passwords, API keys or other secrets. Layered protection is
-the next development priority in the [README roadmap](../README.md#development-roadmap).
+Do not use them for passwords, API keys or other secrets. Optional protected
+notes are a separate feature and do not encrypt these values; see
+[protection boundaries](PROTECTION.md). Contact CSV can explicitly map/export
+these fields within the [transfer limits](CONTACT_TRANSFER.md).
 
 ## Reports and agents
 

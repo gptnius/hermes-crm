@@ -25,7 +25,8 @@ This increment deliberately makes no universal scheduled record-scope claim.
 Ordinary Notes and custom values can already be present in record rows, create
 receipts, user-authored report definitions/results, assigned-work instructions,
 criteria, result reports, activity/contact logs, provider observations, native
-chat transcripts, database journals and earlier backups. The ordinary UI and
+chat transcripts, explicit CSV export artifacts/downloads, database journals
+and earlier backups. The ordinary UI and
 explicit report/work tools can still expose those ordinary values. Minimizing
 base tool responses does not remove these existing copies or prevent an agent
 from reading permitted data using another capability.

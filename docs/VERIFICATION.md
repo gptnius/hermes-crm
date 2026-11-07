@@ -2,6 +2,69 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Contact-first CSV portability
+
+This increment adds native contact-only CSV mapping/preview, valid-row selection,
+conservative duplicate decisions, atomic create-only import receipts and
+filtered selected-column plaintext exports. Existing contacts are not overwritten,
+custom-field definitions are not created, deal stages are not converted to
+Contact type, and no agents/providers/jobs or external accounts are invoked.
+See [transfer scope, privacy and fidelity limits](CONTACT_TRANSFER.md).
+
+Verification on November 7, 2026:
+
+- Clean shipping source plus the reviewed scope correction passed **1,169 Python
+  tests**, with **552 optional cases skipped** and two dependency warnings. The
+  source has 156 files; dormant chat experiments are excluded.
+- Fifty-eight focused local/compiler cases cover UTF-8/CSV boundaries, quoted
+  cells and newlines, typed values, duplicate candidates, selected/excluded rows,
+  invalid/stale approvals, atomic rollback, concurrent same-ID replay, legacy
+  create/idempotency/default-stage behavior, coherent filtered exports beyond
+  500 records, field minimization, formula-risk escaping, unknown outcomes and
+  private artifact safety. Four artifact cases compile both SQLite/PostgreSQL
+  statements with and without schemas; compilation is not a live database test.
+- The first live PostgreSQL run caught a preview fingerprint bug: SQLAlchemy
+  adds a string bookkeeping key to a schema map whose existing key is `None`.
+  The reviewed correction binds a fixed tuple of logical workspace identity,
+  profile, backend and resolved schema. It excludes mutable bookkeeping and
+  connection credentials. Regressions verify stable previews/receipts across
+  real compilation and credential changes, with profile/schema/workspace
+  separation retained. This is scope/freshness validation, not new authorization.
+- The final corrected source passed **610 synthetic checks, zero failures and
+  zero skips**, in fresh disposable macOS PostgreSQL **17.11 ARM64** runs. The
+  focused 85 comprise 34 local/backend/API cases, 24 artifact/compiler cases
+  and 27 real PostgreSQL cases. The existing 525 regression cases include
+  fifteen SQLite report variants and one SQL-compilation case, so not all 610
+  are PostgreSQL-backed. macOS permissions, symlink/hardlink/FIFO rejection and
+  directory-lock behavior also passed. Python 3.12, SQLAlchemy 2.1.8, psycopg
+  3.3.8 and cryptography 50.0.2 were used. All 156 source hashes matched the
+  reviewed archive plus its three-file scope/test correction. All four owned
+  containers were removed; no existing volumes, real data or app/profile/key/
+  provider settings were changed.
+- Fifteen native SDK/component suites passed, including actual React 19.3,
+  fatal UTF-8 decoding, no upload on file selection, explicit mapping/ignored
+  columns, archived-field handling, selected-row confirmation revision, labeled
+  value previews, late file/preview responses, unknown-operation recovery and
+  download capture before preparation. Generated panels synchronize with all
+  five generator checks. Standalone VM/syntax and all 25 execution-bridge tests
+  with the real SQLite adapter passed. Three pinned-host registration/resolver
+  tests passed; the existing 42-tool inventory and scheduled allowlists remain
+  unchanged. The cloud lacks the optional real nanostores fixture.
+- Independent code, security, UI, source-contract and documentation review
+  passed. Corrections included strict UTF-8 decoding, export response alignment,
+  exact receipt scope/shape, schema refusal, portable fault injection and the
+  PostgreSQL scope fix. The host download contract was checked against exact
+  official source `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`.
+
+The formula tests use inert strings through CSV writers/parsers and confirm
+visible apostrophe transformations and preserved cell boundaries. They do not
+execute a spreadsheet or establish Excel/LibreOffice save/reopen safety. No
+sanitization strategy is universal; subsequent saving or transformation can
+remove protections. Re-import retains escapes rather than silently decoding
+them. Physical native file selection/Save-dialog/accessibility testing remains
+pending. No active app, real source file, user profile, mailbox, keys or
+production data were changed by this work.
+
 ## Optional layered protection and agent data minimization
 
 This increment adds separate opt-in protected notes and encrypted CRM content
