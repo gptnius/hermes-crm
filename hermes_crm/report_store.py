@@ -155,9 +155,9 @@ class DashboardInput(StrictModel):
 class ReportStore(ScopedStore):
     tables = [reports, revisions, dashboards, operations]
     operation_table = operations
-    def _definition(self, definition):
-        from .reports import ReportDefinition
-        return ReportDefinition.model_validate(definition).model_dump(mode="json", exclude_none=True)
+    def _definition(self, definition, conn=None):
+        from .reports import ReportEngine
+        return ReportEngine(self.crm).validate_definition(definition, conn=conn).model_dump(mode="json", exclude_none=True)
     @staticmethod
     def _decode(row):
         record = dict(row)
@@ -193,9 +193,10 @@ class ReportStore(ScopedStore):
         title = ReportInput(title=title).title
         definition = self._definition(definition)
         def action(conn, scope):
+            validated = self._definition(definition, conn=conn)
             stamp = now()
-            result = dict(id=str(uuid.uuid4()),version=1,title=title,definition=definition,created_at=stamp,updated_at=stamp,archived_at=None)
-            conn.execute(reports.insert().values(scope=scope, **dict(result, definition=canonical(definition))))
+            result = dict(id=str(uuid.uuid4()),version=1,title=title,definition=validated,created_at=stamp,updated_at=stamp,archived_at=None)
+            conn.execute(reports.insert().values(scope=scope, **dict(result, definition=canonical(validated))))
             self._revision(conn,scope,result)
             return result
         return self._write(key,['create',title,definition],action)
@@ -205,6 +206,7 @@ class ReportStore(ScopedStore):
             old = self._get(conn,scope,record_id)
             if old['version'] != expected_version: raise CRMError('Saved report changed; refresh before editing',409)
             values = dict(changes)
+            if 'definition' in values: values['definition'] = self._definition(values['definition'], conn=conn)
             if operation == 'archive': values['archived_at'] = now()
             if operation == 'restore': values['archived_at'] = None
             result = dict(old, **values, version=expected_version+1, updated_at=now())
@@ -250,12 +252,15 @@ class ReportStore(ScopedStore):
                     latest = self._get(conn,scope,card['report_id'])
                     pinned = self._get(conn,scope,card['report_id'],card['report_version'])
                     if latest['archived_at']: raise CRMError('Cannot add an archived report to a dashboard',409)
-            from .reports import FIELDS
+            from .reports import ReportEngine
+            engine = ReportEngine(self.crm)
+            catalog = engine.catalog(conn=conn)
             for card in cards:
                 try: definition = self._get(conn,scope,card['report_id'],card['report_version'])['definition']
                 except CRMError as error:
                     if error.status != 404: raise
                     continue
+                definition = engine.validate_definition(definition, conn=conn, fields={k:v['fields'] for k,v in catalog['entities'].items()}).model_dump(exclude_none=True)
                 visual = card['visualization']
                 group = definition.get('group_by')
                 if visual != 'table' and not definition.get('measure'):
@@ -264,7 +269,7 @@ class ReportStore(ScopedStore):
                     raise CRMError('A metric requires an ungrouped measure')
                 if visual in ('bar','line','donut') and not group:
                     raise CRMError('This chart requires a grouping')
-                if visual == 'line' and FIELDS[definition['entity']][group['field']]['type'] not in ('date','datetime'):
+                if visual == 'line' and catalog['entities'][definition['entity']]['fields'][group['field']]['type'] not in ('date','datetime'):
                     raise CRMError('Line charts require date grouping')
             stamp = now()
             result = dict(id=old['id'] if old else str(uuid.uuid4()),version=expected_version+1,cards=cards,created_at=old['created_at'] if old else stamp,updated_at=stamp)

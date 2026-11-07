@@ -12,10 +12,19 @@ const context = vm.createContext({ URLSearchParams, crypto: webcrypto, console }
 const module = new vm.SourceTextModule(source, { context });
 await module.link(() => new vm.SyntheticModule(['createElement','useEffect','useRef','useState'], function () { for (const key of ['createElement','useEffect','useRef','useState']) this.setExport(key, React[key]); }, { context }));
 await module.evaluate();
-const { reportSession, reportPreset, reportCleanFilter, reportChartModel, reportCardPayload, reportLineModel, reportSectorPath, FlexibleReports, ReportResult } = module.namespace;
+const { reportSession, reportPreset, reportCleanFilter, reportChartModel, reportCardPayload, reportLineModel, reportSectorPath, FlexibleReports, ReportResult, reportFilterValue, reportDisplayValue } = module.namespace;
 const plain = value => JSON.parse(JSON.stringify(value));
 assert.doesNotMatch(source, /dangerouslySetInnerHTML|\bfetch\s*\(|href:|src:|setInterval|localStorage/);
 assert.equal(reportPreset('won').filter.value, 'won');
+assert.equal(reportPreset('won').filter.field, 'stage_outcome');
+assert.equal(reportFilterValue({type:'number'}, '2.5'), 2.5);
+assert.equal(reportFilterValue({type:'number'}, '0'), 0);
+assert.equal(reportFilterValue({type:'boolean'}, 'false'), false);
+assert.equal(reportFilterValue({type:'boolean'}, 'true'), true);
+assert.equal(reportFilterValue({type:'boolean'}, 'garbage'), 'garbage');
+assert.equal(reportDisplayValue({choice_labels:{stage:{paid:'Paid customer'}}}, 'stage', 'paid'), 'Paid customer');
+assert.equal(reportDisplayValue({}, 'custom.flag', false), 'false');
+
 assert.deepEqual(plain(reportPreset('daily').group_by), { field: 'created_at', interval: 'day' });
 assert.equal(reportCleanFilter({ all: [] }), null);
 assert.deepEqual(plain(reportCleanFilter({ all: [{ any: [] }, { field: 'id', op: 'eq', value: 'x' }] })), { all: [{ field: 'id', op: 'eq', value: 'x' }] });

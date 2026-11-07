@@ -16,13 +16,21 @@ Primary sources:
 
 ## Native registration
 
-The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 22 tools. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
+The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 41 tools. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
 
 Read toolset crm_read: crm_contact_report, crm_contact_list, crm_contact_get, crm_deal_list, crm_deal_get, crm_task_list, crm_task_get, crm_overview.
 
 Write toolset crm_write: crm_contact_create, crm_contact_update, crm_deal_create, crm_deal_update, crm_task_create, crm_task_update, crm_followup_schedule.
 
 Assigned-work toolsets are separate: `crm_work_read` contains get/list; `crm_work_schedule` contains create/schedule/reconcile/cancel; `crm_work_report` contains only the trusted-context report writer. The original `crm_read` inventory stays at eight. See NATIVE_ASSIGNED_WORK.md for the active-context scheduling contract, provenance and uncertainty limits.
+
+Saved reports and authored contact logs use separate `crm_reports`,
+`crm_report_write`, `crm_interaction_read` and `crm_interaction_write` toolsets.
+Customization adds `crm_schema_catalog` in `crm_schema_read`, and stage/field
+create/update tools in `crm_schema_write`. They do not enter existing scheduled
+allowlists. Record tools accept optional `custom_fields` validated against the
+current catalog; stage filters use stable keys rather than a frozen six-key enum.
+See [customization contracts](CUSTOMIZATION.md).
 
 Native storage comes from plugins.plugin_storage. Plugin PostgreSQL selection uses ctx.get_config('backend', default='sqlite') and agent.secret_scope.get_secret('HERMES_CRM_DATABASE_URL'). No secret is needed for SQLite. The CRM plugin does not scan the filesystem to discover settings, jobs, tokens or credentials. The Hermes host has separate provider auto-discovery behavior; see NATIVE_DESKTOP.md for the testing caveat.
 

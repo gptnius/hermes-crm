@@ -62,11 +62,16 @@ still apply. There is no hidden report-authoring model or API key.
   overdue tasks. It is not evidence of execution or a never-missed guarantee.
 - **Leads created per UTC day** selects contacts currently classified as leads
   and groups their creation dates. It does not reconstruct historical lead state.
-- **Current closed won deals** selects current Won stage. Expected close date is
+- **Current closed won deals** selects stages with current Won outcome. An older
+  saved `stage = won` filter still selects that exact stable key. Expected close date is
   not actual win date. Historical stage transitions and conversion/win trends
   require future typed history, not reinterpretation of current data.
 - Currency is integer **USD cents**. Measures disclose units; counts are record
   counts. AVG is a numeric result and can be fractional, including fractional cents.
+- Optional custom fields use stable `custom.<key>` identifiers and their declared
+  text/number/boolean/date/single-select types. Current labels are separate
+  presentation metadata. Archived definitions remain readable. Number fields
+  have no implicit currency unit. See [customization](CUSTOMIZATION.md).
 
 Each response reads one database snapshot. Later pages or drilldowns are new
 live reads. The canonical drilldown preserves all predicates and the evaluation
@@ -86,7 +91,8 @@ Summaries are not exposed through general report columns or legacy CRM read tool
 
 ## Limits and recovery
 
-- Contacts/deals/tasks only; the six existing deal stages, not custom stages.
+- Contacts/deals/tasks and optional typed custom fields; one configurable deal
+  pipeline, not custom objects or multiple pipelines.
 - UTC dates/day buckets only; no arbitrary timezones or historical funnels.
 - Twenty columns, thirty-two conditions, nesting depth three, three sorts,
   one grouping/measure, one hundred list values, one hundred rows per page.

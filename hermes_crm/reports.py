@@ -1,12 +1,14 @@
 """Typed, read-only reports over the live CRM. No provider or mailbox access."""
 from __future__ import annotations
+import copy
+import math
 import hashlib
 import json
 from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
-from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
-from sqlalchemy import select, func, and_, or_, literal, cast, String
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator, ValidationInfo
+from sqlalchemy import select, func, and_, or_, literal, cast, String, Float, Boolean, JSON, case
 from .domain import TABLES, contacts, deals, tasks, STAGES, CRMError, now
 from .native_work import read_snapshot
 
@@ -15,7 +17,7 @@ ORDER_OPS = ['eq', 'ne', 'in', 'not_in', 'gt', 'gte', 'lt', 'lte', 'between', 'i
 
 def field(kind='text', *, note='', unit=None, choices=None):
     return dict(type=kind, selectable=True, sortable=kind != 'set', groupable=kind != 'set',
-                operators=(['has_any','has_all','has_none','is_empty'] if kind == 'set' else ORDER_OPS if kind in ('integer','datetime','date') else TEXT_OPS),
+                operators=(['has_any','has_all','has_none','is_empty'] if kind == 'set' else ORDER_OPS if kind in ('integer','number','datetime','date') else ['eq','ne','in','not_in','is_null','is_not_null'] if kind == 'boolean' else TEXT_OPS),
                 unit=unit, semantic_notes=note, **({'choices': choices} if choices else {}))
 
 FIELDS = {
@@ -67,9 +69,9 @@ class ReportDefinition(Strict):
         return value
 
     @model_validator(mode='after')
-    def validate_fields(self):
+    def validate_fields(self, validation: ValidationInfo):
         if type(self.schema_version) is not int: raise ValueError('schema_version must be integer 1')
-        fields = FIELDS[self.entity]
+        fields = (validation.context or {}).get('fields', FIELDS)[self.entity]
         def known(name):
             if name not in fields: raise ValueError(f'Unknown field: {name}')
             return fields[name]
@@ -85,7 +87,7 @@ class ReportDefinition(Strict):
         if self.measure:
             m = self.measure
             if m.op == 'count' and m.field is not None: raise ValueError('Count counts records; omit field')
-            if m.op != 'count' and (m.field is None or known(m.field)['type'] != 'integer'): raise ValueError('Measure requires numeric field')
+            if m.op != 'count' and (m.field is None or known(m.field)['type'] not in ('integer','number')): raise ValueError('Measure requires numeric field')
         conditions = [0]
         def visit(node, depth=0):
             if type(node) is not dict: raise ValueError('Filter must be an object')
@@ -118,9 +120,14 @@ class ReportDefinition(Strict):
                 kind = info['type']
                 if kind == 'integer':
                     if type(val) is not int or abs(val)>9_007_199_254_740_991: raise ValueError('Expected bounded integer')
+                elif kind == 'number':
+                    if type(val) not in (int,float) or abs(val)>1_000_000_000_000_000 or not math.isfinite(val): raise ValueError('Expected bounded finite number')
+                elif kind == 'boolean':
+                    if type(val) is not bool: raise ValueError('Expected boolean')
                 else:
-                    if type(val) is not str or len(val)>500: raise ValueError('Expected text of at most 500 characters')
-                    if info.get('choices') and val not in info['choices']: raise ValueError('Unknown choice')
+                    maximum = info.get('max_length', 500)
+                    if type(val) is not str or len(val)>maximum: raise ValueError(f'Expected text of at most {maximum} characters')
+                    if 'choices' in info and val not in info['choices']: raise ValueError('Unknown choice')
                     if kind == 'date':
                         if date.fromisoformat(val).isoformat()!=val: raise ValueError('Use YYYY-MM-DD')
                     if kind == 'datetime':
@@ -136,13 +143,48 @@ class ReportDefinition(Strict):
 
 class ReportEngine:
     def __init__(self, crm): self.crm=crm
-    def catalog(self):
-        return dict(schema_version=1, entities={k:dict(label=k.capitalize(), fields=v) for k,v in FIELDS.items()},
+    def _schema(self, conn):
+        schema = self.crm.catalog(conn=conn)
+        fields = copy.deepcopy(FIELDS)
+        stages = schema['stages']
+        choices = [s['key'] for s in stages]
+        labels = {s['key']: s['label'] for s in stages}
+        for entity, name in [('contacts','linked_stages'),('deals','stage')]:
+            fields[entity][name].update(choices=choices, choice_labels=labels,
+                archived_choices=[s['key'] for s in stages if s['archived']])
+        fields['deals']['stage_outcome'] = dict(field(choices=['open','won','lost'],
+            note='Current stage outcome, not historical outcome or actual close date.'), label='Stage outcome')
+        for entity, definitions in schema['fields'].items():
+            for definition in definitions:
+                kind = definition['type']
+                info = field('text' if kind == 'single-select' else kind,
+                    note='Current stored value. Archived definitions and values remain readable; this is not value history.')
+                info.update(label=definition['label'], custom=True, archived=definition['archived'],
+                    definition_version=definition['version'])
+                if kind == 'text': info['max_length'] = 10000
+                if kind == 'single-select': info['choices'] = definition['choices']
+                fields[entity]['custom.' + definition['key']] = info
+        return fields, schema
+
+    def validate_definition(self, definition, conn=None, fields=None):
+        if conn is None:
+            with read_snapshot(self.crm) as snapshot:
+                return self.validate_definition(definition, conn=snapshot)
+        if fields is None: fields, _ = self._schema(conn)
+        raw = definition.model_dump() if isinstance(definition, ReportDefinition) else definition
+        return ReportDefinition.model_validate(copy.deepcopy(raw), context={'fields': fields})
+
+    def catalog(self, conn=None):
+        if conn is None:
+            with read_snapshot(self.crm) as snapshot: return self.catalog(conn=snapshot)
+        fields, schema = self._schema(conn)
+        return dict(schema_version=1, entities={k:dict(label=k.capitalize(), fields=v) for k,v in fields.items()},
+                    stages=copy.deepcopy(schema['stages']),
                     timezones=['UTC'], intervals=['day'], measures=['count','sum','avg','min','max'],
                     limits=dict(columns=20,filter_depth=3,conditions=32,grouped_filter_depth=2,grouped_conditions=30,list_values=100,sorts=3,page_size=100,groups=100),
-                    semantics='Live current-state reports. Drilldowns rerun live; evaluation time freezes overdue predicates, not row membership.')
+                    semantics='Live current-state reports, not historical snapshots. Archived fields and stages remain readable. Labels are current; identifiers are stable. Drilldowns rerun live; evaluation time freezes overdue predicates, not row membership.')
 
-    def _expressions(self, entity, timestamp, conn):
+    def _expressions(self, entity, timestamp, conn, schema):
         table=TABLES[entity]
         expr={k:table.c[k] for k in FIELDS[entity] if k in table.c}
         if entity == 'contacts':
@@ -162,13 +204,28 @@ class ReportEngine:
                 expr['last_logged_contact_at']=last_contact_expression(self.crm,conn)
             # PostgreSQL cannot infer an untyped NULL bind in IS NULL predicates.
             expr['last_logged_contact_at']=cast(expr['last_logged_contact_at'],String(40))
-        if entity == 'deals': expr['expected_close_date']=deals.c.close_date
+        if entity == 'deals':
+            expr['expected_close_date']=deals.c.close_date
+            expr['stage_outcome']=case({s['key']:s['outcome'] for s in schema['stages']}, value=deals.c.stage, else_=None)
         if entity in ('deals','tasks'):
             contact_id=table.c.contact_id
             if entity=='tasks':
                 inherited=select(deals.c.contact_id).where(deals.c.id==tasks.c.deal_id).correlate(tasks).scalar_subquery()
                 contact_id=func.coalesce(contact_id,inherited)
             expr['contact_name']=select(contacts.c.name).where(contacts.c.id==contact_id).correlate(table).scalar_subquery()
+        if schema['fields'][entity]:
+            from .customization import values_table
+            for definition in schema['fields'][entity]:
+                key, kind = definition['key'], definition['type']
+                if conn.dialect.name == 'postgresql':
+                    value = cast(values_table.c.values_json, JSON).op('->>')(key)
+                else:
+                    value = func.json_extract(values_table.c.values_json, '$.' + key)
+                if kind == 'number': value = cast(value, Float)
+                elif kind == 'boolean': value = cast(value, Boolean)
+                else: value = cast(value, String)
+                expr['custom.' + key] = select(value).where(
+                    values_table.c.kind == entity, values_table.c.record_id == table.c.id).correlate(table).scalar_subquery()
         return expr
 
     def _predicate(self,node,expr):
@@ -191,8 +248,6 @@ class ReportEngine:
         return {'eq':lambda:c==v,'ne':lambda:c!=v,'gt':lambda:c>v,'gte':lambda:c>=v,'lt':lambda:c<v,'lte':lambda:c<=v}[op]()
 
     def run(self, definition, limit=50, offset=0, evaluated_at=None):
-        import copy
-        definition=ReportDefinition.model_validate(copy.deepcopy(definition.model_dump() if isinstance(definition,ReportDefinition) else definition))
         self.crm._integer(limit,'limit',1,100); self.crm._integer(offset,'offset')
         if evaluated_at is None: evaluated_at=now()
         try:
@@ -200,29 +255,35 @@ class ReportEngine:
             if dt.tzinfo is None: raise ValueError()
             timestamp=dt.astimezone(timezone.utc).isoformat(timespec='microseconds')
         except (ValueError,AttributeError): raise CRMError('evaluated_at requires a timezone-aware timestamp')
-        d=definition.model_dump(exclude_none=True)
-        result=dict(definition=d,definition_hash=hashlib.sha256(json.dumps(d,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
-            observed_at=now(),evaluated_at=timestamp,timezone='UTC',units={k:FIELDS[definition.entity][k]['unit'] for k in definition.columns},
-            limit=limit,offset=offset,items=[],live=True)
-        table=TABLES[definition.entity]
         with read_snapshot(self.crm) as conn:
-            expr=self._expressions(definition.entity,timestamp,conn)
+            fields, schema = self._schema(conn)
+            definition=self.validate_definition(definition, conn=conn, fields=fields)
+            d=definition.model_dump(exclude_none=True)
+            result=dict(definition=d,definition_hash=hashlib.sha256(json.dumps(d,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+                observed_at=now(),evaluated_at=timestamp,timezone='UTC',units={k:fields[definition.entity][k]['unit'] for k in definition.columns},
+                limit=limit,offset=offset,items=[],live=True,
+                field_labels={k:v['label'] for k,v in fields[definition.entity].items()},
+                choice_labels={k:v['choice_labels'] for k,v in fields[definition.entity].items() if 'choice_labels' in v})
+            table=TABLES[definition.entity]
+            expr=self._expressions(definition.entity,timestamp,conn, schema)
             predicate=self._predicate(definition.filter,expr) if definition.filter else literal(True)
             result['total']=conn.execute(select(func.count()).select_from(table).where(predicate)).scalar_one()
             # Aggregate a one-row-per-record relation, never a fanout join.
-            scalar_expr={k:v for k,v in expr.items()}
-            relation=select(*(v.label(k) for k,v in scalar_expr.items())).select_from(table).where(predicate).subquery()
+            # Public custom IDs can exceed PostgreSQL's 63-byte identifier limit.
+            # Keep all SQL labels short and map back only at the API boundary.
+            aliases={key:f'rf_{index}' for index,key in enumerate(sorted(expr))}
+            relation=select(*(value.label(aliases[key]) for key,value in expr.items())).select_from(table).where(predicate).subquery()
             m=definition.measure or Measure()
-            metric=func.count() if m.op=='count' else getattr(func,m.op)(relation.c[m.field])
+            metric=func.count() if m.op=='count' else getattr(func,m.op)(relation.c[aliases[m.field]])
             if m.op=='sum': metric=func.coalesce(metric,0)
             if definition.group_by or definition.measure:
                 result['metric']=self._json_number(conn.execute(select(metric).select_from(relation)).scalar_one())
-                result['metric_unit']='records' if m.op=='count' else FIELDS[definition.entity][m.field]['unit']
+                result['metric_unit']='records' if m.op=='count' else fields[definition.entity][m.field]['unit']
                 detail=copy.deepcopy(d); detail.pop('group_by',None); detail.pop('measure',None)
                 result['detail_definition']=detail
             if definition.group_by:
                 g=definition.group_by
-                key=relation.c[g.field]
+                key=relation.c[aliases[g.field]]
                 if g.interval=='day': key=func.substr(key,1,10)
                 grouped=select(key.label('key'),metric.label('value'),func.count().label('count')).select_from(relation).group_by(key)
                 result['total_groups']=conn.execute(select(func.count()).select_from(grouped.subquery())).scalar_one()
@@ -236,7 +297,7 @@ class ReportEngine:
                         start=date.fromisoformat(value)
                         bounds=[start.isoformat()]
                         if start < date.max: bounds.append((start+timedelta(days=1)).isoformat())
-                        if FIELDS[definition.entity][g.field]['type']=='datetime': bounds=[b+'T00:00:00.000000+00:00' for b in bounds]
+                        if fields[definition.entity][g.field]['type']=='datetime': bounds=[b+'T00:00:00.000000+00:00' for b in bounds]
                         clauses=[dict(field=g.field,op='gte',value=bounds[0])]
                         if len(bounds)>1: clauses.append(dict(field=g.field,op='lt',value=bounds[1]))
                         clause={'all':clauses}
@@ -246,18 +307,21 @@ class ReportEngine:
                 result['truncated']=result['total_groups']>100
                 return result
             columns=definition.columns
-            selected=[expr[k].label(k) for k in columns if k!='linked_stages']
+            selected=[expr[k].label(aliases[k]) for k in columns if k!='linked_stages']
+            output_names={aliases[k]:k for k in columns if k!='linked_stages'}
             if 'id' not in columns: selected.append(table.c.id.label('_report_id'))
             # A stages-only report still needs identity for bounded page enrichment.
             order=[(expr[s.field].asc() if s.direction=='asc' else expr[s.field].desc()).nulls_last() for s in definition.sort]
             if not any(s.field=='id' for s in definition.sort): order.append(table.c.id.asc())
-            rows=[dict(r) for r in conn.execute(select(*selected).select_from(table).where(predicate).order_by(*order).limit(limit).offset(offset)).mappings()]
+            rows=[{output_names.get(key,key):value for key,value in r.items()} for r in conn.execute(select(*selected).select_from(table).where(predicate).order_by(*order).limit(limit).offset(offset)).mappings()]
             if 'linked_stages' in columns:
                 ids=[r.get('id',r.get('_report_id')) for r in rows]; stages={i:set() for i in ids}
                 if ids:
                     for contact_id,stage in conn.execute(select(deals.c.contact_id,deals.c.stage).where(deals.c.contact_id.in_(ids)).distinct()): stages[contact_id].add(stage)
-                for row in rows: row['linked_stages']=[s for s in STAGES if s in stages[row.get('id',row.get('_report_id'))]]
-            for row in rows: row.pop('_report_id',None)
+                for row in rows: row['linked_stages']=[s for s in fields['contacts']['linked_stages']['choices'] if s in stages[row.get('id',row.get('_report_id'))]]
+            for row in rows:
+                row.pop('_report_id',None)
+                for key, value in row.items(): row[key]=self._json_number(value)
             result['items']=rows
         return result
 

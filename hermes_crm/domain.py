@@ -5,6 +5,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from contextlib import contextmanager, nullcontext
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -93,7 +94,7 @@ class DealInput(StrictModel):
         description='Non-negative USD amount in integer cents, not dollars. For $12,000 pass 1200000.',
         examples=[1200000])
     currency: Literal['USD'] = 'USD'
-    stage: Literal['lead','qualified','proposal','negotiation','won','lost'] = 'lead'
+    stage: str = Field(default='lead', pattern=r'^[a-z][a-z0-9_]{0,19}$')
     probability: int = Field(default=10, ge=0, le=100, strict=True)
     close_date: str | None = None
     notes: str = Field(default='', max_length=10000)
@@ -153,7 +154,9 @@ def database_url():
         return url.replace('postgresql://','postgresql+psycopg://',1)
     raise CRMError('Unsupported backend; choose sqlite or postgres explicitly', 503)
 
-class CRM:
+from .customization import Customization, initialize
+
+class CRM(Customization):
     def __init__(self, url=None, profile='default', schema=None, sqlite_creator=None):
         self.url = url or database_url()
         if not self.url.startswith(('sqlite:', 'postgresql+psycopg:')):
@@ -173,16 +176,35 @@ class CRM:
             if not schema or not re.fullmatch(r'crm_[a-z0-9_]{1,48}', schema):
                 self.engine.dispose()
                 raise CRMError('PostgreSQL requires an explicit crm_ prefixed schema for workspace isolation', 503)
-            with self.engine.begin() as conn: conn.execute(CreateSchema(schema, if_not_exists=True))
+            from sqlalchemy import text
+            with self.engine.begin() as conn:
+                conn.execute(text('SELECT pg_advisory_xact_lock(:key)'), {'key': int(hashlib.sha256(schema.encode()).hexdigest()[:15], 16)})
+                conn.execute(CreateSchema(schema, if_not_exists=True))
             self.engine = self.engine.execution_options(schema_translate_map={None: schema})
         if self.backend == 'sqlite':
             @event.listens_for(self.engine, 'connect')
             def pragmas(connection, _):
                 connection.execute('PRAGMA foreign_keys=ON')
                 connection.execute('PRAGMA busy_timeout=10000')
-        metadata.create_all(self.engine)
+        try:
+            initialize(self.engine, metadata)
+        except Exception:
+            self.engine.dispose()
+            raise
 
     def close(self): self.engine.dispose()
+
+    @contextmanager
+    def _read_connection(self):
+        with self.engine.connect() as conn:
+            if self.backend == 'postgres':
+                conn = conn.execution_options(isolation_level='REPEATABLE READ')
+            else:
+                conn.exec_driver_sql('BEGIN')
+            try:
+                yield conn
+            finally:
+                conn.rollback()
 
     def workspace_token(self):
         """Opaque scope marker, not an authentication secret or a filesystem path."""
@@ -199,22 +221,23 @@ class CRM:
                 token = conn.execute(select(settings.c.value).where(settings.c.key == 'workspace_id')).scalar_one()
         return token
 
-    def info(self):
-        with self.engine.connect() as conn:
+    def info(self, conn=None):
+        with (nullcontext(conn) if conn is not None else self._read_connection()) as conn:
             demo = conn.execute(select(settings.c.value).where(settings.c.key == 'demo')).scalar() == 'true'
-        return dict(stages=list(STAGES), backend=self.backend, profile=self.profile, demo=demo)
+            catalog = self.catalog(conn)
+        return dict(stages=[s['key'] for s in catalog['stages'] if not s['archived']], catalog=catalog, backend=self.backend, profile=self.profile, demo=demo)
 
     def _get(self, conn, kind, record_id):
         row = conn.execute(select(TABLES[kind]).where(TABLES[kind].c.id == record_id)).mappings().first()
         if row is None: raise CRMError('Record not found', 404)
-        return dict(row)
+        return dict(row, custom_fields=self._custom_values(conn,kind,record_id))
 
     def get(self, kind, record_id):
-        with self.engine.connect() as conn: return self._get(conn, kind, record_id)
+        with self._read_connection() as conn: return self._get(conn, kind, record_id)
 
-    def _audit(self, conn, kind, record, action, actor):
+    def _audit(self, conn, kind, record, action, actor, detail=''):
         conn.execute(activity.insert().values(id=str(uuid.uuid4()), entity_type=kind, entity_id=record['id'],
-            action=action, actor=actor[:160], summary=f"{record.get('name') or record.get('title')} · {action.replace('_',' ')}"[:400], created_at=now()))
+            action=action, actor=actor[:160], summary=f"{record.get('name') or record.get('title')} · {action.replace('_',' ')}{detail}"[:400], created_at=now()))
 
     def _references(self, conn, kind, values):
         if kind == 'contacts': return
@@ -228,22 +251,31 @@ class CRM:
                 raise CRMError('Task contact must match its deal contact')
 
     def create(self, kind, data, actor='local', key=None):
+        data = dict(data)
+        custom_patch = data.pop('custom_fields', {})
+        if not isinstance(custom_patch, dict): raise CRMError('custom_fields must be an object')
         values = MODELS[kind].model_validate(data).model_dump()
-        if kind == 'deals' and 'probability' not in data: values['probability'] = PROBABILITIES[values['stage']]
+        if kind == 'deals' and 'probability' not in data: values['probability'] = PROBABILITIES.get(values['stage'], 10)
         if kind == 'tasks': values.update(schedule_status='none', scheduler_job_id=None)
-        digest = hashlib.sha256(json.dumps([kind, values], sort_keys=True).encode()).hexdigest()
+        digest_values = dict(values, custom_fields=custom_patch) if custom_patch else values
+        digest = hashlib.sha256(json.dumps([kind, digest_values], sort_keys=True).encode()).hexdigest()
         if key and len(key) > 160: raise CRMError('Idempotency key too long')
         try:
             with self.engine.begin() as conn:
+                self._catalog_lock(conn)
                 if key:
                     existing = conn.execute(select(idempotency).where(idempotency.c.key == key)).mappings().first()
                     if existing:
                         if existing['digest'] != digest: raise CRMError('Idempotency key already used for different data', 409)
                         return json.loads(existing['response'])
+                custom_values = self._validate_custom(conn,kind,custom_patch)
+                if kind == 'deals': self._deal_stage(conn,values,'probability' not in data)
                 self._references(conn, kind, values)
                 timestamp = now()
                 record = dict(id=str(uuid.uuid4()), version=1, created_at=timestamp, updated_at=timestamp, **values)
                 conn.execute(TABLES[kind].insert().values(**record))
+                self._save_custom(conn,kind,record['id'],custom_values)
+                record['custom_fields'] = custom_values
                 self._audit(conn, kind, record, 'created', actor)
                 if key: conn.execute(idempotency.insert().values(key=key, digest=digest, response=json.dumps(record)))
                 return record
@@ -256,11 +288,13 @@ class CRM:
 
     def update(self, kind, record_id, data, actor='local'):
         changes = dict(data)
+        custom_patch = changes.pop('custom_fields', {})
         version = changes.pop('version', None)
         if not isinstance(version, int) or isinstance(version, bool): raise CRMError('A current integer version is required', 409)
         allowed = MODELS[kind].model_fields
         if set(changes) - set(allowed): raise CRMError('Unknown or read-only fields')
         with self.engine.begin() as conn:
+            self._catalog_lock(conn)
             old = self._get(conn, kind, record_id)
             if old['version'] != version: raise CRMError('This record changed. Refresh before editing.', 409)
             values = {k: old[k] for k in allowed}
@@ -268,13 +302,17 @@ class CRM:
             if kind == 'deals' and 'stage' in changes and 'probability' not in changes:
                 values['probability'] = PROBABILITIES[values['stage']] if values['stage'] in PROBABILITIES else values['probability']
             values = MODELS[kind].model_validate(values).model_dump()
+            custom_values = self._validate_custom(conn,kind,custom_patch,old['custom_fields'])
+            if kind == 'deals': self._deal_stage(conn,values,'stage' in changes and 'probability' not in changes)
             self._references(conn, kind, values)
             if kind == 'tasks' and old['schedule_status'] in ('scheduled','scheduling','uncertain') and values['due_at'] != old['due_at']:
                 raise CRMError('This task has a Hermes schedule. Manage that job in Hermes before changing the due date.', 409)
             values.update(version=version+1, updated_at=now())
             result = conn.execute(update(TABLES[kind]).where(TABLES[kind].c.id == record_id, TABLES[kind].c.version == version).values(**values))
             if result.rowcount != 1: raise CRMError('This record changed. Refresh before editing.', 409)
+            self._save_custom(conn,kind,record_id,custom_values)
             record = dict(old, **values)
+            record['custom_fields'] = custom_values
             if kind == 'deals' and values['contact_id'] != old['contact_id']:
                 # Keep explicit task links consistent, atomically and visibly. Null contact
                 # links still inherit the deal relationship without gaining a new explicit one.
@@ -289,7 +327,8 @@ class CRM:
                     self._audit(conn, 'tasks', changed_task, 'contact_reassigned', actor)
             action = 'completed' if kind == 'tasks' and old['status'] != 'done' and values['status'] == 'done' else 'updated'
             if kind == 'deals' and old['stage'] != values['stage']: action = 'stage_changed'
-            self._audit(conn, kind, record, action, actor)
+            detail = f" ({old['stage']} → {values['stage']})" if action == 'stage_changed' else ''
+            self._audit(conn, kind, record, action, actor, detail)
             return record
 
     @staticmethod
@@ -309,10 +348,10 @@ class CRM:
             raise CRMError(f'{name} must be an integer from {minimum} to {maximum}')
 
     def _contact_predicates(self, q='', stage=None, contact_type=None, company='',
-                            email='any', followup='any', timestamp=None):
+                            email='any', followup='any', timestamp=None, conn=None):
         q = self._text_filter(q, 'Search')
         company = self._text_filter(company, 'Company')
-        self._choice(stage, (*STAGES, 'unassigned'), 'stage')
+        self._choice(stage, (*[s['key'] for s in self.catalog(conn)['stages']], 'unassigned'), 'stage')
         self._choice(contact_type, ('lead', 'customer', 'partner'), 'contact type')
         if email is None or followup is None: raise CRMError('Invalid contact filter')
         self._choice(email, ('any', 'present', 'missing'), 'email filter')
@@ -345,19 +384,19 @@ class CRM:
                        followup='any', limit=50, offset=0):
         self._integer(limit, 'limit', 1, 100)
         self._integer(offset, 'offset')
-        timestamp = now()
-        predicates = self._contact_predicates(q, stage, contact_type, company, email, followup, timestamp)
-        linked_tasks = self._contact_tasks().where(tasks.c.status == 'open')
-        def aggregate(query, expression):
-            return query.with_only_columns(expression).scalar_subquery()
-        linked_deals = select(deals.c.id).where(deals.c.contact_id == contacts.c.id).correlate(contacts)
-        stmt = select(contacts,
-            aggregate(linked_deals, func.count()).label('deal_count'),
-            aggregate(linked_tasks, func.count()).label('open_followup_count'),
-            aggregate(linked_tasks.where(tasks.c.due_at < timestamp), func.count()).label('overdue_followup_count'),
-            aggregate(linked_tasks, func.min(tasks.c.due_at)).label('next_followup_at')
-        ).where(*predicates).order_by(contacts.c.created_at.desc(), contacts.c.id.asc()).limit(limit).offset(offset)
-        with self.engine.connect() as conn:
+        with self._read_connection() as conn:
+            timestamp = now()
+            predicates = self._contact_predicates(q, stage, contact_type, company, email, followup, timestamp, conn)
+            linked_tasks = self._contact_tasks().where(tasks.c.status == 'open')
+            def aggregate(query, expression):
+                return query.with_only_columns(expression).scalar_subquery()
+            linked_deals = select(deals.c.id).where(deals.c.contact_id == contacts.c.id).correlate(contacts)
+            stmt = select(contacts,
+                aggregate(linked_deals, func.count()).label('deal_count'),
+                aggregate(linked_tasks, func.count()).label('open_followup_count'),
+                aggregate(linked_tasks.where(tasks.c.due_at < timestamp), func.count()).label('overdue_followup_count'),
+                aggregate(linked_tasks, func.min(tasks.c.due_at)).label('next_followup_at')
+            ).where(*predicates).order_by(contacts.c.created_at.desc(), contacts.c.id.asc()).limit(limit).offset(offset)
             total = conn.execute(select(func.count()).select_from(contacts).where(*predicates)).scalar_one()
             items = [dict(r) for r in conn.execute(stmt).mappings()]
             stages = {r['id']: set() for r in items}
@@ -365,61 +404,65 @@ class CRM:
                 for contact_id, stage_name in conn.execute(select(deals.c.contact_id, deals.c.stage)
                         .where(deals.c.contact_id.in_(stages)).distinct()):
                     stages[contact_id].add(stage_name)
-            for item in items: item['deal_stages'] = [s for s in STAGES if s in stages[item['id']]]
+            stage_keys = [s['key'] for s in self.catalog(conn)['stages']]
+            for item in items:
+                item['deal_stages'] = [s for s in stage_keys if s in stages[item['id']]]
+                item['custom_fields'] = self._custom_values(conn,'contacts',item['id'])
         return dict(items=items, total=total, limit=limit, offset=offset)
 
     def list(self, kind, q='', stage=None, status=None, *, contact_type=None, company='',
-             email='any', followup='any', min_value=None, max_value=None, priority=None, due='any'):
-        if kind not in TABLES: raise CRMError('Invalid record kind')
-        if kind == 'contacts':
-            if status is not None or min_value is not None or max_value is not None or priority is not None or due != 'any':
-                raise CRMError('Unsupported contact filter')
-            stmt = select(contacts).where(*self._contact_predicates(q, stage, contact_type, company, email, followup))
-        else:
-            if contact_type is not None or email != 'any' or followup != 'any': raise CRMError('Unsupported filter')
-            escaped = self._text_filter(q, 'Search')
-            escaped_company = self._text_filter(company, 'Company')
-            table = TABLES[kind]
-            stmt = select(table, contacts.c.name.label('contact_name')).outerjoin(contacts, table.c.contact_id == contacts.c.id)
-            if escaped:
-                stmt = stmt.where(or_(*[func.lower(c).like(f'%{escaped}%', escape='\\') for c in (table.c.title, contacts.c.name)]))
-            if kind == 'deals':
-                if status is not None or priority is not None or due != 'any': raise CRMError('Unsupported deal filter')
-                self._choice(stage, STAGES, 'stage')
-                if stage: stmt = stmt.where(deals.c.stage == stage)
-                if escaped_company: stmt = stmt.where(func.lower(contacts.c.company).like(f'%{escaped_company}%', escape='\\'))
-                if min_value is not None:
-                    self._integer(min_value, 'min_value')
-                    stmt = stmt.where(deals.c.value >= min_value)
-                if max_value is not None:
-                    self._integer(max_value, 'max_value')
-                    stmt = stmt.where(deals.c.value <= max_value)
-                if min_value is not None and max_value is not None and min_value > max_value:
-                    raise CRMError('min_value must not exceed max_value')
+             email='any', followup='any', min_value=None, max_value=None, priority=None, due='any', _conn=None):
+        with (nullcontext(_conn) if _conn is not None else self._read_connection()) as conn:
+            if kind not in TABLES: raise CRMError('Invalid record kind')
+            if kind == 'contacts':
+                if status is not None or min_value is not None or max_value is not None or priority is not None or due != 'any':
+                    raise CRMError('Unsupported contact filter')
+                stmt = select(contacts).where(*self._contact_predicates(q, stage, contact_type, company, email, followup, conn=conn))
             else:
-                if stage is not None or company or min_value is not None or max_value is not None: raise CRMError('Unsupported task filter')
-                self._choice(status, ('open','done'), 'task status')
-                self._choice(priority, ('normal','high'), 'priority')
-                if due is None: raise CRMError('Invalid due filter')
-                self._choice(due, ('any','overdue','upcoming'), 'due filter')
-                if status: stmt = stmt.where(tasks.c.status == status)
-                if priority: stmt = stmt.where(tasks.c.priority == priority)
-                if due in ('overdue','upcoming'):
-                    stmt = stmt.where(tasks.c.status == 'open', tasks.c.due_at < now() if due == 'overdue' else tasks.c.due_at >= now())
-        table = TABLES[kind]
-        stmt = stmt.order_by(table.c.due_at.asc() if kind == 'tasks' else table.c.created_at.desc(), table.c.id.asc()).limit(500)
-        with self.engine.connect() as conn: return [dict(row) for row in conn.execute(stmt).mappings()]
+                if contact_type is not None or email != 'any' or followup != 'any': raise CRMError('Unsupported filter')
+                escaped = self._text_filter(q, 'Search')
+                escaped_company = self._text_filter(company, 'Company')
+                table = TABLES[kind]
+                stmt = select(table, contacts.c.name.label('contact_name')).outerjoin(contacts, table.c.contact_id == contacts.c.id)
+                if escaped:
+                    stmt = stmt.where(or_(*[func.lower(c).like(f'%{escaped}%', escape='\\') for c in (table.c.title, contacts.c.name)]))
+                if kind == 'deals':
+                    if status is not None or priority is not None or due != 'any': raise CRMError('Unsupported deal filter')
+                    self._choice(stage, [s['key'] for s in self.catalog(conn)['stages']], 'stage')
+                    if stage: stmt = stmt.where(deals.c.stage == stage)
+                    if escaped_company: stmt = stmt.where(func.lower(contacts.c.company).like(f'%{escaped_company}%', escape='\\'))
+                    if min_value is not None:
+                        self._integer(min_value, 'min_value')
+                        stmt = stmt.where(deals.c.value >= min_value)
+                    if max_value is not None:
+                        self._integer(max_value, 'max_value')
+                        stmt = stmt.where(deals.c.value <= max_value)
+                    if min_value is not None and max_value is not None and min_value > max_value:
+                        raise CRMError('min_value must not exceed max_value')
+                else:
+                    if stage is not None or company or min_value is not None or max_value is not None: raise CRMError('Unsupported task filter')
+                    self._choice(status, ('open','done'), 'task status')
+                    self._choice(priority, ('normal','high'), 'priority')
+                    if due is None: raise CRMError('Invalid due filter')
+                    self._choice(due, ('any','overdue','upcoming'), 'due filter')
+                    if status: stmt = stmt.where(tasks.c.status == status)
+                    if priority: stmt = stmt.where(tasks.c.priority == priority)
+                    if due in ('overdue','upcoming'):
+                        stmt = stmt.where(tasks.c.status == 'open', tasks.c.due_at < now() if due == 'overdue' else tasks.c.due_at >= now())
+            table = TABLES[kind]
+            stmt = stmt.order_by(table.c.due_at.asc() if kind == 'tasks' else table.c.created_at.desc(), table.c.id.asc()).limit(500)
+            return [dict(row,custom_fields=self._custom_values(conn,kind,row['id'])) for row in conn.execute(stmt).mappings()]
 
-    def activities(self, entity_ids=None):
+    def activities(self, entity_ids=None, _conn=None):
         stmt = select(activity)
         if entity_ids is not None: stmt = stmt.where(activity.c.entity_id.in_(entity_ids))
-        with self.engine.connect() as conn:
+        with (nullcontext(_conn) if _conn is not None else self._read_connection()) as conn:
             return [dict(row) for row in conn.execute(stmt.order_by(activity.c.created_at.desc()).limit(100)).mappings()]
 
     def contact_detail(self, contact_id):
-        contact = self.get('contacts', contact_id)
         from sqlalchemy import or_
-        with self.engine.connect() as conn:
+        with self._read_connection() as conn:
+            contact = self._get(conn,'contacts',contact_id)
             related_deals = [dict(row) for row in conn.execute(select(deals, contacts.c.name.label('contact_name'))
                 .join(contacts, deals.c.contact_id == contacts.c.id).where(deals.c.contact_id == contact_id)
                 .order_by(deals.c.created_at.desc()).limit(500)).mappings()]
@@ -428,28 +471,46 @@ class CRM:
                 .where(or_(tasks.c.contact_id == contact_id, tasks.c.deal_id.in_(
                     select(deals.c.id).where(deals.c.contact_id == contact_id))))
                 .order_by(tasks.c.due_at.asc()).limit(500)).mappings()]
-        deal_ids = {d['id'] for d in related_deals}
-        ids = [contact_id, *deal_ids, *[t['id'] for t in related_tasks]]
-        return dict(contact=contact, deals=related_deals, tasks=related_tasks, activity=self.activities(ids))
+            for kind, records in [('deals',related_deals),('tasks',related_tasks)]:
+                for record in records: record['custom_fields']=self._custom_values(conn,kind,record['id'])
+            deal_ids = {d['id'] for d in related_deals}
+            ids = [contact_id, *deal_ids, *[t['id'] for t in related_tasks]]
+            return dict(contact=contact, deals=related_deals, tasks=related_tasks, activity=self.activities(ids,_conn=conn))
 
-    def overview(self):
+    def overview(self, _conn=None):
         # The prototype is intentionally bounded; dashboard SQL itself is not limited by list pagination.
-        with self.engine.connect() as conn:
+        with (nullcontext(_conn) if _conn is not None else self._read_connection()) as conn:
+            info=self.info(conn)
+            stage_defs=info['catalog']['stages']
+            outcomes={s['key']:s['outcome'] for s in stage_defs}
             all_deals = [dict(r) for r in conn.execute(select(deals)).mappings()]
             all_tasks = [dict(r) for r in conn.execute(select(tasks)).mappings()]
             count = conn.execute(select(func.count()).select_from(contacts)).scalar()
             timestamp = now()
             lead_attention = {key: conn.execute(select(func.count()).select_from(contacts).where(
-                *self._contact_predicates(contact_type='lead', followup=state, timestamp=timestamp))).scalar_one()
+                *self._contact_predicates(contact_type='lead', followup=state, timestamp=timestamp,conn=conn))).scalar_one()
                 for key, state in [('no_open_followup', 'missing'), ('overdue_followup', 'overdue')]}
-        open_deals = [d for d in all_deals if d['stage'] not in ('won','lost')]
+            recent_activity=self.activities(_conn=conn)[:8]
+            upcoming_tasks=self.list('tasks',status='open',_conn=conn)[:6]
+        open_deals = [d for d in all_deals if outcomes.get(d['stage']) == 'open']
         open_tasks = [t for t in all_tasks if t['status']=='open']
-        return dict(self.info(), contacts=count, open_deals=len(open_deals), pipeline_value=sum(d['value'] for d in open_deals),
+        return dict(info, contacts=count, open_deals=len(open_deals), pipeline_value=sum(d['value'] for d in open_deals),
             weighted_value=sum(d['value']*d['probability']//100 for d in open_deals),
-            won_value=sum(d['value'] for d in all_deals if d['stage']=='won'), open_tasks=len(open_tasks),
+            won_value=sum(d['value'] for d in all_deals if outcomes.get(d['stage'])=='won'), open_tasks=len(open_tasks),
             overdue_tasks=sum(t['due_at'] < timestamp for t in open_tasks), lead_attention=lead_attention,
-            stages=[dict(stage=s, contact_count=len({d['contact_id'] for d in all_deals if d['stage']==s}), count=sum(d['stage']==s for d in all_deals), value=sum(d['value'] for d in all_deals if d['stage']==s)) for s in STAGES],
-            activity=self.activities()[:8], tasks=self.list('tasks', status='open')[:6])
+            stages=[dict(stage=s['key'], label=s['label'], outcome=s['outcome'], probability=s['probability'], archived=s['archived'], contact_count=len({d['contact_id'] for d in all_deals if d['stage']==s['key']}), count=sum(d['stage']==s['key'] for d in all_deals), value=sum(d['value'] for d in all_deals if d['stage']==s['key'])) for s in stage_defs],
+            activity=recent_activity, tasks=upcoming_tasks)
+
+    def snapshot(self):
+        """One consistent catalog and record snapshot for a desktop refresh."""
+        token = self.workspace_token()  # Bootstrap writes must precede the read transaction.
+        with self._read_connection() as conn:
+            return dict(meta=dict(self.info(conn), workspace_token=token),
+                        overview=self.overview(_conn=conn),
+                        contacts=self.list('contacts', _conn=conn),
+                        deals=self.list('deals', _conn=conn),
+                        tasks=self.list('tasks', _conn=conn),
+                        activity=self.activities(_conn=conn))
 
     def schedule_followup(self, task_id, dispatch, actor='hermes', **context):
         with self.engine.begin() as conn:

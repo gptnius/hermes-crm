@@ -18,6 +18,7 @@ with no live-account verification yet.
 - [Try the standalone demo](#try-the-standalone-demo)
 - [Your first contact, deal and follow-up](#your-first-contact-deal-and-follow-up)
 - [Record an actual conversation](#record-an-actual-conversation)
+- [Customize fields and deal stages](#customize-fields-and-deal-stages)
 - [Build reports and dashboard cards](#build-reports-and-dashboard-cards)
 - [Work with your Hermes agent](#work-with-your-hermes-agent)
 - [Save and schedule future internal work](#save-and-schedule-future-internal-work)
@@ -34,7 +35,9 @@ with no live-account verification yet.
   (`lead`, `customer` or `partner`). Search and combine filters for linked deal
   stage, Contact type, company, email presence and follow-up status.
 - Deals linked to contacts, with USD value, probability, expected close date,
-  notes and six stages: Lead, Qualified, Proposal, Negotiation, Won and Lost.
+  notes and six initial stages plus configurable stages with explicit outcomes.
+- Typed optional custom fields on contacts, deals and tasks, shared with agent
+  tools and the report builder.
 - Follow-ups with a due date/time, normal or high priority, open/done state,
   notes and optional contact/deal links.
 - A dashboard with pipeline totals, weighted value, stage drill-through and
@@ -49,7 +52,9 @@ with no live-account verification yet.
 **The standalone browser demo** is a smaller, loopback-only way to try the core
 contacts, pipeline, follow-ups, activity and preset dashboard views without
 Hermes Desktop. It does not provide the native report builder, contact-log
-panel, Gmail pilot, chat companion or native assignment/scheduler controls.
+panel, customization editor/custom-value controls, Gmail pilot, chat companion
+or native assignment/scheduler controls. It displays configured stages and
+preserves retained custom values during ordinary edits.
 It is not a hosted web application or a substitute for native integration tests.
 
 ## Install in Hermes Desktop
@@ -137,7 +142,26 @@ A linked development checkout has a different hot-reload workflow; see
 
 Check that you reopened the intended app and profile rather than an older
 installed Desktop. Closing an old app does not give it the new SDK capabilities.
-There is no automatic database migration or app upgrade in this project.
+Customization adds a versioned, additive schema upgrade on first open and rejects
+incompatible/newer schemas. Back up your datastore first; there is no automatic
+backup/restore, external-CRM migration or host-app upgrade.
+
+## Customize fields and deal stages
+
+Open **Customize** in the native workspace. Add or edit deal stages and optional
+fields for Contacts, Deals or Tasks. Choose a clear label and stable internal key;
+keys and field types cannot be changed later. A deal stage's Open/Won/Lost
+outcome is also immutable, and determines pipeline totals independently of its
+label. Archive retains definitions and values; a stage used by deals cannot be
+archived until those deals are explicitly moved.
+
+Active fields appear in record create/edit drawers. Text, number, boolean, date
+and single-select are supported. Zero and false are real values; clearing a
+field is different from leaving it unchanged. Report builders and agents use the
+same catalog. These ordinary fields are not protected storage for secrets.
+
+See [customization usage and limits](CUSTOMIZATION.md) for probability behavior,
+archiving, stable select choices, conflict recovery, agent examples and reports.
 
 ## Try the standalone demo
 
@@ -452,7 +476,7 @@ before configuring one.
 
 - No public authentication, shared-user roles, tenant isolation, external
   messaging, calendar sync, imports, attachments or automatic outreach.
-- No custom stages, arbitrary SQL/joins/formulas, dashboard-global filters or
+- No multiple pipelines, required/unique/calculated fields, arbitrary SQL/joins/formulas, dashboard-global filters or
   historical conversion funnels. Report dates/day buckets use UTC.
 - Contact reports are server-paged, but legacy lists, deal/task views, related
   records and form choices are bounded at 500 records; activity is bounded at

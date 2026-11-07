@@ -90,10 +90,13 @@ def register(ctx):
     from .report_tools import register_report_tools
     register_report_tools(register_tool)
 
+    from .customization_tools import register_customization_tools
+    register_customization_tools(register_tool)
+
     ident={'type':'string','description':'Exact CRM record ID'}
     contact_filters = {
         'q': {'type':'string','maxLength':200},
-        'stage': {'type':'string','enum':['lead','qualified','proposal','negotiation','won','lost','unassigned']},
+        'stage': {'type':'string','description':'Stable stage key from crm_schema_catalog; unassigned selects contacts without deals.'},
         'contact_type': {'type':'string','enum':['lead','customer','partner'], 'description':'Contact type, stored as lifecycle for compatibility.'},
         'company': {'type':'string','maxLength':200},
         'email': {'type':'string','enum':['any','present','missing']},
@@ -111,7 +114,7 @@ def register(ctx):
                 priority={'type':'string','enum':['normal','high']},
                 due={'type':'string','enum':['any','overdue','upcoming'], 'description':'Overdue/upcoming include only open tasks.'})
         if kind == 'deals':
-            filters.update(stage={'type':'string','enum':['lead','qualified','proposal','negotiation','won','lost']},
+            filters.update(stage={'type':'string','description':'Stable stage key from crm_schema_catalog, including archived stages when reading history.'},
                 company={'type':'string','maxLength':200},
                 min_value={'type':'integer','minimum':0,'maximum':2000000000,'description':'Minimum value in integer USD cents.'},
                 max_value={'type':'integer','minimum':0,'maximum':2000000000,'description':'Maximum value in integer USD cents.'})
@@ -121,6 +124,10 @@ def register(ctx):
             {'id':ident},['id'],lambda crm,a,k,kind=kind:crm.get(kind,a['id']),read=True)
         schema=MODELS[kind].model_json_schema()
         properties=schema['properties']
+        properties['custom_fields'] = {'type':'object', 'additionalProperties':True,
+            'description':'Values keyed by stable field keys from crm_schema_catalog for this record kind. Types and choices are validated against the current workspace catalog. Omit to preserve; set an individual value to null to clear. Archived definitions cannot receive new values.'}
+        if kind == 'deals':
+            properties['stage'] = {'type':'string', 'description':'Active stage key from crm_schema_catalog. Stage labels are display text, not keys.'}
         register_tool(f'crm_{singular}_create',f'Create a CRM {singular}. Use a stable idempotency_key when retrying. Does not send outreach or create a scheduler job.',
             dict(properties,idempotency_key={'type':'string','maxLength':160}),schema.get('required',[]),
             lambda crm,a,k,kind=kind:crm.create(kind,{key:value for key,value in a.items() if key!='idempotency_key'},actor='hermes',key=a.get('idempotency_key')))

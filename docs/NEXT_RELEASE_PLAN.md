@@ -15,7 +15,7 @@ HubSpot's task and saved-view workflows and Salesforce's sales work queue are re
 - Make upcoming, overdue, failed and uncertain work visible, together with explicit no-next-action exceptions.
 - Keep stage history before claiming historical funnel conversion; the current dashboard is a current-state snapshot.
 
-This prototype does not claim full HubSpot or Salesforce feature parity. Typed saved reports and dashboard cards are now included in a bounded native increment. Configurable funnels, arbitrary custom fields, historical conversion and advanced cadence authoring remain future work.
+This prototype does not claim full HubSpot or Salesforce feature parity. Typed saved reports, dashboard cards, optional typed custom fields and a configurable single deal pipeline are now included in bounded native increments. Multiple pipelines, required/unique/calculated fields, historical conversion and advanced cadence authoring remain future work. The [README roadmap](../README.md#development-roadmap) is the current priority index: layered protection follows customization, then import/export; external CRM linking is deferred.
 
 References:
 - https://knowledge.hubspot.com/tasks/create-tasks

@@ -97,13 +97,18 @@ from .analytics_api import build_router as build_analytics_router
 router.include_router(build_analytics_router(service, require_workspace))
 
 
+from .customization_api import build_router as build_customization_router
+router.include_router(build_customization_router(service, require_workspace))
+
+
 @router.get('/snapshot')
 def snapshot():
-    # One factory call binds the whole refresh to one selected backend/workspace.
+    # Domain service reads catalog and records in one coherent transaction.
     with service() as crm:
-        return dict(meta=metadata(crm), overview=crm.overview(),
-                    contacts=crm.list('contacts'), deals=crm.list('deals'),
-                    tasks=crm.list('tasks'), activity=crm.activities())
+        result = crm.snapshot()
+        result['meta'].update(native_desktop=True, scheduler='existing-agent', api_version=1,
+                              work_command_name=command_name(result['meta']['workspace_token'], crm.profile))
+        return result
 
 
 @router.get('/overview')

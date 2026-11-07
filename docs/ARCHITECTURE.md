@@ -16,7 +16,28 @@ Tables are crm_contacts, crm_deals, crm_tasks, crm_activity, crm_idempotency and
 
 ## Reports and terminology
 
-Stage describes the six deal stages. Contact type describes the existing lead/customer/partner category, retained under the legacy `lifecycle` field without converting data. Contact reports use correlated linked-record predicates, literal escaped search and server-side filters before pagination. A true filtered total counts unique contacts; a contact can appear in multiple stage reports. Dashboard value shares include all six stages, including Won and Lost, and describe current state rather than historical funnel conversion. Missing/overdue follow-up presets describe stored tasks, not guaranteed agent execution.
+Stage describes configured deal stages, initially the six original stages. Contact type describes the existing lead/customer/partner category, retained under the legacy `lifecycle` field without converting data. Contact reports use correlated linked-record predicates, literal escaped search and server-side filters before pagination. A true filtered total counts unique contacts; a contact can appear in multiple stage reports. Dashboard value shares include configured stages, including Won and Lost outcomes, and describe current state rather than historical funnel conversion. Missing/overdue follow-up presets describe stored tasks, not guaranteed agent execution.
+
+## Customization and additive upgrades
+
+`customization.py` adds versioned `crm_custom_schema`, `crm_custom_definitions`
+and `crm_custom_values` tables without changing legacy record columns. A shared
+transaction lock serializes metadata changes and record-value validation.
+SQLite initialization is transactional; PostgreSQL uses scoped advisory locks.
+Unknown/newer or malformed schemas are refused, not repaired automatically.
+
+Definitions retain stable identities. Field type and stage outcome are immutable;
+archival preserves values and rejects stages used by current deals. Record
+versions, custom values, audit entries and idempotency receipts commit together.
+Legacy receipt digests remain valid. The native snapshot reads metadata and all
+record collections through one consistent transaction. Report catalogs are
+request-scoped, never global; typed correlated JSON extraction avoids row fanout,
+and short internal SQL aliases preserve long public field identifiers on PostgreSQL.
+
+This is ordinary plaintext application storage, not field encryption or a tenant
+authorization boundary. Dedicated schema toolsets do not expand scheduled agent
+permissions. See [customization limits](CUSTOMIZATION.md) and the
+[ordered roadmap](../README.md#development-roadmap).
 
 ## Profile boundaries
 
@@ -75,4 +96,4 @@ SQLAlchemy owns dialect differences, bound parameters and schema mapping. SQLite
 
 ## Future work
 
-Introduce schema migrations, pagination beyond contact reports and scalable aggregate queries before large datasets. Add authentication, authorization, backup/restore and operational health before remote hosting. Expand the verified native Mac workflows to broader platform, responsive-layout and accessibility coverage. Add a safe schedule reconciliation flow only after inspecting real host states and cancellation semantics.
+Expand versioned upgrade/rollback support, pagination beyond contact reports and scalable aggregate queries before large datasets. Layered protection is next, followed by import/export; external CRM linking is deferred. Add authentication, authorization, backup/restore and operational health before remote hosting. Expand the verified native Mac workflows to broader platform, responsive-layout and accessibility coverage. The README is the priority index for future work.

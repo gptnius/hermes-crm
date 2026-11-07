@@ -39,6 +39,11 @@ provides_tools:
   - crm_contact_log
   - crm_contact_log_list
   - crm_contact_log_void
+  - crm_schema_catalog
+  - crm_schema_stage_create
+  - crm_schema_stage_update
+  - crm_schema_field_create
+  - crm_schema_field_update
 config_schema:
   backend:
     type: str

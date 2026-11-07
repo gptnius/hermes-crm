@@ -2,6 +2,57 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Custom fields and deal stages
+
+The customization increment adds versioned optional typed fields, configurable
+single-pipeline deal stages and a shared catalog for native forms, agent tools
+and reports. Stable keys/types/outcomes and existing record columns are
+preserved. Stage retirement rejects current dependencies; archived field values
+remain readable. No active user app, provider configuration, real records or
+credentials were changed by this development and verification.
+
+Verification on November 7, 2026:
+
+- A clean shipping-source export passed **1,039 Python tests**, with **510
+  optional cases skipped** and two dependency deprecation warnings. Dormant
+  direct-chat experiments are excluded from this source and count.
+- A separate disposable macOS PostgreSQL **17.11 ARM64** run passed **510 tests,
+  zero failures and zero skips** against the exact source plus its reviewed
+  portability delta. This suite includes fifteen SQLite report variants and one
+  SQL-compilation case; it is not a claim that all 510 cases used PostgreSQL.
+  Coverage includes customization, reports, report storage, core records,
+  assignments/operations, coverage and synthetic Gmail storage. It covers legacy
+  rows and exact idempotency receipts surviving concurrent first upgrade,
+  incompatible/newer schema refusal, read snapshots and long-key SQL aliases.
+  Only known dependency warnings and an intentional malformed-primary-key
+  fixture warning occurred. All four owned disposable containers were removed;
+  no existing volumes, apps, profiles, providers or mailboxes were used.
+- Actual pinned Hermes source `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`
+  passed two new guarded registration/dispatch cases, one in-process and one
+  hosted-child. Forty-one tools are registered; the five schema tools use
+  dedicated toolsets, and existing scheduled capabilities are unchanged. The
+  fixtures prohibit network/model/agent execution and allow only the exact
+  read-only source-version query additionally required by the pinned host.
+- Eleven native SDK/component suites passed, including actual React 19.3,
+  configuration lifecycle, typed values, renamed stage labels and default
+  probabilities, stale workspace dismissal, known-save refresh failures and
+  frozen unknown outcomes. Standalone VM smoke, syntax and all three generated
+  panel checks passed. One optional real nanostores fixture was unavailable.
+- Independent backend/report and UI reviews passed after fixes for bounded audit
+  identifiers, declared schema lengths, coherent native snapshots, PostgreSQL
+  identifier length, default probabilities, label collisions and recovery flows.
+
+The cloud test runtime could not open a private PostgreSQL socket; the separate
+authorized disposable Mac database supplied the live portability evidence. No
+cloud database server remains running. Hosted Supabase, shared-database tenant
+authorization and production migration are not verified by these tests.
+
+**Physical native/browser inspection of the new customization controls is still
+pending.** React/VM tests are not a visual or full accessibility pass. The user's
+open review app remained on its prior published revision throughout this work.
+See [customization behavior and limits](CUSTOMIZATION.md) and the
+[README roadmap](../README.md#development-roadmap).
+
 ## Flexible reports, saved dashboard and contact log
 
 The next isolated source increment adds typed contacts/deals/tasks reports,

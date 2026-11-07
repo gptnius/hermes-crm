@@ -198,6 +198,9 @@ export function recordChatContext(detail, data, binding) {
 
 const STAGES = ["lead", "qualified", "proposal", "negotiation", "won", "lost"];
 const PROBABILITY = [10, 25, 50, 75, 100, 0];
+const workspaceCatalog = data => data?.meta?.catalog;
+const stageDefinitions = data => catalogStages(workspaceCatalog(data) || { stages: STAGES.map((key, order) => ({ key, label: label(key), order, probability: PROBABILITY[order], outcome: key === "won" || key === "lost" ? key : "open" })) });
+const stageLabel = (data, key) => workspaceCatalog(data)?.stages.find(stage => stage.key === key)?.label || label(key);
 const label = (value) =>
   String(value || "")
     .replace(/[_-]/g, " ")
@@ -1099,19 +1102,20 @@ function Activity({ rows = [] }) {
 function Empty({ children }) {
   return h("div", { className: "hc-empty" }, children);
 }
-// All six stages are included. Contacts may appear in several stage reports.
-export function stageChartRows(stages = []) {
-  const rows = STAGES.map(stage => ({ stage, value: 0, count: 0, contact_count: 0,
-    ...stages.find(row => row.stage === stage) }));
+// Catalog stages are included. Contacts may appear in several stage reports.
+export function stageChartRows(stages = [], catalog) {
+  const definitions = catalog ? catalogStages(catalog, true) : STAGES.map((key, order) => ({ key, label: label(key), order, color: STAGE_COLORS[order] }));
+  const rows = definitions.map(definition => ({ stage: definition.key, label: definition.label, color: definition.color, value: 0, count: 0, contact_count: 0,
+    ...stages.find(row => row.stage === definition.key) }));
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   return { total, rows: rows.map(row => ({ ...row, share: total ? row.value / total : 0 })) };
 }
 const STAGE_COLORS = ["#4779ce", "#9b69c6", "#c67e24", "#338b95", "#32825e", "#b85f67"];
-export function StageChart({ stages, onStage }) {
-  const { total, rows } = stageChartRows(stages);
+export function StageChart({ stages, onStage, catalog }) {
+  const { total, rows } = stageChartRows(stages, catalog);
   const [active, setActive] = useState(null);
   let offset = 0;
-  const describe = row => `${label(row.stage)}: ${money(row.value)} USD · ${(row.share * 100).toFixed(1)}% · ${row.count} deals · ${row.contact_count} distinct contacts`;
+  const describe = row => `${row.label || label(row.stage)}: ${money(row.value)} USD · ${(row.share * 100).toFixed(1)}% · ${row.count} deals · ${row.contact_count} distinct contacts`;
   return h("section", { className: "hc-card" },
     h("h2", null, "Deal value by stage"),
     h("p", { className: "hc-muted" }, "All stages, including Won and Lost. Contacts may have multiple linked stages."),
@@ -1123,7 +1127,7 @@ export function StageChart({ stages, onStage }) {
         offset += row.share * 100;
         if (!row.value) return null;
         return h("circle", { key: row.stage, cx: 60, cy: 60, r: 44,
-          fill: "none", stroke: STAGE_COLORS[index], strokeWidth: 24,
+          fill: "none", stroke: row.color || STAGE_COLORS[index % STAGE_COLORS.length], strokeWidth: 24,
           pathLength: 100, strokeDasharray: `${row.share * 100} ${100 - row.share * 100}`,
           strokeDashoffset: -start, transform: "rotate(-90 60 60)",
           role: "button", tabIndex: 0, "aria-label": `${describe(row)}. View contacts.`,
@@ -1137,7 +1141,7 @@ export function StageChart({ stages, onStage }) {
     h("p", { role: "status", className: "hc-muted" }, active ? describe(active) : "Hover or focus a segment for details. Select a segment or summary to view contacts."),
     h("div", { className: "hc-list" }, rows.map((row, index) => button(
       describe(row), () => onStage(row.stage), { key: row.stage, className: "hc-list-item",
-        style: { borderLeft: `5px solid ${STAGE_COLORS[index]}` },
+        style: { borderLeft: `5px solid ${row.color || STAGE_COLORS[index % STAGE_COLORS.length]}` },
         "aria-label": `${describe(row)}. View contacts.` })))
   );
 }
@@ -1179,6 +1183,10 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   const [searchResult, setSearchResult] = useState(null);
   const [chatNotice, setChatNotice] = useState("");
   const [help, setHelp] = useState(null);
+  const [customize, setCustomize] = useState(null);
+  const [catalogReady, setCatalogReady] = useState(false);
+  const latestWorkspace = useRef(null); latestWorkspace.current = data?.meta.workspace_token;
+  const stages = stageDefinitions(data).map(item => item.key);
   const view = { page, data, snapshotGeneration, query, stage, status, filters, offset, detail };
   useEffect(() => {
     if (identity === routeIdentity(ctx)) lifetime.retainedView = { identity, value: view };
@@ -1197,11 +1205,15 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       const snapshot = await client.request("/snapshot");
       if (client.current() && ticket === serial.current) {
         setData(snapshot);
+        setCatalogReady(true);
         setSnapshotGeneration(value => value + 1);
         setError("");
+        return true;
       }
+      return false;
     } catch (e) {
-      if (client.current() && ticket === serial.current) setError(e.message);
+      if (client.current() && ticket === serial.current) { setError(e.message); setCatalogReady(false); }
+      return false;
     } finally {
       if (client.current() && ticket === serial.current) setLoading(false);
     }
@@ -1333,6 +1345,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     setEditor({
       kind,
       row,
+      revision: viewRequest.current,
       key: crypto.randomUUID(),
       workspaceToken,
       initial,
@@ -1367,10 +1380,10 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   const disabled = busy || loading || !data || !client.current();
   return h(
     Shell,
-    { rootRef: shellRef, overlay: editor && data ? h(Editor, {
+    { rootRef: shellRef, overlay: customize && data ? h(Customization, { key: customize.key, Drawer, catalog: workspaceCatalog(data), client, workspaceToken: customize.workspaceToken, current: () => latestWorkspace.current === customize.workspaceToken && viewRequest.current === customize.revision, onSaved: refresh, cancel: () => setCustomize(null), returnFocus: customize.returnFocus }) : editor && data ? h(Editor, {
       key: editor.key, editor, data, busy: disabled, error,
       cancel: () => { setEditor(null); setError(""); },
-      save: (values) => write(
+      save: (values) => editor.revision !== viewRequest.current || editor.workspaceToken !== latestWorkspace.current ? false : write(
         `/${editor.kind}${editor.row ? "/" + encodeURIComponent(editor.row.id) : ""}`,
         { method: editor.row ? "PATCH" : "POST", body: {
           ...(editor.row ? { data: { ...values, version: editor.row.version } } : createPayload(values, editor.key)),
@@ -1414,6 +1427,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
         "div",
         { className: "hc-actions" },
         h("span", { className: "hc-scope" }, `${profile} · ${connection || "local"}`),
+        button("Customize", () => setCustomize({ key: crypto.randomUUID(), workspaceToken: data.meta.workspace_token, revision: viewRequest.current, returnFocus: shellRef.current?.ownerDocument.activeElement }), { disabled: disabled || !catalogReady || !workspaceCatalog(data) || Boolean(editor), "aria-haspopup": "dialog" }),
         button("Chat with Hermes", openNativeChat, { disabled: disabled || Boolean(editor) || detailLoading }),
         button(loading ? "Refreshing…" : "Refresh", refresh, {
           disabled: busy || loading,
@@ -1520,7 +1534,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
             h(
               "div",
               { className: "hc-two" },
-              h(StageChart, { stages: overview.stages, onStage: stage => navigate("contacts", stage) }),
+              h(StageChart, { catalog: workspaceCatalog(data), stages: overview.stages, onStage: stage => navigate("contacts", stage) }),
               h(
                 "section",
                 { className: "hc-card" },
@@ -1612,8 +1626,8 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                     "aria-label": "Stage",
                   },
                   h("option", { value: "" }, "All stages"),
-                  (page === "contacts" ? [...STAGES, "unassigned"] : STAGES).map((s) =>
-                    h("option", { key: s, value: s }, label(s)),
+                  (page === "contacts" ? [...stages, "unassigned"] : stages).map((s) =>
+                    h("option", { key: s, value: s }, stageLabel(data, s)),
                   ),
                 ),
               page === "tasks" &&
@@ -1651,7 +1665,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
           ["contacts", "pipeline", "tasks"].includes(page) &&
           h("p", { role: "status" }, "Loading matching records…"),
         page === "contacts" && searchReady && h("div", { className: "hc-row", style: { marginTop: 18 } },
-          h("p", { role: "status" }, `${stage === "unassigned" ? "Contacts without linked deals · " : stage ? `Contacts linked to ${label(stage)} stage · ` : filters.followup ? `${filters.contact_type === "lead" ? "Lead attention" : "Contacts"} · ${label(filters.followup)} follow-up · ` : ""}${searchResult.total} matching contacts · ${searchResult.total ? offset + 1 : 0}–${offset + searchRows().length} shown`),
+          h("p", { role: "status" }, `${stage === "unassigned" ? "Contacts without linked deals · " : stage ? `Contacts linked to ${stageLabel(data, stage)} stage · ` : filters.followup ? `${filters.contact_type === "lead" ? "Lead attention" : "Contacts"} · ${label(filters.followup)} follow-up · ` : ""}${searchResult.total} matching contacts · ${searchResult.total ? offset + 1 : 0}–${offset + searchRows().length} shown`),
           h("div", { className: "hc-actions" },
             button("Previous", () => { closeDetail(); reportRequest.current++; setEditor(null); setOffset(Math.max(0, offset - 50)); }, { disabled: offset === 0 }),
             button("Next", () => { closeDetail(); reportRequest.current++; setEditor(null); setOffset(offset + 50); }, { disabled: offset + searchRows().length >= searchResult.total }))),
@@ -1678,7 +1692,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                             .join(" · "),
                         ),
                       ),
-                      h("div", null, h("p", null, `Contact type: ${label(c.lifecycle)}`), h("p", null, `Linked stages: ${(c.deal_stages || []).map(label).join(", ") || "Unassigned"}`)),
+                      h("div", null, h("p", null, `Contact type: ${label(c.lifecycle)}`), h("p", null, `Linked stages: ${(c.deal_stages || []).map(key => stageLabel(data, key)).join(", ") || "Unassigned"}`)),
                     ),
                     () => open("contacts", c.id),
                     { key: c.id, className: "hc-list-item" },
@@ -1695,15 +1709,15 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
           h(
             "div",
             { className: "hc-board" },
-            STAGES.filter((s) => !stage || stage === s).map((s) => {
+            stages.filter((s) => !stage || stage === s).map((s) => {
               const rows = searchRows("deals").filter((d) => d.stage === s);
               return h(
                 "section",
-                { className: "hc-column", key: s },
+                { className: "hc-column", key: s, style: { borderTop: `3px solid ${stageDefinitions(data).find(item => item.key === s)?.color || "#64748b"}` } },
                 h(
                   "header",
                   { className: "hc-row" },
-                  h("h3", null, label(s)),
+                  h("h3", null, stageLabel(data, s)),
                   badge(rows.length),
                 ),
                 h(
@@ -2099,7 +2113,7 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
   useEffect(() => { headingRef.current?.focus(); }, []);
   const linkedButton = (kind, id, name) => id ? button(name || `Open linked ${kind === "contacts" ? "contact" : "deal"}`, () => open(kind, id), { disabled }) : "Not linked";
   const facts = isContact ? [["Email", row.email], ["Company", row.company], ["Job title", row.title], ["Contact type", label(row.lifecycle)]]
-    : isDeal ? [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)], ["Deal value", money(row.value)], ["Stage", label(row.stage)], ["Probability", `${row.probability}%`], ["Expected close", row.close_date || "Not set"]]
+    : isDeal ? [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)], ["Deal value", money(row.value)], ["Stage", stageLabel(data, row.stage)], ["Probability", `${row.probability}%`], ["Expected close", row.close_date || "Not set"]]
     : [["Due", h("time", { dateTime: row.due_at, title: row.due_at }, date(row.due_at))], ["Priority", label(row.priority)], ["Status", label(row.status)], ["Reminder registration", label(row.schedule_status)], ["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)], ["Deal", linkedButton("deals", row.deal_id, linkedDeal?.title)]];
   return h("section", { className: "hc-record", "aria-label": "Record details" },
     h("div", { className: "hc-record-header" },
@@ -2114,9 +2128,9 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
         button("Edit", edit, { className: "hc-primary", disabled }),
         (isContact || isDeal) && button("Create follow-up", () => create("tasks", initialTask), { disabled }),
         isContact && button("Create deal", () => create("deals", { contact_id: row.id }), { disabled }),
-        badge(isContact ? `Contact type: ${label(row.lifecycle)}` : isDeal ? row.stage : row.status)),
-      isContact ? h(Properties, { inline: true, rows: [["Email", row.email], ["Company", row.company], ["Linked deal stages", [...new Set(deals.map(deal => label(deal.stage)))].join(", ") || "Unassigned"]] })
-        : isDeal ? h("ol", { className: "hc-stage-path", "aria-label": "Deal stage" }, STAGES.map(stage => h("li", { key: stage, "aria-current": row.stage === stage ? "step" : undefined }, label(stage))))
+        badge(isContact ? `Contact type: ${label(row.lifecycle)}` : isDeal ? stageLabel(data, row.stage) : row.status)),
+      isContact ? h(Properties, { inline: true, rows: [["Email", row.email], ["Company", row.company], ["Linked deal stages", [...new Set(deals.map(deal => stageLabel(data, deal.stage)))].join(", ") || "Unassigned"]] })
+        : isDeal ? h("ol", { className: "hc-stage-path", "aria-label": "Deal stage" }, stageDefinitions(data).map(stage => h("li", { key: stage.key, "aria-current": row.stage === stage.key ? "step" : undefined, style: { borderColor: stage.color } }, stage.label)))
           : h(Properties, { inline: true, rows: [["Due", date(row.due_at)], ["Reminder registration", label(row.schedule_status)], ["Record version", row.version]] })),
     h("div", { className: "hc-record-layout" },
       h("aside", { className: "hc-stack", "aria-label": "Record properties" },
@@ -2124,6 +2138,7 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
           h("p", { className: "hc-record-meta" }, `ID: ${row.id} · Version ${row.version}`),
           row.created_at && h("p", { className: "hc-record-meta" }, `Created ${date(row.created_at)}`),
           row.updated_at && h("p", { className: "hc-record-meta" }, `Updated ${date(row.updated_at)}`)),
+        h(RecordSection, { title: "Custom fields" }, h(Properties, { rows: (workspaceCatalog(data)?.fields[detail.kind] || []).filter(field => !field.archived || row.custom_fields?.[field.key] != null).map(field => [field.label + (field.archived ? " (archived)" : ""), row.custom_fields?.[field.key] == null ? "Not set" : typeof row.custom_fields[field.key] === "boolean" ? (row.custom_fields[field.key] ? "Yes" : "No") : String(row.custom_fields[field.key])]) })),
         h(RecordSection, { title: "Notes" }, h("p", { className: "hc-details" }, row.notes || "No notes yet. Use Edit to add context."))),
       h("section", { className: "hc-stack", "aria-label": "Record history and next steps" },
         (isContact || isDeal) && h(RecordSection, { title: "Upcoming follow-ups", action: badge(upcoming.length) },
@@ -2143,7 +2158,7 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
         h(RecordSection, { title: isDeal ? "Linked contact" : "Related deals", action: isContact ? badge(deals.length) : null },
           isDeal ? h(Properties, { rows: [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)]] })
             : deals.length ? h("div", { className: "hc-related" }, deals.map(deal => button(
-              h("div", null, h("b", null, deal.title), h("small", null, `${money(deal.value)} · ${label(deal.stage)}`)),
+              h("div", null, h("b", null, deal.title), h("small", null, `${money(deal.value)} · ${stageLabel(data, deal.stage)}`)),
               () => open("deals", deal.id), { key: deal.id, disabled })))
               : row.deal_id ? linkedButton("deals", row.deal_id, null) : h("p", { className: "hc-muted" }, "No linked deals.")),
         (isContact || isDeal) && h(RecordSection, { title: "Completed follow-ups" },
@@ -2193,13 +2208,18 @@ function Editor({ editor, data, busy, error, save, cancel }) {
     const keys = kind === "contacts" ? ["name", "email", "company", "title", "lifecycle", "notes"]
       : kind === "deals" ? ["title", "contact_id", "value", "stage", "probability", "close_date", "notes"]
         : ["title", "contact_id", "deal_id", "due_at", "priority", "status", "notes"];
-    const defaults = { lifecycle: "lead", stage: "lead", probability: 10, priority: "normal", status: "open", value: 0, ...editor.initial };
+    const defaults = { lifecycle: "lead", stage: "lead", probability: stageDefinitions(data).find(stage => stage.key === (editor.initial?.stage || "lead"))?.probability ?? 10, priority: "normal", status: "open", value: 0, ...editor.initial };
     return Object.fromEntries(keys.map(key => [key,
       key === "value" ? String((row?.value || 0) / 100)
         : key === "due_at" && row?.due_at ? new Date(new Date(row.due_at).getTime() - new Date(row.due_at).getTimezoneOffset() * 60000).toISOString().slice(0, 16)
           : (row?.[key] ?? defaults[key] ?? "")]));
   });
   const initialDueInput = useRef(values.due_at);
+  const [customValues, setCustomValues] = useState(row?.custom_fields || {});
+  const [customChanges, setCustomChanges] = useState({});
+  const [frozen, setFrozen] = useState(null);
+  const fields = workspaceCatalog(data)?.fields[kind] || [];
+  const stages = stageDefinitions(data);
   const [validation, setValidation] = useState("");
   const [invalidField, setInvalidField] = useState("");
   const formRef = useRef(null);
@@ -2208,8 +2228,9 @@ function Editor({ editor, data, busy, error, save, cancel }) {
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   function dismiss() { if (busy) return; active.current = false; cancel(); }
   function update(key, value) {
+    if (!active.current || busy || frozen) return;
     setValues(old => ({ ...old, [key]: value,
-      ...(key === "stage" ? { probability: PROBABILITY[STAGES.indexOf(value)] } : {}),
+      ...(key === "stage" ? { probability: stages.find(stage => stage.key === value)?.probability ?? 0 } : {}),
     }));
     if (invalidField === key) { setInvalidField(""); setValidation(""); }
   }
@@ -2220,7 +2241,7 @@ function Editor({ editor, data, busy, error, save, cancel }) {
   const selectOptions = items => items.map(value => [value, label(value)]);
   const field = (key, title, type = "text", options = null, hint = "", wide = false) => {
     const required = key === "name" || key === "due_at" || (key === "title" && kind !== "contacts") || (key === "contact_id" && kind === "deals");
-    const props = { name: key, value: values[key], onChange: e => update(key, e.target.value), required, disabled: busy,
+    const props = { name: key, value: values[key], onChange: e => update(key, e.target.value), required, disabled: busy || !!frozen || (key === "probability" && stages.find(stage => stage.key === values.stage)?.outcome !== "open"),
       "aria-invalid": invalidField === key ? true : undefined,
       "aria-describedby": invalidField === key ? `${editor.key}-validation` : hint ? `${editor.key}-${key}-hint` : undefined };
     return h("label", { key, className: wide || key === "notes" || key === "name" || (key === "title" && kind !== "contacts") ? "hc-wide" : undefined },
@@ -2242,7 +2263,8 @@ function Editor({ editor, data, busy, error, save, cancel }) {
     event.preventDefault();
     if (!active.current || busy) return;
     setValidation(""); setInvalidField("");
-    const payload = { ...values };
+    if (frozen) { if (!row) await save(frozen); return; }
+    const payload = { ...values, ...(Object.keys(customChanges).length ? { custom_fields: customChanges } : {}) };
     const titleKey = kind === "contacts" ? "name" : "title";
     if (!String(payload[titleKey]).trim()) return fail(titleKey, kind === "contacts" ? "Enter the contact’s full name." : "Enter a title for this record.");
     // Local domains are supported. Native type=email handles browser syntax.
@@ -2261,7 +2283,9 @@ function Editor({ editor, data, busy, error, save, cancel }) {
       payload.due_at = row?.due_at && payload.due_at === initialDueInput.current ? row.due_at : new Date(payload.due_at).toISOString();
       payload.contact_id ||= null; payload.deal_id ||= null;
     }
-    await save(payload);
+    setFrozen(payload);
+    const succeeded = await save(payload);
+    if (succeeded) setFrozen(null);
   }
   const section = (title, fields, description) => h("fieldset", { key: title, className: "hc-form-section", disabled: busy },
     h("legend", null, title), description && h("p", { className: "hc-muted" }, description), h("div", { className: "hc-fields" }, fields));
@@ -2279,15 +2303,17 @@ function Editor({ editor, data, busy, error, save, cancel }) {
         section("Relationship", [field("lifecycle", "Contact type", "text", selectOptions(["lead", "customer", "partner"]), "Contact type is separate from the stage of any linked deal.", true)]),
       ] : [section(kind === "deals" ? "Opportunity" : "Follow-up details", [field("title", "Title")]),
         section("Linked records", linkedFields),
-        kind === "deals" ? section("Pipeline details", [field("value", "Deal value (USD)", "number"), field("stage", "Stage", "text", selectOptions(STAGES)), field("probability", "Probability (%)", "number", null, "Changing stage sets a suggested probability. You can adjust it."), field("close_date", "Expected close", "date")])
+        kind === "deals" ? section("Pipeline details", [field("value", "Deal value (USD)", "number"), field("stage", "Stage", "text", stages.map(stage => [stage.key, stage.label])), field("probability", "Probability (%)", "number", null, "Changing stage sets a suggested probability. You can adjust it."), field("close_date", "Expected close", "date")])
           : section("Timing and status", [field("due_at", "Due date and time (your local timezone)", "datetime-local", null, "Saving a follow-up does not schedule agent work or a reminder.", true), field("priority", "Priority", "text", selectOptions(["normal", "high"])), field("status", "Status", "text", selectOptions(["open", "done"]))]),
       ],
+      fields.some(field => !field.archived) && section("Custom fields", [h(CustomFieldInputs, { key: "custom-fields", fields, values: customValues, disabled: busy || !!frozen, update: (key, value) => { if (!active.current || busy || frozen) return; setCustomValues(old => ({ ...old, [key]: value })); setCustomChanges(old => ({ ...old, [key]: value })); } })], "Optional. Clearing an edited field removes its value; untouched fields are preserved."),
+      frozen && h("p", { role: "status" }, row ? "This save was not confirmed. Close, refresh and reopen the record before editing again." : "Values are frozen. Save again retries the exact original request."),
       section("Notes", [field("notes", "Notes", "text", null, "Context stored on this CRM record.")])),
     h("footer", { className: "hc-editor-footer" },
       (validation || error) && h("div", { id: `${editor.key}-validation`, role: "alert", className: "hc-notice" }, validation || error),
       h("div", { className: "hc-row" }, h("small", { className: "hc-muted" }, row ? "Changes are checked against the saved version." : "Saved to this agent’s CRM."),
         h("div", { className: "hc-actions" }, button("Cancel", dismiss, { disabled: busy }),
-          h("button", { type: "submit", className: "hc-primary", disabled: busy }, busy ? "Saving…" : "Save record"))))));
+          h("button", { type: "submit", className: "hc-primary", disabled: busy || (!!frozen && !!row) }, busy ? "Saving…" : "Save record"))))));
 }
 
 export default {
@@ -2587,6 +2613,15 @@ export const reportCSS = `.hermes-crm-native .hc-reports{margin-top:18px}.hermes
 function ReportSelect({ label, value, options, onChange, disabled }) {
   return h('label', null, label, h('select', { value, disabled, onChange: event => onChange(event.target.value) }, options.map(option => h('option', { key: option.value, value: option.value }, option.label))));
 }
+export function reportFilterValue(field, raw) {
+  if (['integer', 'number'].includes(field?.type)) return raw === '' ? '' : Number(raw);
+  if (field?.type === 'boolean') return raw === 'true' ? true : raw === 'false' ? false : raw;
+  return raw;
+}
+export function reportDisplayValue(result, field, value) {
+  const labels = result.choice_labels?.[field] || {};
+  return Array.isArray(value) ? value.map(item => labels[item] || item).join(', ') : labels[value] || reportText(value);
+}
 function ReportFilter({ node, fields, onChange, disabled, depth = 0 }) {
   const group = node.all ? 'all' : node.any ? 'any' : null;
   if (group) return h('fieldset', { className: 'hc-report-filter', disabled },
@@ -2598,15 +2633,15 @@ function ReportFilter({ node, fields, onChange, disabled, depth = 0 }) {
   const field = fields.find(item => item.key === node.field) || fields[0];
   const operators = field?.operators || ['eq'];
   const list = ['in', 'not_in', 'between', 'has_any', 'has_all', 'has_none'].includes(node.op);
-  const initial = (op, selected) => ['is_null', 'is_not_null'].includes(op) ? null : op === 'is_empty' ? true : ['in', 'not_in', 'between', 'has_any', 'has_all', 'has_none'].includes(op) ? [] : selected?.choices?.[0] ?? '';
-  const convert = raw => field?.type === 'integer' ? (raw === '' ? '' : Number(raw)) : raw;
+  const initial = (op, selected) => ['is_null', 'is_not_null'].includes(op) ? null : op === 'is_empty' ? true : ['in', 'not_in', 'between', 'has_any', 'has_all', 'has_none'].includes(op) ? [] : (selected?.type === 'boolean' ? false : selected?.choices?.[0] ?? '');
+  const convert = raw => reportFilterValue(field, raw);
   return h('div', { className: 'hc-report-toolbar' },
     h(ReportSelect, { label: 'Field', value: node.field, options: fields.map(item => ({ value: item.key, label: item.label })), disabled, onChange: value => { const selected = fields.find(item => item.key === value), op = selected.operators[0]; onChange({ field: value, op, value: initial(op, selected) }); } }),
     h(ReportSelect, { label: 'Operator', value: node.op, options: operators.map(value => ({ value, label: value.replaceAll('_', ' ') })), disabled, onChange: op => onChange({ ...node, op, value: initial(op, field) }) }),
     node.op === 'is_empty' ? h(ReportSelect, { label: 'Empty?', value: String(node.value), options: [{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }], disabled, onChange: value => onChange({ ...node, value: value === 'true' }) }) :
-    !['is_null', 'is_not_null'].includes(node.op) && (field?.choices && !list ? h(ReportSelect, { label: 'Value', value: node.value, options: field.choices.map(value => ({ value, label: value })), disabled, onChange: value => onChange({ ...node, value }) }) :
-      h('label', null, list ? 'Values (comma separated)' : 'Value', h('input', { disabled, type: field?.type === 'integer' && !list ? 'number' : 'text', value: Array.isArray(node.value) ? node.value.join(', ') : node.value ?? '', placeholder: ['date','datetime'].includes(field?.type) ? 'ISO date/time (UTC)' : field?.choices?.join(', ') || '', onChange: event => { const raw = event.target.value; onChange({ ...node, value: list ? raw.split(',').map(value => convert(value.trim())) : convert(raw) }); } }))),
-    field?.semantic_notes && h('small', null, field.semantic_notes));
+    !['is_null', 'is_not_null'].includes(node.op) && (field?.type === 'boolean' && !list ? h(ReportSelect, { label: 'Value', value: String(node.value), options: [{ value: 'true', label: 'True' }, { value: 'false', label: 'False' }], disabled, onChange: value => onChange({ ...node, value: value === 'true' }) }) : field?.choices && !list ? h(ReportSelect, { label: 'Value', value: node.value, options: field.choices.map(value => ({ value, label: field.choice_labels?.[value] || value })), disabled, onChange: value => onChange({ ...node, value }) }) :
+      h('label', null, list ? 'Values (comma separated)' : 'Value', h('input', { disabled, type: ['integer', 'number'].includes(field?.type) && !list ? 'number' : 'text', value: Array.isArray(node.value) ? node.value.join(', ') : node.value ?? '', placeholder: ['date','datetime'].includes(field?.type) ? 'ISO date/time (UTC)' : field?.choices?.join(', ') || '', onChange: event => { const raw = event.target.value; onChange({ ...node, value: list ? raw.split(',').map(value => convert(value.trim())) : convert(raw) }); } }))),
+    field?.semantic_notes && h('small', null, `${field.archived ? 'Archived field. ' : ''}${field.semantic_notes}`));
 }
 export function reportCleanFilter(node) {
   if (!node) return null;
@@ -2616,7 +2651,7 @@ export function reportCleanFilter(node) {
   return children.length ? { [group]: children } : null;
 }
 export function reportFields(catalog, entity) {
-  return Object.entries(catalog?.entities?.[entity]?.fields || {}).map(([key, value]) => ({ key, ...value }));
+  return Object.entries(catalog?.entities?.[entity]?.fields || {}).map(([key, value]) => ({ key, ...value, label: `${value.label || key}${value.archived ? ' (archived)' : ''}` }));
 }
 
 export function reportLineModel(groups) {
@@ -2641,7 +2676,7 @@ export function reportSectorPath(start, fraction) {
 }
 function reportChartControl(group, result, onDrill, disabled) {
   const inactive = disabled || !group.detail_definition;
-  const label = `${reportText(group.key)}: ${reportText(group.value)} ${reportText(result.metric_unit || '')} (${group.count} records). View contributing records.`;
+  const label = `${reportDisplayValue(result, result.definition?.group_by?.field, group.key)}: ${reportText(group.value)} ${reportText(result.metric_unit || '')} (${group.count} records). View contributing records.`;
   const activate = () => { if (!inactive) onDrill(group.detail_definition, group.evaluated_at || result.evaluated_at); };
   return { role: 'button', tabIndex: inactive ? -1 : 0, 'aria-disabled': !!inactive, 'aria-label': label, className: 'hc-report-plot-control', onClick: activate, onKeyDown: event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); activate(); } } };
 }
@@ -2655,8 +2690,8 @@ export function ReportResult({ result, kind = 'table', onDrill, disabled, onOpen
   if (!result.groups) return h('div', null, caption, kind === 'metric' && h('button', { className: 'hc-report-metric', disabled: disabled || !result.detail_definition, onClick: () => onDrill(result.detail_definition, result.evaluated_at) }, reportText(result.metric ?? result.total)),
     h('p', null, `${result.total ?? result.items?.length ?? 0} matching records; showing ${result.items?.length ?? 0} from offset ${result.offset || 0}.`),
     onPage && h('div', { className: 'hc-report-toolbar' }, h('button', { disabled: disabled || !(result.offset > 0), onClick: () => onPage(Math.max(0, result.offset - (result.limit || 100))) }, 'Previous records'), h('button', { disabled: disabled || (result.offset || 0) + (result.items?.length || 0) >= result.total, onClick: () => onPage((result.offset || 0) + (result.limit || 100)) }, 'Next records')),
-    h('div', { className: 'hc-report-scroll' }, h('table', null, h('thead', null, h('tr', null, columns.map(column => h('th', { key: column, scope: 'col' }, `${column}${result.units?.[column] ? ` (${result.units[column]})` : ''}`)))),
-      h('tbody', null, (result.items || []).map((item, index) => h('tr', { key: item.id || index }, columns.map(column => h('td', { key: column }, reportText(item[column]))), onOpenRecord && item.id && h('td', null, h('button', { disabled, onClick: () => onOpenRecord(result.definition.entity, item.id) }, 'Open record'))))))));
+    h('div', { className: 'hc-report-scroll' }, h('table', null, h('thead', null, h('tr', null, columns.map(column => h('th', { key: column, scope: 'col' }, `${result.field_labels?.[column] || column}${result.units?.[column] ? ` (${result.units[column]})` : ''}`)))),
+      h('tbody', null, (result.items || []).map((item, index) => h('tr', { key: item.id || index }, columns.map(column => h('td', { key: column }, reportDisplayValue(result, column, item[column]))), onOpenRecord && item.id && h('td', null, h('button', { disabled, onClick: () => onOpenRecord(result.definition.entity, item.id) }, 'Open record'))))))));
   let cursor = 0;
   const sectors = model.groups.map(group => { const start = cursor, fraction = group.value / model.total; cursor += fraction; return { group, start, fraction }; });
   const line = reportLineModel(model.groups);
@@ -2676,7 +2711,7 @@ export function ReportResult({ result, kind = 'table', onDrill, disabled, onOpen
         line.points.map((point, index) => { const controls = reportChartControl(point.group, result, onDrill, disabled); return h('circle', { key: index, cx: point.x, cy: point.y, r: 5, fill: '#467fd4', ...controls }, h('title', null, controls['aria-label'])); }),
         h('text', { x: 15, y: 104, fontSize: 9, fill: 'currentColor' }, line.points[0].group.key),
         line.points.length > 1 && h('text', { x: 285, y: 104, textAnchor: 'end', fontSize: 9, fill: 'currentColor' }, line.points.at(-1).group.key))),
-    h('ul', { className: 'hc-report-chart-list' }, model.groups.map((group, index) => h('li', { key: index }, h('button', { type: 'button', disabled: disabled || !group.detail_definition, onClick: () => onDrill(group.detail_definition, group.evaluated_at || result.evaluated_at) }, `${reportText(group.key)}: ${reportText(group.value)} (${group.count} records)`, kind === 'bar' && model.graphical && h('span', { 'aria-hidden': true, className: 'hc-report-bar', style: { width: `${Math.max(0, group.value / model.max * 100)}%` } }))))));
+    h('ul', { className: 'hc-report-chart-list' }, model.groups.map((group, index) => h('li', { key: index }, h('button', { type: 'button', disabled: disabled || !group.detail_definition, onClick: () => onDrill(group.detail_definition, group.evaluated_at || result.evaluated_at) }, `${reportDisplayValue(result, result.definition?.group_by?.field, group.key)}: ${reportText(group.value)} (${group.count} records)`, kind === 'bar' && model.graphical && h('span', { 'aria-hidden': true, className: 'hc-report-bar', style: { width: `${Math.max(0, group.value / model.max * 100)}%` } }))))));
 }
 function ReportEditor({ catalog, value, onChange, disabled }) {
   const fields = reportFields(catalog, value.entity);
@@ -2693,14 +2728,14 @@ function ReportEditor({ catalog, value, onChange, disabled }) {
       h('button', { type: 'button', onClick: () => patch({ sort: value.sort.filter((_, i) => i !== index) }) }, 'Remove sort'))),
     h('button', { type: 'button', disabled: value.sort.length >= 3, onClick: () => patch({ sort: [...value.sort, { field: fields.find(field => field.sortable).key, direction: 'asc' }] }) }, 'Add sort'),
     h(ReportSelect, { label: 'Group by', value: value.group_by?.field || '', options: [{ value: '', label: 'No grouping' }, ...options.filter(option => fields.find(field => field.key === option.value).groupable)], onChange: field => patch({ group_by: field ? { field, ...(['date', 'datetime'].includes(fields.find(item => item.key === field).type) ? { interval: 'day' } : {}) } : null, measure: field ? value.measure || { op: 'count' } : value.measure }) }),
-    h(ReportSelect, { label: 'Measure', value: value.measure?.op || '', options: [{ value: '', label: 'Record table' }, ...catalog.measures.map(op => ({ value: op, label: op }))], onChange: op => patch({ measure: !op ? null : op === 'count' ? { op } : { op, field: fields.find(field => field.type === 'integer')?.key || '' }, ...(!op ? { group_by: null } : {}) }) }),
-    value.measure && value.measure.op !== 'count' && h(ReportSelect, { label: 'Numeric field (unit shown in results)', value: value.measure.field, options: fields.filter(field => field.type === 'integer').map(field => ({ value: field.key, label: `${field.label}${field.unit ? ` (${field.unit})` : ''}` })), onChange: field => patch({ measure: { ...value.measure, field } }) }),
+    h(ReportSelect, { label: 'Measure', value: value.measure?.op || '', options: [{ value: '', label: 'Record table' }, ...catalog.measures.map(op => ({ value: op, label: op }))], onChange: op => patch({ measure: !op ? null : op === 'count' ? { op } : { op, field: fields.find(field => ['integer', 'number'].includes(field.type))?.key || '' }, ...(!op ? { group_by: null } : {}) }) }),
+    value.measure && value.measure.op !== 'count' && h(ReportSelect, { label: 'Numeric field (unit shown in results)', value: value.measure.field, options: fields.filter(field => ['integer', 'number'].includes(field.type)).map(field => ({ value: field.key, label: `${field.label}${field.unit ? ` (${field.unit})` : ''}` })), onChange: field => patch({ measure: { ...value.measure, field } }) }),
     h('p', { className: 'hc-report-muted' }, 'Current linked deal stages are separate from contact type. Current won deals are not historical wins; expected close date is not an actual win date.'));
 }
 export function reportPreset(name) {
   const base = { schema_version: 1, entity: 'contacts', columns: ['id','name','contact_type','linked_stages','last_logged_contact_at','next_followup_at'], filter: { field: 'contact_type', op: 'eq', value: 'lead' }, sort: [{ field: 'name', direction: 'asc' }], timezone: 'UTC' };
   if (name === 'daily') return { ...base, columns: ['id','name','created_at'], sort: [], group_by: { field: 'created_at', interval: 'day' }, measure: { op: 'count' } };
-  if (name === 'won') return { schema_version: 1, entity: 'deals', columns: ['id','title','contact_name','stage','value','expected_close_date'], filter: { field: 'stage', op: 'eq', value: 'won' }, sort: [], measure: { op: 'count' }, timezone: 'UTC' };
+  if (name === 'won') return { schema_version: 1, entity: 'deals', columns: ['id','title','contact_name','stage','value','expected_close_date'], filter: { field: 'stage_outcome', op: 'eq', value: 'won' }, sort: [], measure: { op: 'count' }, timezone: 'UTC' };
   return base;
 }
 const reportVisualizations = ['table', 'metric', 'bar', 'line', 'donut'].map(value => ({ value, label: value }));
@@ -2941,3 +2976,106 @@ export function ContactLogPanel({ client, contact, workspaceToken, routeKey, dis
       h('button', { type: 'button', disabled: disabled || busy || visible.offset + 25 >= visible.data.total, onClick: () => load(visible.offset + 25) }, 'Next entries')));
 }
 // END GENERATED CONTACT LOG PANEL
+
+// BEGIN GENERATED CUSTOMIZATION PANEL
+export function catalogStages(catalog, includeArchived = false) {
+  return (catalog?.stages || []).filter(stage => includeArchived || !stage.archived).slice().sort((a, b) => a.order - b.order || a.key.localeCompare(b.key));
+}
+export function customFieldValue(field, value) {
+  if (value === "") return null;
+  if (field.type === "number") {
+    const number = Number(value);
+    if (!Number.isFinite(number)) throw new Error(`${field.label} must be a finite number.`);
+    return number;
+  }
+  if (field.type === "boolean") return value === true || value === "true";
+  return value;
+}
+export function CustomFieldInputs({ fields, values, update, disabled }) {
+  return fields.filter(field => !field.archived).map(field => {
+    const raw = values[field.key];
+    const value = raw == null ? "" : field.type === "boolean" ? String(raw) : raw;
+    const props = { name: `custom_${field.key}`, value, disabled, onChange: e => update(field.key, customFieldValue(field, e.target.value)) };
+    return h("label", { key: field.key }, h("span", null, field.label),
+      field.type === "boolean" || field.type === "single-select" ? h("select", props,
+        h("option", { value: "" }, "Not set"),
+        (field.type === "boolean" ? [["true", "Yes"], ["false", "No"]] : (field.choices || []).map(choice => typeof choice === "string" ? [choice, choice] : [choice.key, choice.label])).map(([key, label]) => h("option", { key, value: key }, label)))
+        : h("input", { ...props, type: field.type === "number" ? "number" : field.type === "date" ? "date" : "text", step: field.type === "number" ? "any" : undefined }),
+      field.description && h("small", null, field.description));
+  });
+}
+export function Customization({ catalog, client, workspaceToken, current, onSaved, cancel, returnFocus, Drawer }) {
+  const [tab, setTab] = useState("stages"), [kind, setKind] = useState("contacts");
+  const [draft, setDraft] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const [attempt, setAttempt] = useState(null);
+  const [savedPendingRefresh, setSavedPendingRefresh] = useState(false);
+  const confirmed = useRef(false);
+  const live = useRef(true), lock = useRef(false), currentRef = useRef(current);
+  currentRef.current = current;
+  useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
+  const valid = () => live.current && client.current() && currentRef.current();
+  const records = tab === "stages" ? catalogStages(catalog, true) : catalog.fields[kind];
+  function change(key, value) { if (valid() && !lock.current && !attempt) setDraft(old => ({ ...old, [key]: value, ...(key === "outcome" ? { probability: value === "won" ? 100 : value === "lost" ? 0 : 10 } : {}) })); }
+  function choose(value) { if (valid() && !lock.current && !attempt) { setDraft(value); setError(""); } }
+  async function refreshSaved() {
+    try {
+      const refreshed = await onSaved();
+      if (!valid()) return;
+      if (refreshed !== true) throw new Error("Catalog refresh failed.");
+      setAttempt(null); setDraft(null); setSavedPendingRefresh(false); setError("");
+      confirmed.current = false;
+    } catch (e) {
+      if (valid()) {
+        setSavedPendingRefresh(true);
+        setError("Your changes were saved, but the latest catalog could not be loaded. Refresh the catalog before editing again. This does not resend the saved change.");
+      }
+    }
+  }
+  async function retryRefresh() {
+    if (!valid() || lock.current || !confirmed.current) return;
+    lock.current = true; setBusy(true);
+    try { await refreshSaved(); }
+    finally { lock.current = false; if (valid()) setBusy(false); }
+  }
+  async function perform(frozen) {
+    if (!valid() || lock.current || confirmed.current) return;
+    lock.current = true; setBusy(true); setAttempt(frozen); setError("");
+    try {
+      await client.request(frozen.path, frozen.options);
+      if (!valid()) return;
+      confirmed.current = true;
+      await refreshSaved();
+    } catch (e) {
+      if (valid()) setError(`${e.message} Changes are frozen because this save was not confirmed. ${frozen.options.method === "POST" ? "Retry sends exactly the same request, or close and refresh before reopening." : "Close and refresh the catalog, then reopen this definition. Do not overwrite a newer version."}`);
+    } finally { lock.current = false; if (valid()) setBusy(false); }
+  }
+  function submit(event) {
+    event.preventDefault();
+    if (!valid() || lock.current || attempt || !draft) return;
+    const { version, key, label, description, order, archived } = draft;
+    const data = { label: label.trim(), description: description || "", order: Number(order), archived: Boolean(archived) };
+    if (!version) data.key = key;
+    else data.version = version;
+    if (tab === "stages") { Object.assign(data, { probability: draft.outcome === "won" ? 100 : draft.outcome === "lost" ? 0 : Number(draft.probability), color: draft.color }); if (!version) data.outcome = draft.outcome; }
+    else { if (!version) data.type = draft.type; data.choices = draft.type === "single-select" ? draft.choices.split("\n").map(x => x.trim()).filter(Boolean) : []; }
+    const path = `/customization/${tab === "stages" ? "stages" : `fields/${kind}`}${version ? `/${encodeURIComponent(key)}` : ""}`;
+    perform({ path, options: { method: version ? "PATCH" : "POST", body: { workspace_token: workspaceToken, data, ...(!version ? { idempotency_key: crypto.randomUUID() } : {}) } } });
+  }
+  const input = (key, title, type = "text", options) => h("label", { key }, h("span", null, title), options ? h("select", { value: draft[key], disabled: busy || !!attempt || (Boolean(draft.version) && ["type", "outcome"].includes(key)), onChange: e => change(key, e.target.value) }, options.map(value => h("option", { key: value, value }, value.replaceAll("_", " ")))) : h(key === "description" || key === "choices" ? "textarea" : "input", { value: draft[key] ?? "", type, required: ["key", "label", "order", "probability"].includes(key), disabled: busy || !!attempt || (key === "key" && !!draft.version) || (key === "probability" && draft.outcome !== "open"), min: type === "number" ? 0 : undefined, max: key === "probability" ? 100 : undefined, maxLength: key === "key" ? (tab === "stages" ? 20 : 64) : key === "label" ? 120 : key === "description" ? 2000 : undefined, pattern: key === "key" ? "[a-z][a-z0-9_]*" : undefined, onChange: e => change(key, e.target.value) }));
+  return h(Drawer, { title: "Customize CRM", subtitle: "One pipeline. Stable internal keys keep records linked when labels change.", busy: busy && valid(), cancel: () => { if (!busy || !valid()) { live.current = false; cancel(); } }, returnFocus },
+    h("div", { className: "hc-editor-body" },
+      h("nav", { className: "hc-tabs", "aria-label": "Customization sections" }, ["stages", "fields"].map(value => h("button", { type: "button", key: value, "aria-current": tab === value ? "page" : undefined, disabled: busy || !!attempt, onClick: () => { if (valid()) { setTab(value); setDraft(null); setError(""); } } }, value === "stages" ? "Deal stages" : "Custom fields"))),
+      tab === "fields" && h("label", null, "Record type", h("select", { value: kind, disabled: busy || !!attempt, onChange: e => { if (valid()) { setKind(e.target.value); setDraft(null); } } }, ["contacts", "deals", "tasks"].map(value => h("option", { key: value, value }, value)))),
+      h("p", { className: "hc-muted" }, tab === "stages" ? "Deal stage is separate from contact type. Outcome cannot change. Won is 100%; lost is 0%. Stages used by records cannot be archived." : "All custom fields are optional. Internal key and type cannot change. Archive hides a field from forms and preserves stored values. Existing select choices cannot be removed."),
+      !draft && h("div", { className: "hc-list" }, records.length ? records.map(item => h("button", { type: "button", key: item.key, className: "hc-list-item", onClick: () => choose({ ...item, choices: (item.choices || []).join("\n") }) }, `${item.label}${item.archived ? " · Archived" : ""}`, h("small", null, ` ${item.key} · ${item.outcome || item.type} · Version ${item.version}`))) : h("p", null, "No custom fields yet. Add an optional field for this record type.")),
+      !draft && h("button", { type: "button", onClick: () => choose({ key: "", label: "", description: "", order: records.length, probability: 10, outcome: "open", color: "#4779ce", type: "text", choices: "", archived: false }) }, tab === "stages" ? "Add stage" : "Add field"),
+      draft && h("form", { onSubmit: submit, "aria-label": "Definition editor" }, h("div", { className: "hc-fields" }, input("label", "Label"), input("key", "Internal key"), input("description", "Description"), input("order", "Display order", "number"),
+        ...(tab === "stages" ? [input("outcome", "Outcome (permanent)", "text", ["open", "won", "lost"]), input("probability", "Probability (%)", "number"), input("color", "Stage color", "color")] : [input("type", "Field type (permanent)", "text", ["text", "number", "boolean", "date", "single-select"]), draft.type === "single-select" && input("choices", "Choices (one per line)")]),
+        !!draft.version && h("label", null, h("span", null, "Archived"), h("input", { type: "checkbox", checked: draft.archived, disabled: busy || !!attempt, onChange: e => change("archived", e.target.checked) }))),
+        h("p", { className: "hc-muted" }, "Internal keys use lowercase letters, numbers and underscores, beginning with a letter. Existing keys and field types are permanent."),
+        h("div", { className: "hc-actions" }, h("button", { type: "submit", disabled: busy || !!attempt, className: "hc-primary" }, busy ? "Saving…" : "Save definition"), h("button", { type: "button", disabled: busy || !!attempt, onClick: () => choose(null) }, "Cancel edit"))),
+      error && h("p", { role: "alert", className: "hc-notice" }, error),
+      savedPendingRefresh && !busy && h("button", { type: "button", onClick: retryRefresh }, "Refresh saved catalog"),
+      !savedPendingRefresh && attempt?.options.method === "POST" && !busy && error && h("button", { type: "button", onClick: () => perform(attempt) }, "Retry exact save")));
+}
+// END GENERATED CUSTOMIZATION PANEL

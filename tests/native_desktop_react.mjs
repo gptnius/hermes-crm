@@ -126,6 +126,7 @@ const writes = [],
 let backendTokenSuffix = "",
   backendKind = "sqlite";
 let reportTotal = 1;
+let snapshotError = "", testCatalog;
 let delayReport = false, releaseReport;
 let delayDetail = false,
   releaseDetail;
@@ -139,6 +140,7 @@ const ctx = {
   registerMany() {},
   async rest(path, options) {
     calls.push({ path, profile: profile.get(), connection: connection.get() });
+    if (path === "/snapshot" && snapshotError) throw new Error(snapshotError);
     if (options) {
       writes.push({ path, options, profile: profile.get() });
       if (writeError) throw new Error(writeError);
@@ -156,6 +158,7 @@ const ctx = {
     if (path.startsWith("/reports/contacts?") && delayReport) return new Promise(resolve => { releaseReport = resolve; });
     const routes = {
       "/meta": {
+        ...(testCatalog ? {catalog:testCatalog} : {}),
         backend: backendKind,
         demo: true,
         profile: profile.get(),
@@ -271,6 +274,43 @@ const click = async (title) => {
 assert.match(text(), /Overview/);
 assert.match(text(), /Weighted forecast/);
 assert.equal(intervals.size, 1, "Strict Mode replay leaves one live interval");
+// Catalog refresh failures are distinct from an unknown mutation outcome.
+testCatalog = {schema_version:1, stages:[{key:'lead',label:'Incoming',outcome:'open',probability:40,order:0,color:'#123456',version:1,archived:false}, ...['open','done','all'].map((key,i)=>({key,label:`Deal ${key}`,outcome:'open',probability:20,order:i+1,color:'#123456',version:1,archived:false}))],fields:{contacts:[],deals:[],tasks:[]}};
+await click('Refresh');
+await click('Tasks');
+assert.deepEqual(root.root.findByProps({'aria-label':'Task status'}).findAllByType('option').map(node=>flatten(node.children)), ['Open','Done','All']);
+for (const method of ['POST','PATCH']) {
+  await click('Customize');
+  if (method === 'POST') await click('Add stage');
+  else await act(async()=>root.root.findAllByType('button').find(node=>flatten(node.children).startsWith('Incoming')).props.onClick());
+  const definitionField = name => root.root.findAllByType('label').find(node=>node.findAllByType('span').some(span=>flatten(span.children)===name)).findAll(node=>['input','select','textarea'].includes(node.type))[0];
+  if (method === 'POST') {
+    await act(async()=>definitionField('Label').props.onChange({target:{value:'New stage'}}));
+    await act(async()=>definitionField('Internal key').props.onChange({target:{value:'new_stage'}}));
+  }
+  const before = writes.length;
+  snapshotError = 'Snapshot unavailable';
+  await act(async()=>root.root.findByProps({'aria-label':'Definition editor'}).props.onSubmit({preventDefault(){}}));
+  await flush();
+  assert.equal(writes.length,before+1);
+  assert.equal(writes.at(-1).options.method,method);
+  assert.match(text(), /Your changes were saved, but the latest catalog could not be loaded/);
+  assert.equal(definitionField('Label').props.disabled,true);
+  assert.equal(button('Retry exact save'),undefined);
+  await click('Refresh saved catalog');
+  assert.equal(writes.length,before+1,'refresh retry never resends confirmed mutation');
+  assert.match(text(), /Your changes were saved/);
+  snapshotError = '';
+  testCatalog.stages[0].version++;
+  await click('Refresh saved catalog');
+  assert.equal(root.root.findAllByProps({'aria-label':'Definition editor'}).length,0);
+  assert.equal(writes.length,before+1);
+  await click('Close');
+}
+testCatalog = undefined;
+writes.length = 0;
+await click('Refresh');
+await click('Overview');
 // Every section uses a compact title; descriptions and routine help live in
 // an accessible information drawer instead of taking record viewport space.
 for (const title of ['Overview', 'Contacts', 'Pipeline', 'Tasks', 'Activity']) {

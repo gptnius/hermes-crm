@@ -53,6 +53,15 @@ export const reportCSS = `.hermes-crm-native .hc-reports{margin-top:18px}.hermes
 function ReportSelect({ label, value, options, onChange, disabled }) {
   return h('label', null, label, h('select', { value, disabled, onChange: event => onChange(event.target.value) }, options.map(option => h('option', { key: option.value, value: option.value }, option.label))));
 }
+export function reportFilterValue(field, raw) {
+  if (['integer', 'number'].includes(field?.type)) return raw === '' ? '' : Number(raw);
+  if (field?.type === 'boolean') return raw === 'true' ? true : raw === 'false' ? false : raw;
+  return raw;
+}
+export function reportDisplayValue(result, field, value) {
+  const labels = result.choice_labels?.[field] || {};
+  return Array.isArray(value) ? value.map(item => labels[item] || item).join(', ') : labels[value] || reportText(value);
+}
 function ReportFilter({ node, fields, onChange, disabled, depth = 0 }) {
   const group = node.all ? 'all' : node.any ? 'any' : null;
   if (group) return h('fieldset', { className: 'hc-report-filter', disabled },
@@ -64,15 +73,15 @@ function ReportFilter({ node, fields, onChange, disabled, depth = 0 }) {
   const field = fields.find(item => item.key === node.field) || fields[0];
   const operators = field?.operators || ['eq'];
   const list = ['in', 'not_in', 'between', 'has_any', 'has_all', 'has_none'].includes(node.op);
-  const initial = (op, selected) => ['is_null', 'is_not_null'].includes(op) ? null : op === 'is_empty' ? true : ['in', 'not_in', 'between', 'has_any', 'has_all', 'has_none'].includes(op) ? [] : selected?.choices?.[0] ?? '';
-  const convert = raw => field?.type === 'integer' ? (raw === '' ? '' : Number(raw)) : raw;
+  const initial = (op, selected) => ['is_null', 'is_not_null'].includes(op) ? null : op === 'is_empty' ? true : ['in', 'not_in', 'between', 'has_any', 'has_all', 'has_none'].includes(op) ? [] : (selected?.type === 'boolean' ? false : selected?.choices?.[0] ?? '');
+  const convert = raw => reportFilterValue(field, raw);
   return h('div', { className: 'hc-report-toolbar' },
     h(ReportSelect, { label: 'Field', value: node.field, options: fields.map(item => ({ value: item.key, label: item.label })), disabled, onChange: value => { const selected = fields.find(item => item.key === value), op = selected.operators[0]; onChange({ field: value, op, value: initial(op, selected) }); } }),
     h(ReportSelect, { label: 'Operator', value: node.op, options: operators.map(value => ({ value, label: value.replaceAll('_', ' ') })), disabled, onChange: op => onChange({ ...node, op, value: initial(op, field) }) }),
     node.op === 'is_empty' ? h(ReportSelect, { label: 'Empty?', value: String(node.value), options: [{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }], disabled, onChange: value => onChange({ ...node, value: value === 'true' }) }) :
-    !['is_null', 'is_not_null'].includes(node.op) && (field?.choices && !list ? h(ReportSelect, { label: 'Value', value: node.value, options: field.choices.map(value => ({ value, label: value })), disabled, onChange: value => onChange({ ...node, value }) }) :
-      h('label', null, list ? 'Values (comma separated)' : 'Value', h('input', { disabled, type: field?.type === 'integer' && !list ? 'number' : 'text', value: Array.isArray(node.value) ? node.value.join(', ') : node.value ?? '', placeholder: ['date','datetime'].includes(field?.type) ? 'ISO date/time (UTC)' : field?.choices?.join(', ') || '', onChange: event => { const raw = event.target.value; onChange({ ...node, value: list ? raw.split(',').map(value => convert(value.trim())) : convert(raw) }); } }))),
-    field?.semantic_notes && h('small', null, field.semantic_notes));
+    !['is_null', 'is_not_null'].includes(node.op) && (field?.type === 'boolean' && !list ? h(ReportSelect, { label: 'Value', value: String(node.value), options: [{ value: 'true', label: 'True' }, { value: 'false', label: 'False' }], disabled, onChange: value => onChange({ ...node, value: value === 'true' }) }) : field?.choices && !list ? h(ReportSelect, { label: 'Value', value: node.value, options: field.choices.map(value => ({ value, label: field.choice_labels?.[value] || value })), disabled, onChange: value => onChange({ ...node, value }) }) :
+      h('label', null, list ? 'Values (comma separated)' : 'Value', h('input', { disabled, type: ['integer', 'number'].includes(field?.type) && !list ? 'number' : 'text', value: Array.isArray(node.value) ? node.value.join(', ') : node.value ?? '', placeholder: ['date','datetime'].includes(field?.type) ? 'ISO date/time (UTC)' : field?.choices?.join(', ') || '', onChange: event => { const raw = event.target.value; onChange({ ...node, value: list ? raw.split(',').map(value => convert(value.trim())) : convert(raw) }); } }))),
+    field?.semantic_notes && h('small', null, `${field.archived ? 'Archived field. ' : ''}${field.semantic_notes}`));
 }
 export function reportCleanFilter(node) {
   if (!node) return null;
@@ -82,7 +91,7 @@ export function reportCleanFilter(node) {
   return children.length ? { [group]: children } : null;
 }
 export function reportFields(catalog, entity) {
-  return Object.entries(catalog?.entities?.[entity]?.fields || {}).map(([key, value]) => ({ key, ...value }));
+  return Object.entries(catalog?.entities?.[entity]?.fields || {}).map(([key, value]) => ({ key, ...value, label: `${value.label || key}${value.archived ? ' (archived)' : ''}` }));
 }
 
 export function reportLineModel(groups) {
@@ -107,7 +116,7 @@ export function reportSectorPath(start, fraction) {
 }
 function reportChartControl(group, result, onDrill, disabled) {
   const inactive = disabled || !group.detail_definition;
-  const label = `${reportText(group.key)}: ${reportText(group.value)} ${reportText(result.metric_unit || '')} (${group.count} records). View contributing records.`;
+  const label = `${reportDisplayValue(result, result.definition?.group_by?.field, group.key)}: ${reportText(group.value)} ${reportText(result.metric_unit || '')} (${group.count} records). View contributing records.`;
   const activate = () => { if (!inactive) onDrill(group.detail_definition, group.evaluated_at || result.evaluated_at); };
   return { role: 'button', tabIndex: inactive ? -1 : 0, 'aria-disabled': !!inactive, 'aria-label': label, className: 'hc-report-plot-control', onClick: activate, onKeyDown: event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); activate(); } } };
 }
@@ -121,8 +130,8 @@ export function ReportResult({ result, kind = 'table', onDrill, disabled, onOpen
   if (!result.groups) return h('div', null, caption, kind === 'metric' && h('button', { className: 'hc-report-metric', disabled: disabled || !result.detail_definition, onClick: () => onDrill(result.detail_definition, result.evaluated_at) }, reportText(result.metric ?? result.total)),
     h('p', null, `${result.total ?? result.items?.length ?? 0} matching records; showing ${result.items?.length ?? 0} from offset ${result.offset || 0}.`),
     onPage && h('div', { className: 'hc-report-toolbar' }, h('button', { disabled: disabled || !(result.offset > 0), onClick: () => onPage(Math.max(0, result.offset - (result.limit || 100))) }, 'Previous records'), h('button', { disabled: disabled || (result.offset || 0) + (result.items?.length || 0) >= result.total, onClick: () => onPage((result.offset || 0) + (result.limit || 100)) }, 'Next records')),
-    h('div', { className: 'hc-report-scroll' }, h('table', null, h('thead', null, h('tr', null, columns.map(column => h('th', { key: column, scope: 'col' }, `${column}${result.units?.[column] ? ` (${result.units[column]})` : ''}`)))),
-      h('tbody', null, (result.items || []).map((item, index) => h('tr', { key: item.id || index }, columns.map(column => h('td', { key: column }, reportText(item[column]))), onOpenRecord && item.id && h('td', null, h('button', { disabled, onClick: () => onOpenRecord(result.definition.entity, item.id) }, 'Open record'))))))));
+    h('div', { className: 'hc-report-scroll' }, h('table', null, h('thead', null, h('tr', null, columns.map(column => h('th', { key: column, scope: 'col' }, `${result.field_labels?.[column] || column}${result.units?.[column] ? ` (${result.units[column]})` : ''}`)))),
+      h('tbody', null, (result.items || []).map((item, index) => h('tr', { key: item.id || index }, columns.map(column => h('td', { key: column }, reportDisplayValue(result, column, item[column]))), onOpenRecord && item.id && h('td', null, h('button', { disabled, onClick: () => onOpenRecord(result.definition.entity, item.id) }, 'Open record'))))))));
   let cursor = 0;
   const sectors = model.groups.map(group => { const start = cursor, fraction = group.value / model.total; cursor += fraction; return { group, start, fraction }; });
   const line = reportLineModel(model.groups);
@@ -142,7 +151,7 @@ export function ReportResult({ result, kind = 'table', onDrill, disabled, onOpen
         line.points.map((point, index) => { const controls = reportChartControl(point.group, result, onDrill, disabled); return h('circle', { key: index, cx: point.x, cy: point.y, r: 5, fill: '#467fd4', ...controls }, h('title', null, controls['aria-label'])); }),
         h('text', { x: 15, y: 104, fontSize: 9, fill: 'currentColor' }, line.points[0].group.key),
         line.points.length > 1 && h('text', { x: 285, y: 104, textAnchor: 'end', fontSize: 9, fill: 'currentColor' }, line.points.at(-1).group.key))),
-    h('ul', { className: 'hc-report-chart-list' }, model.groups.map((group, index) => h('li', { key: index }, h('button', { type: 'button', disabled: disabled || !group.detail_definition, onClick: () => onDrill(group.detail_definition, group.evaluated_at || result.evaluated_at) }, `${reportText(group.key)}: ${reportText(group.value)} (${group.count} records)`, kind === 'bar' && model.graphical && h('span', { 'aria-hidden': true, className: 'hc-report-bar', style: { width: `${Math.max(0, group.value / model.max * 100)}%` } }))))));
+    h('ul', { className: 'hc-report-chart-list' }, model.groups.map((group, index) => h('li', { key: index }, h('button', { type: 'button', disabled: disabled || !group.detail_definition, onClick: () => onDrill(group.detail_definition, group.evaluated_at || result.evaluated_at) }, `${reportDisplayValue(result, result.definition?.group_by?.field, group.key)}: ${reportText(group.value)} (${group.count} records)`, kind === 'bar' && model.graphical && h('span', { 'aria-hidden': true, className: 'hc-report-bar', style: { width: `${Math.max(0, group.value / model.max * 100)}%` } }))))));
 }
 function ReportEditor({ catalog, value, onChange, disabled }) {
   const fields = reportFields(catalog, value.entity);
@@ -159,14 +168,14 @@ function ReportEditor({ catalog, value, onChange, disabled }) {
       h('button', { type: 'button', onClick: () => patch({ sort: value.sort.filter((_, i) => i !== index) }) }, 'Remove sort'))),
     h('button', { type: 'button', disabled: value.sort.length >= 3, onClick: () => patch({ sort: [...value.sort, { field: fields.find(field => field.sortable).key, direction: 'asc' }] }) }, 'Add sort'),
     h(ReportSelect, { label: 'Group by', value: value.group_by?.field || '', options: [{ value: '', label: 'No grouping' }, ...options.filter(option => fields.find(field => field.key === option.value).groupable)], onChange: field => patch({ group_by: field ? { field, ...(['date', 'datetime'].includes(fields.find(item => item.key === field).type) ? { interval: 'day' } : {}) } : null, measure: field ? value.measure || { op: 'count' } : value.measure }) }),
-    h(ReportSelect, { label: 'Measure', value: value.measure?.op || '', options: [{ value: '', label: 'Record table' }, ...catalog.measures.map(op => ({ value: op, label: op }))], onChange: op => patch({ measure: !op ? null : op === 'count' ? { op } : { op, field: fields.find(field => field.type === 'integer')?.key || '' }, ...(!op ? { group_by: null } : {}) }) }),
-    value.measure && value.measure.op !== 'count' && h(ReportSelect, { label: 'Numeric field (unit shown in results)', value: value.measure.field, options: fields.filter(field => field.type === 'integer').map(field => ({ value: field.key, label: `${field.label}${field.unit ? ` (${field.unit})` : ''}` })), onChange: field => patch({ measure: { ...value.measure, field } }) }),
+    h(ReportSelect, { label: 'Measure', value: value.measure?.op || '', options: [{ value: '', label: 'Record table' }, ...catalog.measures.map(op => ({ value: op, label: op }))], onChange: op => patch({ measure: !op ? null : op === 'count' ? { op } : { op, field: fields.find(field => ['integer', 'number'].includes(field.type))?.key || '' }, ...(!op ? { group_by: null } : {}) }) }),
+    value.measure && value.measure.op !== 'count' && h(ReportSelect, { label: 'Numeric field (unit shown in results)', value: value.measure.field, options: fields.filter(field => ['integer', 'number'].includes(field.type)).map(field => ({ value: field.key, label: `${field.label}${field.unit ? ` (${field.unit})` : ''}` })), onChange: field => patch({ measure: { ...value.measure, field } }) }),
     h('p', { className: 'hc-report-muted' }, 'Current linked deal stages are separate from contact type. Current won deals are not historical wins; expected close date is not an actual win date.'));
 }
 export function reportPreset(name) {
   const base = { schema_version: 1, entity: 'contacts', columns: ['id','name','contact_type','linked_stages','last_logged_contact_at','next_followup_at'], filter: { field: 'contact_type', op: 'eq', value: 'lead' }, sort: [{ field: 'name', direction: 'asc' }], timezone: 'UTC' };
   if (name === 'daily') return { ...base, columns: ['id','name','created_at'], sort: [], group_by: { field: 'created_at', interval: 'day' }, measure: { op: 'count' } };
-  if (name === 'won') return { schema_version: 1, entity: 'deals', columns: ['id','title','contact_name','stage','value','expected_close_date'], filter: { field: 'stage', op: 'eq', value: 'won' }, sort: [], measure: { op: 'count' }, timezone: 'UTC' };
+  if (name === 'won') return { schema_version: 1, entity: 'deals', columns: ['id','title','contact_name','stage','value','expected_close_date'], filter: { field: 'stage_outcome', op: 'eq', value: 'won' }, sort: [], measure: { op: 'count' }, timezone: 'UTC' };
   return base;
 }
 const reportVisualizations = ['table', 'metric', 'bar', 'line', 'donut'].map(value => ({ value, label: value }));

@@ -12,7 +12,27 @@ const $ = (s) => document.querySelector(s),
           "'": "&#39;",
         })[c],
     );
-const stages = ["lead", "qualified", "proposal", "negotiation", "won", "lost"];
+let stages = ["lead", "qualified", "proposal", "negotiation", "won", "lost"];
+let catalog = { stages: [], fields: {} };
+function adoptCatalog(meta) {
+  if (!meta?.catalog || !Array.isArray(meta.catalog.stages)) return;
+  catalog = meta.catalog;
+  stages = catalog.stages.filter(s => !s.archived).map(s => s.key);
+}
+const stageLabel = key => catalog.stages.find(s => s.key === key)?.label || label(key);
+const stageColor = (key, index) => {
+  const color = catalog.stages.find(s => s.key === key)?.color;
+  return /^#[0-9a-fA-F]{6}$/.test(color || "") ? color : ["#427f77", "#447fa6", "#8264ac", "#b88736", "#397a4c", "#b05d65"][index % 6];
+};
+function stageBadge(key) {
+  return `<span class="badge ${esc(key)}">${esc(stageLabel(key))}</span>`;
+}
+function customFieldDetails(kind, record) {
+  const values = record.custom_fields || {};
+  const fields = (catalog.fields[kind] || []).filter(f => Object.hasOwn(values, f.key));
+  if (!fields.length) return "";
+  return `<section><h3>Custom fields</h3><dl class="detail-meta">${fields.map(f => `<div><dt>${esc(f.label)}${f.archived ? " (archived)" : ""}</dt><dd>${esc(typeof values[f.key] === "boolean" ? (values[f.key] ? "Yes" : "No") : values[f.key])}</dd></div>`).join("")}</dl><p class="subtitle">Edit custom fields in Hermes Desktop.</p></section>`;
+}
 const label = (s) =>
   String(s || "")
     .replace(/[_-]/g, " ")
@@ -98,7 +118,7 @@ function createButton(type) {
 }
 function contactTable(rows) {
   return rows.length
-    ? `<div class="table-scroll"><table><thead><tr><th scope="col">Name</th><th scope="col">Company</th><th scope="col">Contact type</th><th scope="col">Linked deal stages</th><th scope="col">Added</th></tr></thead><tbody>${rows.map((c) => `<tr><td><div class="person"><span class="avatar" aria-hidden="true">${esc(initials(c.name))}</span><div><button class="name-button" data-action="contact" data-id="${esc(c.id)}">${esc(c.name)}</button><small>${esc(c.email || "No email added")}</small></div></div></td><td>${esc(c.company || "—")}</td><td>${badge(c.lifecycle)}</td><td>${Array.isArray(c.deal_stages) ? (c.deal_stages.map(badge).join(" ") || "Unassigned") : "See contact details"}</td><td>${date(c.created_at)}</td></tr>`).join("")}</tbody></table></div>`
+    ? `<div class="table-scroll"><table><thead><tr><th scope="col">Name</th><th scope="col">Company</th><th scope="col">Contact type</th><th scope="col">Linked deal stages</th><th scope="col">Added</th></tr></thead><tbody>${rows.map((c) => `<tr><td><div class="person"><span class="avatar" aria-hidden="true">${esc(initials(c.name))}</span><div><button class="name-button" data-action="contact" data-id="${esc(c.id)}">${esc(c.name)}</button><small>${esc(c.email || "No email added")}</small></div></div></td><td>${esc(c.company || "—")}</td><td>${badge(c.lifecycle)}</td><td>${Array.isArray(c.deal_stages) ? (c.deal_stages.map(stageBadge).join(" ") || "Unassigned") : "See contact details"}</td><td>${date(c.created_at)}</td></tr>`).join("")}</tbody></table></div>`
     : empty("No matching contacts. Change filters or add a contact.");
 }
 function taskRows(rows) {
@@ -159,17 +179,16 @@ function openReport(filters, title) {
   else { pendingReport = true; location.hash = "contacts"; }
 }
 function stageChart(rows) {
-  const data = stages.map(stage => ({stage, value: 0, count: 0, contact_count: 0, ...rows.find(r => r.stage === stage)}));
+  const data = [...new Set([...stages, ...rows.map(r => r.stage)])].map(stage => ({stage, value: 0, count: 0, contact_count: 0, ...rows.find(r => r.stage === stage)}));
   const total = data.reduce((n,s) => n + Number(s.value || 0),0);
-  const colors = ["#427f77","#447fa6","#8264ac","#b88736","#397a4c","#b05d65"];
   let offset = 0;
-  const details = s => `${label(s.stage)}: ${money(s.value)} USD · ${total ? (s.value / total * 100).toFixed(1) : "0.0"}% · ${Number(s.count)} deals · ${Number(s.contact_count)} distinct contacts`;
+  const details = s => `${stageLabel(s.stage)}: ${money(s.value)} USD · ${total ? (s.value / total * 100).toFixed(1) : "0.0"}% · ${Number(s.count)} deals · ${Number(s.contact_count)} distinct contacts`;
   const segments = data.map((s,i) => {
     const percent = total ? s.value / total * 100 : 0;
-    const circle = percent > 0 ? `<circle class="donut-segment" cx="60" cy="60" r="45" pathLength="100" fill="none" stroke="${colors[i]}" stroke-width="22" stroke-dasharray="${percent} ${100-percent}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)" role="button" tabindex="0" aria-label="${esc(details(s))}" data-action="stage" data-stage="${s.stage}"><title>${esc(details(s))}</title></circle>` : "";
+    const circle = percent > 0 ? `<circle class="donut-segment" cx="60" cy="60" r="45" pathLength="100" fill="none" stroke="${stageColor(s.stage, i)}" stroke-width="22" stroke-dasharray="${percent} ${100-percent}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)" role="button" tabindex="0" aria-label="${esc(details(s))}" data-action="stage" data-stage="${esc(s.stage)}"><title>${esc(details(s))}</title></circle>` : "";
     offset += percent; return circle;
   }).join("");
-  return `<div class="stage-chart"><svg viewBox="0 0 120 120" aria-label="Deal value by stage, including Won and Lost"><circle cx="60" cy="60" r="45" fill="none" stroke="#e6e8e7" stroke-width="22"/>${segments}</svg><p><strong>${money(total)}</strong> total deal value</p>${total ? "" : '<p class="subtitle">No deal value to chart. Stage reports remain available below.</p>'}<div class="stage-summaries">${data.map((s,i) => `<button class="stage-summary" data-action="stage" data-stage="${s.stage}" title="${esc(details(s))}"><span class="stage-dot" style="background:${colors[i]}" aria-hidden="true"></span>${esc(details(s))}</button>`).join("")}</div></div>`;
+  return `<div class="stage-chart"><svg viewBox="0 0 120 120" aria-label="Deal value by stage, including Won and Lost"><circle cx="60" cy="60" r="45" fill="none" stroke="#e6e8e7" stroke-width="22"/>${segments}</svg><p><strong>${money(total)}</strong> total deal value</p>${total ? "" : '<p class="subtitle">No deal value to chart. Stage reports remain available below.</p>'}<div class="stage-summaries">${data.map((s,i) => `<button class="stage-summary" data-action="stage" data-stage="${esc(s.stage)}" title="${esc(details(s))}"><span class="stage-dot" style="background:${stageColor(s.stage, i)}" aria-hidden="true"></span>${esc(details(s))}</button>`).join("")}</div></div>`;
 }
 async function render() {
   // Only the latest render may publish markup or replace record caches.
@@ -183,6 +202,9 @@ async function render() {
     else a.removeAttribute("aria-current");
   });
   try {
+    const meta = await api("meta");
+    if (token !== state.render) return;
+    adoptCatalog(meta);
     let html = "";
     if (state.page === "overview") {
       const [o, contacts] = await Promise.all([
@@ -234,7 +256,7 @@ async function render() {
       state.contacts = list(result.items);
       state.total = Number(result.total) || 0;
       html = head("Contacts", esc(state.report || "Filter contacts and their linked deal stages."), createButton("contact")) +
-        `<section class="card"><div class="toolbar filters"><input class="search" id="search" type="search" aria-label="Search contacts" placeholder="Search names, companies, or emails…" value="${esc(state.query)}">${filterSelect("stage", "Stage", [["", "All stages"], ...stages.map(s => [s,label(s)]), ["unassigned","Unassigned"]])}${filterSelect("contact_type","Contact type",[["","All contact types"],["lead","Lead"],["customer","Customer"],["partner","Partner"]])}${filterInput("company","Company")}${filterSelect("email","Email",[["","Any email"],["present","Email present"],["missing","Email missing"]])}${filterSelect("followup","Follow-up",[["","Any follow-up"],["missing","No open follow-up"],["overdue","Overdue follow-up"],["upcoming","Upcoming follow-up"]])}<button class="button" data-action="clear-filters">Clear filters</button></div><p class="subtitle report-count">${state.total} matching contacts · ${state.total ? state.offset + 1 : 0}–${Math.min(state.offset + state.contacts.length,state.total)} shown</p>${contactTable(state.contacts)}<div class="pagination"><button class="button" data-action="previous" ${state.offset === 0 ? "disabled" : ""}>Previous</button><button class="button" data-action="next" ${state.offset + 50 >= state.total ? "disabled" : ""}>Next</button></div></section>`;
+        `<section class="card"><div class="toolbar filters"><input class="search" id="search" type="search" aria-label="Search contacts" placeholder="Search names, companies, or emails…" value="${esc(state.query)}">${filterSelect("stage", "Stage", [["", "All stages"], ...catalog.stages.map(s => [s.key, s.label + (s.archived ? " (archived)" : "")]), ...(catalog.stages.length ? [] : stages.map(s => [s,stageLabel(s)])), ["unassigned","Unassigned"]])}${filterSelect("contact_type","Contact type",[["","All contact types"],["lead","Lead"],["customer","Customer"],["partner","Partner"]])}${filterInput("company","Company")}${filterSelect("email","Email",[["","Any email"],["present","Email present"],["missing","Email missing"]])}${filterSelect("followup","Follow-up",[["","Any follow-up"],["missing","No open follow-up"],["overdue","Overdue follow-up"],["upcoming","Upcoming follow-up"]])}<button class="button" data-action="clear-filters">Clear filters</button></div><p class="subtitle report-count">${state.total} matching contacts · ${state.total ? state.offset + 1 : 0}–${Math.min(state.offset + state.contacts.length,state.total)} shown</p>${contactTable(state.contacts)}<div class="pagination"><button class="button" data-action="previous" ${state.offset === 0 ? "disabled" : ""}>Previous</button><button class="button" data-action="next" ${state.offset + 50 >= state.total ? "disabled" : ""}>Next</button></div></section>`;
     } else if (state.page === "deals") {
       const deals = await api("deals" + queryString({q: state.query, stage: state.stage, company: state.filters.company, min_value: dollarCents(state.filters.min_value), max_value: dollarCents(state.filters.max_value)}));
       if (token !== state.render) return;
@@ -245,13 +267,13 @@ async function render() {
           "Turn promising conversations into lasting partnerships.",
           createButton("deal"),
         ) +
-        `<div class="toolbar" style="padding:0 0 20px;border:0"><input class="search" id="search" type="search" aria-label="Search deals" placeholder="Search opportunities…" value="${esc(state.query)}"><select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((s) => `<option value="${s}" ${state.stage === s ? "selected" : ""}>${label(s)}</option>`).join("")}</select>${filterInput("company","Company")}${filterInput("min_value","Minimum value (USD)","number")}${filterInput("max_value","Maximum value (USD)","number")}</div><p class="subtitle">Showing up to 500 matching deals.</p><div class="board" ${state.stage ? 'style="grid-template-columns:minmax(240px,420px)"' : ""}>${(state.stage
+        `<div class="toolbar" style="padding:0 0 20px;border:0"><input class="search" id="search" type="search" aria-label="Search deals" placeholder="Search opportunities…" value="${esc(state.query)}"><select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((s) => `<option value="${s}" ${state.stage === s ? "selected" : ""}>${esc(stageLabel(s))}</option>`).join("")}</select>${filterInput("company","Company")}${filterInput("min_value","Minimum value (USD)","number")}${filterInput("max_value","Maximum value (USD)","number")}</div><p class="subtitle">Showing up to 500 matching deals.</p><div class="board" ${state.stage ? 'style="grid-template-columns:minmax(240px,420px)"' : ""}>${(state.stage
           ? [state.stage]
           : stages
         )
           .map((s) => {
             const ds = state.deals.filter((d) => d.stage === s);
-            return `<section class="column"><div class="column-head"><span>${label(s)}</span><span class="badge ${s}">${ds.length}</span></div><div class="column-total">${money(ds.reduce((n, d) => n + d.value, 0))} total value</div>${dealCards(ds) || empty("No deals at this stage.")}</section>`;
+            return `<section class="column"><div class="column-head"><span>${esc(stageLabel(s))}</span><span class="badge ${s}">${ds.length}</span></div><div class="column-total">${money(ds.reduce((n, d) => n + d.value, 0))} total value</div>${dealCards(ds) || empty("No deals at this stage.")}</section>`;
           })
           .join("")}</div>`;
     } else if (state.page === "tasks") {
@@ -352,6 +374,9 @@ async function openForm(type, record = {}) {
   // A newer dialog, navigation, or cancellation wins over late network results.
   const requestEpoch = ++modalEpoch;
   try {
+    const meta = await api("meta");
+    if (requestEpoch !== modalEpoch) return;
+    adoptCatalog(meta);
     let contacts = [],
       deals = [];
     if (type !== "contact") {
@@ -394,7 +419,7 @@ async function openForm(type, record = {}) {
           record.contact_id,
           true,
         ) +
-        `<div class="form-row">${field("value", "Value (USD) *", record.value == null ? "" : (record.value / 100).toFixed(2), "number", 'required min="0" step="0.01"')}${select("stage", "Stage", stages, record.stage || "lead")}</div><div class="form-row">${field("probability", "Probability (%) *", record.probability ?? 20, "number", 'required min="0" max="100" step="1"')}${field("close_date", "Expected close date", record.close_date, "date")}</div>`;
+        `<div class="form-row">${field("value", "Value (USD) *", record.value == null ? "" : (record.value / 100).toFixed(2), "number", 'required min="0" step="0.01"')}${select("stage", "Stage", stages.map(s => [s, stageLabel(s)]), record.stage || "lead")}</div><div class="form-row">${field("probability", "Probability (%) *", record.probability ?? catalog.stages.find(s => s.key === "lead")?.probability ?? 10, "number", 'required min="0" max="100" step="1"')}${field("close_date", "Expected close date", record.close_date, "date")}</div>`;
     }
     if (type === "task") {
       fields =
@@ -410,6 +435,7 @@ async function openForm(type, record = {}) {
           ? select("status", "Status", ["open", "done"], record.status)
           : "");
     }
+    fields += customFieldDetails(type + "s", record);
     fields += `<label class="field">Notes<textarea name="notes" maxlength="10000">${esc(record.notes || "")}</textarea></label>`;
     showModal(
       modalHead((record.id ? "Edit " : "Add ") + type) +
@@ -468,12 +494,13 @@ async function openForm(type, record = {}) {
 async function contactDetail(id) {
   const requestEpoch = ++modalEpoch;
   try {
-    const result = await api("contacts/" + id);
+    const [result, meta] = await Promise.all([api("contacts/" + id), api("meta")]);
     if (requestEpoch !== modalEpoch) return;
+    adoptCatalog(meta);
     const c = result.contact;
     showModal(
       modalHead(c.name) +
-        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}<h3>Activity</h3>${activityRows(list(result.activity).slice(0, 8))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
+        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}${customFieldDetails("contacts", c)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}<h3>Activity</h3>${activityRows(list(result.activity).slice(0, 8))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
     ); // Fresh detail records replace cached versions before later edits.
     state.deals = mergeRecords(state.deals, list(result.deals));
     state.tasks = mergeRecords(state.tasks, list(result.tasks));
@@ -523,7 +550,7 @@ document.addEventListener("click", (e) => {
     if (t) openForm("task", t);
   }
   if (a === "toggle-task") toggleTask(b.dataset.id, b);
-  if (a === "stage") openReport({stage: b.dataset.stage}, `${label(b.dataset.stage)} stage: contacts linked to matching deals`);
+  if (a === "stage") openReport({stage: b.dataset.stage}, `${stageLabel(b.dataset.stage)} stage: contacts linked to matching deals`);
   if (a === "attention") openReport({contact_type: "lead", followup: b.dataset.followup}, b.dataset.followup === "missing" ? "Leads with no open follow-up" : "Leads with overdue follow-ups");
   if (a === "clear-filters") openReport({}, "");
   if (a === "previous" || a === "next") { closeModal(false); state.offset = Math.max(0,state.offset + (a === "next" ? 50 : -50)); render(); }
@@ -573,12 +600,13 @@ $("#modal").addEventListener("cancel", () => {
 // Escape also cancels a dialog request before its modal has opened.
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !$("#modal").open) modalEpoch++;
-  if ((e.key === "Enter" || e.key === " ") && e.target?.classList?.contains("donut-segment")) { e.preventDefault(); openReport({stage:e.target.dataset.stage}, `${label(e.target.dataset.stage)} stage: contacts linked to matching deals`); }
+  if ((e.key === "Enter" || e.key === " ") && e.target?.classList?.contains("donut-segment")) { e.preventDefault(); openReport({stage:e.target.dataset.stage}, `${stageLabel(e.target.dataset.stage)} stage: contacts linked to matching deals`); }
 });
 window.addEventListener("hashchange", route);
 async function initialize() {
   try {
     const meta = await api("meta");
+    adoptCatalog(meta);
     $("#profile").textContent = meta.profile || "default";
     document
       .querySelectorAll(".workspace-name")

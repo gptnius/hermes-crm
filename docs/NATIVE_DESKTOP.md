@@ -10,7 +10,7 @@ The unified package now contains the requested native Desktop surface. It does n
 - hermes_crm/runtime.py: one profile-aware storage factory for native tools and REST.
 - hermes_crm/domain.py: shared CRM validation, transactions, audit and scheduling semantics.
 
-Native contributions: a main-area HermesCRM pane, /hermes-crm full page, HermesCRM sidebar entry and Open HermesCRM palette command. The display branding is HermesCRM, with the tagline Intelligent Relationship Management; route, package and storage identifiers remain unchanged. The pane contains dashboard cards, stage chart drillthrough, contacts and detail/history, six-stage opportunities, follow-ups and activity. Native settings expose explicit SQLite/PostgreSQL selection and the host-managed optional PostgreSQL secret.
+Native contributions: a main-area HermesCRM pane, /hermes-crm full page, HermesCRM sidebar entry and Open HermesCRM palette command. The display branding is HermesCRM, with the tagline Intelligent Relationship Management; route, package and storage identifiers remain unchanged. The pane contains dashboard cards, stage chart drillthrough, contacts and detail/history, configurable deal stages, optional typed custom fields, follow-ups and activity. Customize opens the versioned field/stage editor. Native settings expose explicit SQLite/PostgreSQL selection and the host-managed optional PostgreSQL secret.
 
 ## Installation and enablement
 

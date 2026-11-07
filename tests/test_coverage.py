@@ -372,7 +372,7 @@ def test_coverage_authoritative_pages_beyond_task_and_assignment_caps(setup):
     template = create(setup)
     with crm.engine.begin() as conn:
         for i in range(1, 606):
-            conn.execute(tasks.insert().values(dict(task, id=f't{i:04}', title=f'Bulk {i}',
+            conn.execute(tasks.insert().values(dict({k:v for k,v in task.items() if k in tasks.c.keys()}, id=f't{i:04}', title=f'Bulk {i}',
                 due_at='2000-01-01T00:00:00.000000+00:00' if i == 605 else task['due_at'])))
         raw = dict(conn.execute(select(assignments).where(assignments.c.id == template['id'])).mappings().one())
         for i in range(1, 121):

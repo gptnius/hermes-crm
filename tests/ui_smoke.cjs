@@ -181,6 +181,23 @@ function defer(endpoint) {
   await run(`state.page='tasks';state.taskFilter='open';state.filters={priority:'high',due:'overdue'};render()`);
   assert.equal(requests.at(-1),'/api/tasks?q=deal&status=open&priority=high&due=overdue');
   console.log('PASS: preset filter reset, real totals and pagination, escaping, filter cancellation and filter transport');
+  run(`adoptCatalog({catalog:{stages:[
+    {key:'lead',label:'Discovery & qualify',color:'#123456',probability:40,archived:false},
+    {key:'contract',label:'Contract <review>',color:'#654321',probability:80,archived:false},
+    {key:'retired',label:'Retired',color:'#999999',probability:10,archived:true}
+  ],fields:{contacts:[{key:'zero',label:'Score',type:'number'},{key:'flag',label:'Opt-in',type:'boolean'},
+    {key:'old',label:'Old field',type:'text',archived:true}]}}})`);
+  assert.equal(run('stages.join(",")'),'lead,contract');
+  assert.equal(run('stageLabel("lead")'),'Discovery & qualify');
+  assert(run('badge("lead")').includes('>Lead<'), 'Contact type must not adopt stage labels');
+  const customChart = run(`stageChart([{stage:'contract',value:100,count:1,contact_count:1}])`);
+  assert(customChart.includes('Contract &lt;review&gt;') && customChart.includes('stroke="#654321"'));
+  assert(customChart.includes('data-stage="contract"'));
+  const customDetails = run(`customFieldDetails('contacts',{custom_fields:{zero:0,flag:false,old:'<value>'}})`);
+  assert(customDetails.includes('<dd>0</dd>') && customDetails.includes('<dd>No</dd>'));
+  assert(customDetails.includes('(archived)') && customDetails.includes('&lt;value&gt;'));
+  assert(customDetails.includes('Edit custom fields in Hermes Desktop.'));
+  console.log('PASS: dynamic stage identity/label/color, separate contact types and retained custom values');
   console.log("All UI VM smoke checks passed.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 
