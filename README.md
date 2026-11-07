@@ -15,6 +15,7 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Native conversation companion: open CRM beside an existing verified main Hermes chat; copy a validated minimal record reference in one click, with an optional hideable preview, for manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: preset stage/attention views plus a typed report builder, shared saved definitions, version-pinned table/KPI/bar/line/donut cards and live contributing-record drilldowns. See [flexible reports](docs/FLEXIBLE_REPORTS.md).
+- Recent Activities: five recent CRM audit summaries on the dashboard, with verified current-contact links; contact overviews put recent changes before follow-ups and retain older available history. These are record changes, not proof of customer communication.
 - Logged contact: explicit self-reported contact events with corrections, kept separate from CRM edits and optional Gmail observations.
 - Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.
 - Customization: versioned optional text/number/boolean/date/single-select fields on contacts, deals and tasks; native record forms and typed reports use the same catalog as agents. Archive retains definitions/values; used deal stages cannot be archived. See [custom fields and stages](docs/CUSTOMIZATION.md).
@@ -71,6 +72,12 @@ Other planned work remains explicitly separate:
   dates before historical funnels; broader date controls, dashboard-wide filter
   semantics and scale testing. Advanced formulas, arbitrary joins and custom
   objects are deferred. See [report limits](docs/FLEXIBLE_REPORTS.md).
+- **Future communication integrations:** automatic inbound/outbound email history,
+  provider-backed proposal activity, and optional calling/texting integrations
+  (for example, Telnyx). These need explicit account authorization, reviewed
+  actions, durable provider identifiers and delivery/outcome evidence. They are
+  not implemented by the audit timeline; no calls, texts or email sends are
+  enabled by this roadmap.
 - **Conversation and email:** safer host-supported draft insertion only when a
   session-bound contract exists; separately approved live Gmail validation and
   later provider-backed communication features. No automatic sending, account

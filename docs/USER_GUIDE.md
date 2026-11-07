@@ -228,6 +228,27 @@ Open a record and choose **Edit** to change it. If a version conflict appears,
 refresh and review the latest record rather than overwriting another change.
 CRM activity records edits; it does not prove a customer was contacted.
 
+## Read recent activity
+
+The dashboard's **Recent Activities** card shows the latest five available CRM
+changes. Choose a named contact link to open that record. The link uses the
+record's **current** relationship, not a guess from the visible contact list or
+an assertion about who was associated with an old event. If a record has no
+resolvable contact, its summary stays visible without a contact link.
+
+A contact overview puts its latest five available CRM changes before follow-ups.
+Expand **Older CRM activity** for the rest of the returned history. Workspace
+activity remains bounded at 100 rows; contact detail also retains the existing
+related-record limits. Times are when the CRM audit event was recorded. Editing
+a record, completing a task or updating a protected note does not prove that an
+email was sent, a call occurred or a proposal was delivered. Protected-note text
+is not exposed in the activity summary.
+
+**Logged contact** remains a separate self-reported history. Optional Gmail
+observations are separate provider metadata, subject to their own setup,
+authorization and provenance. Automatic inbound/outbound email, calls, texts
+and proposals are future integrations, not fabricated timeline events.
+
 ## Record an actual conversation
 
 On a native contact detail, open **Logged contact → Log contact**. Enter the

@@ -1216,7 +1216,13 @@ function useWorkCommands({ ctx, identity, client, task, workspaceToken, workspac
       confirm, retryPreparation, readStatus: () => localAction(false), withdraw: () => localAction(true), close }) };
 }
 
-function Activity({ rows = [] }) {
+// Links are server-resolved current relationships, never inferred from capped lists.
+function activityContact(row) {
+  return row.link_basis === "current_relationship" && validId(row.linked_contact_id)
+    && typeof row.linked_contact_name === "string" && row.linked_contact_name.trim()
+    ? { id: row.linked_contact_id, name: row.linked_contact_name } : null;
+}
+function Activity({ rows = [], open, disabled }) {
   return h(
     "div",
     { className: "hc-list" },
@@ -1229,11 +1235,10 @@ function Activity({ rows = [] }) {
               "div",
               null,
               h("div", null, row.summary),
-              h(
-                "small",
-                { className: "hc-muted" },
-                `${row.actor} · ${date(row.created_at)}`,
-              ),
+              open && activityContact(row) && button(`Current contact: ${activityContact(row).name}`,
+                () => open("contacts", activityContact(row).id), { className: "hc-link-button", disabled }),
+              h("div", { className: "hc-activity-meta" },
+                h("small", { className: "hc-muted" }, `${row.actor} · ${date(row.created_at)}`)),
             ),
             badge(row.action),
           ),
@@ -1742,8 +1747,10 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
             h(
               "section",
               { className: "hc-card" },
-              h("h2", null, "Latest activity"),
-              h(Activity, { rows: overview.activity }),
+              h("h2", null, "Recent Activities"),
+              h("p", { className: "hc-muted" }, "Latest 5 CRM record changes. Contact links reflect current relationships, not historical ownership. Communications are not synced in this feed."),
+              h(Activity, { rows: (overview.activity || []).slice(0, 5), open, disabled }),
+              button("View activity history", () => navigate("activity"), { disabled }),
             ),
             h(FlexibleReports, { key: `${identity}|${data.meta.workspace_token}`, client,
               workspaceToken: data.meta.workspace_token, routeKey: identity, operationStore: analyticsOperationStore(ctx, identity, "reports"),
@@ -1955,7 +1962,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
               h(Empty, null, "No matching follow-ups. You’re clear for now."),
           ),
         page === "tasks" && h(CoverageQueue, { client, workspaceToken: data.meta.workspace_token, snapshotGeneration, open, disabled }),
-        page === "activity" && h(Activity, { rows: data.activity }),
+        page === "activity" && h(Activity, { rows: data.activity, open, disabled }),
         ),
       ),
     h(
@@ -2293,16 +2300,19 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
         h(RecordSection, { title: "Custom fields" }, h(Properties, { rows: (workspaceCatalog(data)?.fields[detail.kind] || []).filter(field => !field.archived || row.custom_fields?.[field.key] != null).map(field => [field.label + (field.archived ? " (archived)" : ""), row.custom_fields?.[field.key] == null ? "Not set" : typeof row.custom_fields[field.key] === "boolean" ? (row.custom_fields[field.key] ? "Yes" : "No") : String(row.custom_fields[field.key])]) })),
         h(RecordSection, { title: "Notes" }, h("p", { className: "hc-details" }, row.notes || "No notes yet. Use Edit to add context."))),
       h("section", { className: "hc-stack", "aria-label": "Record history and next steps" },
+        h(RecordSection, { title: "Recent CRM activity" },
+          h("p", { className: "hc-muted" }, "CRM record changes only. Sent and received emails are not synced here."),
+          h(Timeline, { rows: (activity || []).slice(0, 5) }),
+          (activity || []).length > 5 && h("details", null,
+            h("summary", null, `Older CRM activity (${activity.length - 5} available)`),
+            h(Timeline, { rows: activity.slice(5) })),
+          h("p", { className: "hc-record-meta" }, isContact ? "Up to 100 recent CRM changes for this contact and its currently linked records; older history may not be included." : "Matching changes from the latest 100 workspace activity records.")),
         (isContact || isDeal) && h(RecordSection, { title: "Upcoming follow-ups", action: badge(upcoming.length) },
           upcoming.length ? h("div", { className: "hc-related" }, upcoming.map(task => button(
             h("div", null, h("b", null, task.title), h("small", null, `${date(task.due_at)} · ${label(task.priority)}`),
               h("small", null, `Reminder registration: ${label(task.schedule_status)}`)),
             () => open("tasks", task.id), { key: task.id, disabled })))
             : h("p", { className: "hc-muted" }, "No open follow-ups in the available records. Create one to record the next step.")),
-        h(RecordSection, { title: "Activity timeline" },
-          h("p", { className: "hc-muted" }, "CRM record changes only. Sent and received emails are not synced here."),
-          h(Timeline, { rows: activity || [] }),
-          h("p", { className: "hc-record-meta" }, isContact ? "Up to 100 recent CRM changes for this contact and its linked records." : "Matching changes from the latest 100 workspace activity records.")),
         isContact && h(ContactLogPanel, { operationStore: analyticsOperationStore(ctx, identity, "contacts"), key: `contact-log|${identity}|${detail.workspaceToken}|${row.id}|${row.version}`, client, contact: row, workspaceToken: detail.workspaceToken, routeKey: identity, disabled }),
         isContact && h(EmailHistoryPanel, { key: `email-history|${identity}|${detail.workspaceToken}|${row.id}|${row.version}`, client, contact: row, workspaceToken: detail.workspaceToken, routeKey: identity, storageBackend: data.meta.backend, disabled }),
         !isContact && !isDeal && h(TaskWork, { ctx, identity, client, task: row, workspaceToken: detail.workspaceToken, workspaceProfile: data.meta.profile, workCommandName: data.meta.work_command_name, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork: detail.assignment, taskHeadingRef: headingRef })),

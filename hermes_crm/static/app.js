@@ -132,12 +132,21 @@ function taskRows(rows) {
         .join("")
     : empty("All clear. No tasks to show.");
 }
-function activityRows(rows) {
+function activityContact(a, currentContactId) {
+  return a.linked_contact_id !== currentContactId && a.link_basis === "current_relationship" && typeof a.linked_contact_id === "string"
+    && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(a.linked_contact_id)
+    && typeof a.linked_contact_name === "string" && a.linked_contact_name.trim()
+    ? `<button class="name-button" data-action="contact" data-id="${esc(a.linked_contact_id)}">Current contact: ${esc(a.linked_contact_name)}</button>` : "";
+}
+function contactActivity(rows, currentContactId) {
+  return `<h3>Recent CRM activity</h3><p class="subtitle">CRM record changes only. Sent and received emails are not synced here.</p>${activityRows(rows.slice(0, 5), currentContactId)}${rows.length > 5 ? `<details><summary>Older CRM activity (${rows.length - 5} available)</summary>${activityRows(rows.slice(5), currentContactId)}</details>` : ""}<p class="subtitle">Up to 100 recent CRM changes for this contact and its currently linked records; older history may not be included.</p>`;
+}
+function activityRows(rows, currentContactId) {
   return rows.length
     ? rows
         .map(
           (a) =>
-            `<div class="activity-row"><span class="activity-icon" aria-hidden="true">${String(a.entity_type || "").includes("task") ? "✓" : "↗"}</span><div class="activity-copy">${esc(a.summary || a.description || [label(a.entity_type), label(a.action), a.entity_name].filter(Boolean).join(" · ") || "Workspace updated")}<small>${esc(a.actor || "Workspace")} · ${date(a.created_at)}</small></div></div>`,
+            `<div class="activity-row"><span class="activity-icon" aria-hidden="true">${String(a.entity_type || "").includes("task") ? "✓" : "↗"}</span><div class="activity-copy">${esc(a.summary || a.description || [label(a.entity_type), label(a.action), a.entity_name].filter(Boolean).join(" · ") || "Workspace updated")}<small>${esc(a.actor || "Workspace")} · ${date(a.created_at)}</small>${activityContact(a, currentContactId)}</div></div>`,
         )
         .join("")
     : empty("Activity will appear as your workspace changes.");
@@ -249,7 +258,7 @@ async function render() {
           )
           .join(
             "",
-          )}</div><div class="grid"><section class="card"><div class="card-head"><div><h2>Sales pipeline</h2><div class="subtitle">Deal value by stage, including Won and Lost.</div></div><a class="text-link" href="#deals">View deals ↗</a></div>${stageChart(ps)}<div class="attention-reports"><h3>Lead attention</h3><button class="button" data-action="attention" data-followup="missing">${Number(o.lead_attention?.no_open_followup || 0)} leads with no open follow-up</button><button class="button" data-action="attention" data-followup="overdue">${Number(o.lead_attention?.overdue_followup || 0)} leads with overdue follow-ups</button><p class="subtitle">Based on stored tasks, not agent execution.</p></div></section><section class="card"><div class="card-head"><div><h2>Your next steps</h2><div class="subtitle">${o.open_tasks} open tasks · ${o.overdue_tasks} overdue</div></div><a href="#tasks" class="text-link">View all ↗</a></div>${taskRows(state.tasks.filter((t) => t.status !== "done").slice(0, 4))}</section></div><div class="grid"><section class="card"><div class="card-head"><div><h2>People in your orbit</h2><div class="subtitle">Every great opportunity starts with a connection.</div></div><a href="#contacts" class="text-link">All contacts ↗</a></div>${contactTable(state.contacts.slice(0, 5))}</section><section class="card"><div class="card-head"><h2>Recent activity</h2><a href="#activity" class="text-link">View all ↗</a></div>${activityRows(list(o.activity).slice(0, 5))}</section></div>`;
+          )}</div><div class="grid"><section class="card"><div class="card-head"><div><h2>Sales pipeline</h2><div class="subtitle">Deal value by stage, including Won and Lost.</div></div><a class="text-link" href="#deals">View deals ↗</a></div>${stageChart(ps)}<div class="attention-reports"><h3>Lead attention</h3><button class="button" data-action="attention" data-followup="missing">${Number(o.lead_attention?.no_open_followup || 0)} leads with no open follow-up</button><button class="button" data-action="attention" data-followup="overdue">${Number(o.lead_attention?.overdue_followup || 0)} leads with overdue follow-ups</button><p class="subtitle">Based on stored tasks, not agent execution.</p></div></section><section class="card"><div class="card-head"><div><h2>Your next steps</h2><div class="subtitle">${o.open_tasks} open tasks · ${o.overdue_tasks} overdue</div></div><a href="#tasks" class="text-link">View all ↗</a></div>${taskRows(state.tasks.filter((t) => t.status !== "done").slice(0, 4))}</section></div><div class="grid"><section class="card"><div class="card-head"><div><h2>People in your orbit</h2><div class="subtitle">Every great opportunity starts with a connection.</div></div><a href="#contacts" class="text-link">All contacts ↗</a></div>${contactTable(state.contacts.slice(0, 5))}</section><section class="card"><div class="card-head"><h2>Recent Activities</h2><a href="#activity" class="text-link">View all ↗</a></div><p class="subtitle activity-disclaimer">Latest 5 CRM record changes. Contact links reflect current relationships, not historical ownership. Communications are not synced in this feed.</p>${activityRows(list(o.activity).slice(0, 5))}</section></div>`;
     } else if (state.page === "contacts") {
       const result = await api("reports/contacts" + queryString({q: state.query, ...state.filters, limit: 50, offset: state.offset}));
       if (token !== state.render) return;
@@ -502,7 +511,7 @@ async function contactDetail(id) {
     const c = result.contact;
     showModal(
       modalHead(c.name) +
-        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}${customFieldDetails("contacts", c)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}<h3>Activity</h3>${activityRows(list(result.activity).slice(0, 8))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
+        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}${customFieldDetails("contacts", c)}${contactActivity(list(result.activity), c.id)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
     ); // Fresh detail records replace cached versions before later edits.
     state.deals = mergeRecords(state.deals, list(result.deals));
     state.tasks = mergeRecords(state.tasks, list(result.tasks));

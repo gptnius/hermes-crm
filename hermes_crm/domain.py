@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import (Boolean, Column, ForeignKey, Integer, MetaData, String, Table,
-                        Text, create_engine, event, select, update, func, or_)
+                        Text, create_engine, event, select, update, func, or_, and_, case)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
@@ -464,10 +464,30 @@ class CRM(Customization):
             return [dict(row,custom_fields=self._custom_values(conn,kind,row['id'])) for row in conn.execute(stmt).mappings()]
 
     def activities(self, entity_ids=None, _conn=None):
+        # Navigation describes current relationships, never historical attribution.
+        # Bound audit rows before joining; each join is to a primary key so counts
+        # cannot fan out. Select only the contact ID/name, not private record data.
         stmt = select(activity)
         if entity_ids is not None: stmt = stmt.where(activity.c.entity_id.in_(entity_ids))
+        recent = stmt.order_by(activity.c.created_at.desc(), activity.c.id.desc()).limit(100).subquery()
+        task_deal = deals.alias('activity_task_deal')
+        linked_id = case(
+            (recent.c.entity_type == 'contacts', recent.c.entity_id),
+            (recent.c.entity_type == 'deals', deals.c.contact_id),
+            (recent.c.entity_type == 'tasks', case(
+                (tasks.c.contact_id.is_(None), task_deal.c.contact_id),
+                else_=tasks.c.contact_id)),
+            else_=None)
+        source = recent.outerjoin(deals, and_(recent.c.entity_type == 'deals', recent.c.entity_id == deals.c.id))
+        source = source.outerjoin(tasks, and_(recent.c.entity_type == 'tasks', recent.c.entity_id == tasks.c.id))
+        source = source.outerjoin(task_deal, tasks.c.deal_id == task_deal.c.id)
+        source = source.outerjoin(contacts, contacts.c.id == linked_id)
+        stmt = select(recent, contacts.c.id.label('linked_contact_id'),
+                      contacts.c.name.label('linked_contact_name')).select_from(source).order_by(
+                          recent.c.created_at.desc(), recent.c.id.desc())
         with (nullcontext(_conn) if _conn is not None else self._read_connection()) as conn:
-            return [dict(row) for row in conn.execute(stmt.order_by(activity.c.created_at.desc()).limit(100)).mappings()]
+            return [dict(row, link_basis='current_relationship' if row['linked_contact_id'] is not None else None)
+                    for row in conn.execute(stmt).mappings()]
 
     def contact_detail(self, contact_id):
         from sqlalchemy import or_

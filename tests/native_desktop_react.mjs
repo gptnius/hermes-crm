@@ -172,6 +172,7 @@ const ctx = {
       "/tasks": [task],
       "/activity": activityRows,
       "/contacts/c1": { contact, deals: relatedDeals, tasks: [task], activity: activityRows },
+      "/contacts/outside": { contact: {...contact, id: "outside", name: "Fresh outside contact"}, deals: [], tasks: [], activity: activityRows },
       "/tasks/t1": task,
       "/work": workRows,
       "/work-operations": { items: [], total: 0, limit: 25, offset: Number(new URLSearchParams(path.split("?")[1]).get("offset") || 0), workspace_token: `token-${profile.get()}${backendTokenSuffix}`, profile: profile.get(), task_id: task.id, observed_at: "2026-11-07T13:00:00Z" },
@@ -274,6 +275,39 @@ const click = async (title) => {
 assert.match(text(), /Overview/);
 assert.match(text(), /Weighted forecast/);
 assert.equal(intervals.size, 1, "Strict Mode replay leaves one live interval");
+// Verified activity links do not depend on the capped contact snapshot.
+const auditRows = Array.from({length: 7}, (_, i) => ({id: `audit-${i}`, summary: `Audit summary ${i}`, actor: 'Human', action: 'updated', created_at: '2026-11-07T13:00:00Z', linked_contact_id: 'outside', linked_contact_name: 'Ada Example', link_basis: 'current_relationship'}));
+auditRows[1].linked_contact_id = '../bad';
+auditRows[2].link_basis = null;
+auditRows[3].linked_contact_name = {};
+auditRows[4].linked_contact_id = null;
+overview.activity = auditRows;
+activityRows.push(...auditRows);
+await click('Refresh');
+assert.match(text(), /Recent Activities/);
+assert.match(text(), /Audit summary 4/);
+assert.equal(root.root.findAll(node => node.type === "div" && /^Audit summary \d$/.test(flatten(node.children))).length, 5);
+assert.doesNotMatch(text(), /Audit summary 5/);
+assert.equal(root.root.findAllByType('button').filter(n => flatten(n.children).startsWith('Current contact:')).length, 1);
+assert.equal(button('Current contact: Ada Example').props.className, 'hc-link-button');
+assert.equal(root.root.findAllByProps({className:'hc-activity-meta'}).length, 5);
+assert.ok(root.root.findAllByProps({className:'hc-activity-meta'}).every(node => node.findAllByType('button').length === 0));
+const beforeActivityWrites = writes.length;
+await click('Current contact: Ada Example');
+assert.ok(calls.some(call => call.path.startsWith('/contacts/outside?')));
+assert.match(text(), /Fresh outside contact/);
+assert.ok(text().indexOf('Recent CRM activity') < text().indexOf('Upcoming follow-ups'));
+assert.match(text(), /Older CRM activity \(2 available\)/);
+assert.match(text(), /older history may not be included/);
+assert.match(text(), /Audit summary 6/);
+assert.equal(writes.length, beforeActivityWrites);
+await click('Close');
+await click('View activity history');
+assert.match(text(), /Audit summary 6/);
+overview.activity = [];
+activityRows.length = 0;
+await click('Overview');
+await click('Refresh');
 // Catalog refresh failures are distinct from an unknown mutation outcome.
 testCatalog = {schema_version:1, stages:[{key:'lead',label:'Incoming',outcome:'open',probability:40,order:0,color:'#123456',version:1,archived:false}, ...['open','done','all'].map((key,i)=>({key,label:`Deal ${key}`,outcome:'open',probability:20,order:i+1,color:'#123456',version:1,archived:false}))],fields:{contacts:[],deals:[],tasks:[]}};
 await click('Refresh');

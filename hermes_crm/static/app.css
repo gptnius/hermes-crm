@@ -109,6 +109,7 @@ tbody tr:hover, tbody tr:focus-within { background: var(--selection); }
 .person { display: flex; align-items: center; gap: 12px; }
 .avatar { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 4px; font-size: 12px; background: var(--bg); color: var(--muted); }
 .person small { display: block; font-size: 13px; line-height: 18px; color: var(--muted); margin-top: 4px; }
+.activity-disclaimer { padding: 0 24px 16px; margin: 0; }
 .activity-row { display: flex; gap: 12px; padding: 16px 24px; }
 .activity-row + .activity-row { border-top: 1px solid var(--line); }
 .activity-icon { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 4px; background: var(--hover); color: var(--muted); }
@@ -184,6 +185,7 @@ dialog::backdrop { background: #0009; }
   .stat-value { font-size: 24px; line-height: 32px; }
   .card-head, .toolbar, .task-row, .activity-row, .modal-head, .form-body, .detail-body, .form-actions { padding: 16px; }
   .card-head { flex-wrap: wrap; gap: 8px; }
+  .activity-disclaimer { padding: 0 16px 16px; }
   .task-row { flex-wrap: wrap; } .task-row .due { margin-left: 48px; }
   .form-row, .detail-meta { grid-template-columns: minmax(0,1fr); }
   .form-row { gap: 0; }

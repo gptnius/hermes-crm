@@ -8,6 +8,7 @@ const assert = require("node:assert/strict");
 const nodes = new Map();
 const handlers = {};
 const requests = [];
+const methods = [];
 const pending = new Map();
 function node() {
   return {
@@ -41,7 +42,8 @@ const context = {
     addEventListener(key, callback) { handlers[key] = callback; },
     contains() { return true; },
   },
-  fetch: async (url) => {
+  fetch: async (url, options) => {
+    methods.push(options?.method || "GET");
     requests.push(url);
     const endpoint = url.slice(5);
     const data = pending.has(endpoint)
@@ -66,6 +68,36 @@ function defer(endpoint) {
 (async () => {
   await tick();
   assert(nodes.get("#content").innerHTML.includes("Sales pipeline"));
+  const auditRows = Array.from({length:7}, (_,i)=>({id:`audit-${i}`,summary:`Audit summary ${i}`, actor:'Human', created_at:'2026-11-07', linked_contact_id:'outside', linked_contact_name:'<Ada>', link_basis:'current_relationship'}));
+  auditRows[1].linked_contact_id='../bad';
+  auditRows[2].link_basis=null;
+  auditRows[3].linked_contact_name={};
+  auditRows[4].linked_contact_id=null;
+  fixtures.overview.activity=auditRows;
+  await run("state.page='overview';render()");
+  const feed=nodes.get('#content').innerHTML;
+  assert.equal((feed.match(/class="activity-row"/g)||[]).length,5);
+  assert.equal((feed.match(/Current contact:/g)||[]).length,1);
+  assert(feed.includes('Current contact: &lt;Ada&gt;'));
+  assert(feed.includes('class="subtitle activity-disclaimer"'));
+  assert(!feed.includes('Audit summary 5'));
+  fixtures['contacts/outside']={contact:{id:'outside',name:'Fresh contact'},deals:[],tasks:[],activity:auditRows};
+  const priorMethods = methods.length;
+  handlers.click({target:{closest:()=>({dataset:{action:'contact',id:'outside'}})}});
+  await tick();
+  assert(requests.includes('/api/contacts/outside'));
+  assert(methods.slice(priorMethods).every(method => method === 'GET'));
+  const detail=nodes.get('#modal-body').innerHTML;
+  assert(detail.includes('Fresh contact'));
+  assert(!detail.includes('Current contact:'));
+  assert(run(`contactActivity([{summary:'Other record',linked_contact_id:'another',linked_contact_name:'Other contact',link_basis:'current_relationship'}], 'outside')`).includes('Current contact: Other contact'));
+  assert(run(`activityRows([{summary:'Record',linked_contact_id:'outside',linked_contact_name:'Dashboard contact',link_basis:'current_relationship'}])`).includes('Current contact: Dashboard contact'));
+  assert(detail.indexOf('Recent CRM activity')<detail.indexOf('<h3>Tasks</h3>'));
+  assert(detail.includes('Older CRM activity (2 available)'));
+  assert(detail.includes('Audit summary 6'));
+  assert(detail.includes('older history may not be included'));
+  run('closeModal()');
+  fixtures.overview.activity=[];
   for (const page of ["contacts", "deals", "tasks", "activity"]) {
     await run(`state.page='${page}';render()`);
     assert(!nodes.get("#content").innerHTML.includes('role="alert"'));

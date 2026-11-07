@@ -2,6 +2,58 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Recent Activities and current-contact navigation
+
+The dashboard now shows five recent CRM audit summaries with server-resolved
+current-contact links. Contact overviews show recent changes before follow-ups
+and retain older available history in a disclosure. These are CRM changes,
+not email/call/proposal delivery evidence; self-reported contact logs and optional
+Gmail observations stay separate. No schema migration or new integration is added.
+
+The activity query limits audit rows before primary-key joins, preserves actor,
+summary and timestamp, and resolves the current existing contact without relying
+on the 500-row client snapshot. Missing/deleted/unknown targets remain unlinked;
+a task's direct contact takes precedence and linked-deal fallback is allowed
+only when its direct contact is null. Link metadata is not historical attribution.
+
+Cloud verification: **1,177 Python tests passed**, **559 optional cases skipped**,
+two known dependency warnings. Eight new local tests cover link resolution,
+reassignment, absent/dangling references, stable ties, one-query transaction
+reuse, limits, parameterized IDs, beyond-500 records and unchanged agent output
+minimization. Seven skipped cases are the matching disposable PostgreSQL variants.
+Independent review found no code blockers. Native React/VM tests cover five-row
+limits, escaped/malformed targets, fresh read-only contact navigation, retained
+older history and the existing stale-profile/response guards.
+
+A separate disposable PostgreSQL 17.11 ARM64 run passed **567 mixed checks**
+with zero failures/skips on the exact backend and Python-test bytes shipped in
+this increment. Later corrections were limited to UI, UI tests and documentation.
+The new activity file
+passed all 15 cases (7 actual PostgreSQL, 8 SQLite/compiler). The other cases
+cover core, reports/storage, customization, protection, CSV, assigned work and
+existing portability contracts; this total is not exclusively PostgreSQL-backed.
+Both owned tmpfs-only loopback containers were removed. No existing app, profile,
+account or key was changed. Only known dependency/intentional-fixture warnings
+were observed.
+
+Final isolated rendering passed **32 cases**: native and standalone, light/dark,
+1280/390 pixels, and Overview, contact detail, expanded older history and Activity.
+The renderer used the same Electron/Chromium/React versions described below,
+with synthetic SDK/REST responses and HTTP(S) blocked. It verified exactly five
+dashboard entries, fail-closed missing/invalid links, fresh read-only navigation
+from Overview and Activity, five recent plus three older fixture entries and
+activity preceding tasks. No unintended overflow, writes or external requests
+were observed. Full-size narrow review confirmed padded captions, removed
+redundant self-contact links and separated native link/date metadata. Known
+harness processes exited. The active app, backend, accounts and production
+records were untouched. This was actual browser rendering, not physical-host
+keyboard, screen-reader, real-provider or new end-to-end backend validation.
+
+The final code also passes all sixteen native suites, three exact-host Python
+checks, 25 bridge checks, both design-contract checks, standalone VM/syntax and
+seven generator checks. The optional actual nanostores fixture remained absent
+in the cloud rerun; the prior design publication ran it separately.
+
 ## Workbench UI application
 
 This presentation increment applies the approved light/dark system to the native
