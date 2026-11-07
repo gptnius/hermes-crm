@@ -4,6 +4,8 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 
 **Prototype, not production software.** Synthetic demo data is opt-in. No customer data, private repository history, paid account, external model API or outbound messaging integration is included. Nothing sends outreach.
 
+**New here? Read the [setup and user guide](docs/USER_GUIDE.md)** for installation, feature walkthroughs, agent examples, reporting, optional integrations and troubleshooting.
+
 ## What works
 
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
