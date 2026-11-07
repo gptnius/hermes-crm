@@ -2,6 +2,80 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## CRM-confirmed future-operation increment
+
+The CRM companion now offers explicit review and confirmation for an exact saved
+future assignment, plus separate host-status checks and cancellation. REST
+prepares a durable server-derived operation; an authenticated registered native
+user command claims that operation once and invokes the existing paused-create,
+bind and resume implementation. It never submits a prompt or touches native
+drafts. This is CRM confirmation, not a model-tool approval receipt.
+
+The operation table is new; existing CRM/native-work tables are unchanged.
+SQLite and PostgreSQL contracts cover immutable snapshots, source/assignment CAS,
+expiry including lock waits, withdrawal, duplicate/concurrent dispatch, backend
+identity, unknown replies and the separation of local status from native effects.
+A lost or delayed command is not replayed automatically. Unresolved history is
+paged and remains recoverable after reload.
+
+Actual pinned-host cases use real plugin registration, durable local-session
+creation/receipts, SessionAuthority, actor/owner/source authorization,
+AuthorityConnection command admission and context propagation in both plugin
+isolation modes. The scheduler boundary in those routing cases is synthetic:
+they establish native command admission, not job or model execution.
+
+Separate guarded command-to-run cases also pass in both isolation modes. Actual
+REST preparation and durable native user-command admission schedule two future
+assignments through the real paused-create/bind/resume path. The actual clock,
+scheduler, canonical admission, AIAgent, default deferred discovery, CRM reads,
+authenticated report and local output then execute. Only the keyless loopback
+model responses are synthetic. Seven model requests per mode discover exactly
+the eleven allowed tools and reject six forbidden descriptions. No request or
+ledger start precedes the due instant; extra ticks add no duplicate run/report.
+The second assignment is cancelled through the same command lane before due and
+never executes. Reports await review and business tasks remain open. The guard,
+original runner and cleanup checks are unchanged. Both modes recorded zero
+forbidden audit events and stopped jobs, scheduler, endpoint and plugin child.
+See [sanitized results](native-work-test/command-result-summary.json) and
+[reproduction](native-work-test/REPRODUCE.md#crm-confirmed-command-to-run-variant).
+
+Final checks on November 7, 2026:
+
+- Shipping-scope default Python: **617 passed, 320 explicit opt-in cases skipped**,
+  with three dependency warnings. Inactive chat-request research is excluded.
+- Actual disposable PostgreSQL 17.11: **180 contracts passed**, including 57
+  operation cases and the 123 earlier native-work/coverage cases. The localhost-only
+  synthetic cluster was stopped after testing; no hosted database was used.
+- Actual pinned-host ASGI/IPC, native-work and user-command contracts:
+  **six passed**, two per suite across both modes. One historical placeholder
+  remains explicitly skipped; it is not counted as a passed due-run test.
+- Guarded command-to-scheduled-agent execution: **two passed**, both modes.
+- Eight UI suites pass, including real React 19.3.0 and exact-source SDK/catalog/
+  nanostores checks. The unchanged disabled execution bridge passes **25 tests**,
+  including its explicit SQLite adapter. Syntax and whitespace checks pass.
+
+The namespace is derived from existing high-entropy workspace identity; it is
+not a credential. Exact-source catalog probes and the UI reject current
+quick-command, alias, skill and built-in collisions or discovery warnings. The
+host still resolves commands from current configuration at dispatch time. These
+checks assume stable trusted host configuration and do not atomically attest
+plugin ownership or protect against a concurrent malicious registration.
+
+UI tests cover explicit review/confirmation, no automatic dispatch, exact route
+and runtime checks, backend-profile aliases, synchronous session/profile/
+connection/visibility changes, Close during an await, one-use attempts, unknown
+results, recovery-only history, withdrawal and unsupported APIs. The visibility
+contract executes the pinned SDK wrapper/predicate/cache and tree model with
+integrity-verified official nanostores 1.4.2; its physical-column classification
+is synthetic. Tests do not open a real native window.
+
+Native-window layout/focus/accessibility, an actual user clicking through this
+new lane, real-model reasoning and restart/crash reconciliation remain separate
+release checks. No upstream Hermes change, live provider, account access,
+external communication or production modification was used. See
+[the operation boundary](CRM_CONFIRMED_OPERATIONS.md) for scope and rejected
+unsafe chat-submission alternatives.
+
 ## Direct assignment-saving increment
 
 The native CRM now saves a real future internal-analysis assignment through an

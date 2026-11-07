@@ -1,6 +1,6 @@
 """Bounded native cron assignments, separate from the disabled Desktop experiment.
 
-Only active plugin tool handlers may pass their *real* PluginContext here. This
+Only active plugin tools or authenticated native commands may pass their real PluginContext here. This
 module never imports a private host API, borrows a context for REST, runs agents,
 or completes business tasks. A report attests that the identified native run
 called the report tool; its content remains an agent claim awaiting human review.
@@ -370,7 +370,25 @@ class NativeWorkStore:
             self._event(conn, row, kind, evidence or {'reason': reason})
         return self.get(assignment_id)
 
-    def schedule(self, ctx, assignment_id, **tool_context):
+    def _command_dispatch(self, ctx, request, tool_context, assignment_id, guard):
+        """Private command-only fence; never appears in schemas or host kwargs.
+
+        Hold the local operation, task and assignment locks across one bounded
+        host call. This does not turn a remote write into a DB transaction.
+        """
+        if guard is None:
+            return ctx.dispatch_tool('cronjob_manage', request, **tool_context)
+        with self.crm.engine.begin() as conn:
+            row = self._row(conn, assignment_id)
+            guard.fence(conn, row)
+            count = conn.execute(update(assignments).where(assignments.c.id == assignment_id,
+                assignments.c.version == row['version']).values(version=assignments.c.version)).rowcount
+            if count != 1: raise CRMError('Concurrent assignment change before native operation', 409)
+            self._host(ctx, scheduling=True)
+            guard.fence(conn, row)  # final context/task/deadline check after all locks
+            return ctx.dispatch_tool('cronjob_manage', request, **tool_context)
+
+    def schedule(self, ctx, assignment_id, *, _operation_guard=None, **tool_context):
         """Exactly one create attempt. Unknown outcomes require explicit reconciliation.
 
         Unknown is committed before each external write. Paused create makes a
@@ -381,6 +399,7 @@ class NativeWorkStore:
         claim = str(uuid.uuid4())
         with self.crm.engine.begin() as conn:
             row = self._row(conn, assignment_id)
+            if _operation_guard is not None: _operation_guard.claim(conn, row)
             if row['state'] != 'pending': return self.get(assignment_id)
             self._guard_task(conn, row)
             _future(json.loads(row['payload'])['run_at'])
@@ -393,8 +412,16 @@ class NativeWorkStore:
             attach_to_session=False)
         try:
             self._host(ctx, scheduling=True)
-            result = _result(ctx.dispatch_tool('cronjob_manage', request, **tool_context))
+            result = _result(self._command_dispatch(ctx, request, tool_context, assignment_id, _operation_guard))
         except Exception:
+            if _operation_guard is not None and _operation_guard.failure is not None:
+                # The guard failed before dispatch, so no create was attempted.
+                with self.crm.engine.begin() as conn:
+                    blocked = self._row(conn, assignment_id)
+                    if blocked['state'] == 'create_unknown' and blocked['claim_id'] == claim:
+                        self._change(conn, blocked, state='pending', reason='command_fence_blocked_create', claim_id=None)
+                        self._event(conn, blocked, 'create_blocked', {'create_attempted': False})
+                raise _operation_guard.failure
             return self._uncertain(assignment_id, 'create_response_unknown', kind='create_unknown')
         job = result.get('job')
         job_id = result.get('job_id')
@@ -430,10 +457,12 @@ class NativeWorkStore:
                 row = self._row(conn, assignment_id)
                 if row['state'] != 'resume_unknown' or row['claim_id'] != claim:
                     return self.get(assignment_id)
+                if _operation_guard is not None: _operation_guard.fence(conn, row)
                 self._guard_task(conn, row)
                 self._change(conn, row, reason='resume_outcome_pending')
                 self._host(ctx, scheduling=True)
                 _future(payload['run_at'])
+                if _operation_guard is not None: _operation_guard.fence(conn, row)
                 resume_attempted = True
                 result = _result(ctx.dispatch_tool('cronjob_manage', {'action': 'resume', 'job_id': job_id}, **tool_context))
                 self._observe_bound(conn, row, result.get('job'), result, source='resume_response')
@@ -475,14 +504,21 @@ class NativeWorkStore:
             self._change(conn, row, state=state, reason=reason)
         self._event(conn, row, 'job_observed', evidence)
 
-    def reconcile(self, ctx, assignment_id, **tool_context):
+    def reconcile(self, ctx, assignment_id, *, _operation_guard=None, **tool_context):
         """Observe only. Never recreate, adopt a name match, resume, or infer completion."""
         self._host(ctx, scheduling=True)
+        if _operation_guard is not None:
+            with self.crm.engine.begin() as conn:
+                row = self._row(conn, assignment_id)
+                _operation_guard.claim(conn, row)
+                count = conn.execute(update(assignments).where(assignments.c.id == assignment_id,
+                    assignments.c.version == row['version']).values(version=assignments.c.version)).rowcount
+                if count != 1: raise CRMError('Concurrent assignment observation claim', 409)
         initial = self.get(assignment_id)  # Reject foreign IDs before dispatching anything.
         if initial['state'] == 'pending': return initial  # No host operation has ever been attempted.
         try:
-            response = _result(ctx.dispatch_tool('cronjob_manage',
-                {'action': 'list', 'include_disabled': True}, **tool_context))
+            response = _result(self._command_dispatch(ctx,
+                {'action': 'list', 'include_disabled': True}, tool_context, assignment_id, _operation_guard))
             self._host(ctx, scheduling=True)
             if response.get('success') is not True or not isinstance(response.get('jobs'), list): raise ValueError()
         except Exception:
@@ -506,12 +542,13 @@ class NativeWorkStore:
                         'candidate_count': len(candidates), 'retry_create': False, 'auto_adopted': False})
         return self.get(assignment_id)
 
-    def invalidate(self, assignment_id, *, version, reason='cancelled'):
+    def invalidate(self, assignment_id, *, version, reason='cancelled', _operation_guard=None):
         """Local receipt/scheduling fence only; does NOT cancel a host job or live run."""
         if reason not in INVALID: raise CRMError('Invalid invalidation reason')
         if type(version) is not int: raise CRMError('Version must be an integer', 409)
         with self.crm.engine.begin() as conn:
             row = self._row(conn, assignment_id)
+            if _operation_guard is not None: _operation_guard.claim(conn, row)
             if row['version'] != version: raise CRMError('Stale assignment version', 409)
             if row['state'] in INVALID: return self.get(assignment_id)
             self._change(conn, row, state=reason, reason='local_only_host_cancellation_unverified',
@@ -519,7 +556,7 @@ class NativeWorkStore:
             self._event(conn, row, 'intent_invalidated', {'reason': reason, 'host_cancelled': False})
         return self.get(assignment_id)
 
-    def cancel(self, ctx, assignment_id, *, version, **tool_context):
+    def cancel(self, ctx, assignment_id, *, version, _operation_guard=None, **tool_context):
         """Invalidate locally, then pause this exact host job's future schedule.
 
         Pausing does not stop an already running execution. No job is deleted.
@@ -527,18 +564,19 @@ class NativeWorkStore:
         version and a new public list observation of the same bound job.
         """
         self._host(ctx, scheduling=True)
-        saved = self.invalidate(assignment_id, version=version)
+        saved = self.invalidate(assignment_id, version=version, _operation_guard=_operation_guard)
         if not saved['job_id']: return saved
         try:
-            response = _result(ctx.dispatch_tool('cronjob_manage',
-                {'action': 'list', 'include_disabled': True}, **tool_context))
+            response = _result(self._command_dispatch(ctx,
+                {'action': 'list', 'include_disabled': True}, tool_context, assignment_id, _operation_guard))
             matches = [j for j in response.get('jobs', []) if isinstance(j, dict)
                        and j.get('job_id') == saved['job_id'] and j.get('name') == saved['job_name']]
             if response.get('success') is not True or len(matches) != 1:
                 raise ValueError()
             self._host(ctx, scheduling=True)
-            result = _result(ctx.dispatch_tool('cronjob_manage', {'action': 'pause',
-                'job_id': saved['job_id'], 'reason': 'CRM assignment cancelled; pause future schedule'}, **tool_context))
+            result = _result(self._command_dispatch(ctx, {'action': 'pause',
+                'job_id': saved['job_id'], 'reason': 'CRM assignment cancelled; pause future schedule'},
+                tool_context, assignment_id, _operation_guard))
             job = result.get('job')
             verified = result.get('success') is True and isinstance(job, dict) \
                 and job.get('job_id') == saved['job_id'] and job.get('name') == saved['job_name'] \

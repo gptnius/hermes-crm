@@ -69,6 +69,8 @@ export function initializeLifetime(ctx) {
     assignmentSaves: new Map(),
     assignmentReceipts: new Map(),
     assignmentSaveGeneration: sdk.atom(0),
+    operationDrafts: new Map(),
+    operationAttempts: new Set(),
   };
   const stops = [];
   const bump = () => {
@@ -701,6 +703,345 @@ export function SaveAssignment({ ctx, identity, client, task, workspaceToken, wo
       !entry && button(busy ? "Checking source task…" : "Review assignment", review, { disabled: disabled || busy }),
       frozen && !work && button(entry ? "Retry same save" : "Save assignment", save, { disabled: disabled || busy || Boolean(entry?.active) })),
     status && h("p", { role: "status", className: "hc-notice" }, status));
+}
+
+// Explicit authenticated USER commands. These are CRM confirmations, not model
+// tool approvals. No native question, prompt, composer, transcript or session write.
+const WORK_OPERATION_STATES = new Set(['prepared', 'dispatching', 'finished', 'stale', 'expired', 'unknown', 'withdrawn']);
+const operationUUID = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value);
+const frozenCopy = value => {
+  const copy = JSON.parse(JSON.stringify(value));
+  const freeze = v => { if (v && typeof v === 'object') { Object.values(v).forEach(freeze); Object.freeze(v); } return v; };
+  return freeze(copy);
+};
+const canonicalOperation = value => JSON.stringify(value, (_key, v) => v && typeof v === 'object' && !Array.isArray(v)
+  ? Object.fromEntries(Object.keys(v).sort().map(key => [key, v[key]])) : v);
+const operationIdentity = row => canonicalOperation([row.schema_version, row.id, row.workspace_token, row.profile, row.command_name, row.idempotency_key,
+  row.verb, row.task_id, row.assignment_id, row.expected_assignment_version, row.intended_session_id, row.expires_at, row.snapshot]);
+export function workCommandCapabilities(hostAPI = host) {
+  return ['profileRoutes', 'requestProfile', 'retainProfile'].filter(name => typeof hostAPI?.[name] !== 'function');
+}
+export function validateWorkOperation(row, { workspaceToken, workspaceProfile, taskId, workCommandName }, prior = null) {
+  if (!row || row.schema_version !== 1 || !operationUUID(row.id) || !positiveVersion(row.version) || !WORK_OPERATION_STATES.has(row.state) ||
+      row.task_id !== taskId || !['schedule', 'check', 'cancel'].includes(row.verb) || !/^crm-assignment-[0-9a-f]{32}$/.test(workCommandName || '') || row.command_name !== workCommandName || row.workspace_token !== workspaceToken || row.profile !== workspaceProfile ||
+      typeof row.idempotency_key !== 'string' || !row.idempotency_key || !positiveVersion(row.expected_assignment_version) ||
+      typeof row.intended_session_id !== 'string' || !row.intended_session_id || !Number.isFinite(Date.parse(row.expires_at)) ||
+      row.snapshot?.assignment?.id !== row.assignment_id || row.snapshot.assignment.version !== row.expected_assignment_version ||
+      !positiveVersion(row.snapshot.assignment.generation) || typeof row.snapshot.assignment.digest !== 'string' ||
+      row.snapshot.task?.id !== taskId || !positiveVersion(row.snapshot.task.version) ||
+      row.snapshot.assignment.payload?.task_id !== taskId || !positiveVersion(row.snapshot.assignment.payload.task_version) ||
+      row.snapshot.assignment.payload.profile !== workspaceProfile || row.snapshot.assignment.payload.workspace !== workspaceToken)
+    throw new Error('The backend did not return a matching scoped operation. Read saved status before continuing.');
+  if (prior && (operationIdentity(row) !== operationIdentity(prior) || row.version < prior.version))
+    throw new Error('The prepared operation changed. Read saved status; do not repeat the command.');
+  return frozenCopy(row);
+}
+export function validateWorkCommandCatalog(catalog, name) {
+  const key = `/${name}`, matches = value => typeof value === 'string' && value.toLowerCase() === key;
+  const pairList = rows => Array.isArray(rows) && rows.every(pair => Array.isArray(pair) && pair.length === 2 && pair.every(value => typeof value === 'string'));
+  if (!/^crm-assignment-[0-9a-f]{32}$/.test(name || '') || !catalog || catalog.warning !== '' || catalog.plugin_discovery_error !== '' || !pairList(catalog.pairs) || !Array.isArray(catalog.categories) || !catalog.categories.every(category => typeof category?.name === 'string' && pairList(category.pairs)) ||
+      !catalog.plugin_commands || !Object.hasOwn(catalog.plugin_commands, name) || typeof catalog.plugin_commands[name] !== 'string' ||
+      catalog.canon?.[key] !== key || catalog.commands?.[key]?.argument_mode !== 'text' || catalog.commands[key].desktop !== null ||
+      !catalog.skills || Object.keys(catalog.skills).some(matches)) throw new Error('Native command discovery is incomplete or does not identify this workspace’s plugin command. No command was sent.');
+  const pairs = catalog.pairs.filter(pair => Array.isArray(pair) && matches(pair[0]));
+  const categories = catalog.categories.flatMap(category => Array.isArray(category?.pairs)
+    ? category.pairs.filter(pair => Array.isArray(pair) && matches(pair[0])).map(pair => ({ category: category.name, key: pair[0] })) : []);
+  if (pairs.length !== 1 || pairs[0][0] !== key || categories.length !== 1 || categories[0].category !== 'Plugin commands' || categories[0].key !== key)
+    throw new Error('The workspace command is missing or collides with a user, built-in or skill command. No command was sent.');
+}
+export function createWorkCommandController({ client, binding, workspaceToken, workspaceProfile, taskId, workCommandName, isCurrent,
+  attempts = new Set(), hostAPI = host, onPrepareAttempt = () => {} }) {
+  const scope = { workspaceToken, workspaceProfile, taskId, workCommandName };
+  if (typeof binding?.current !== 'function' || ['sessionId', 'connection', 'profile'].some(key => typeof binding[key] !== 'string' || !binding[key]))
+    throw new Error('A verified native conversation binding is required.');
+  const bindingCurrent = binding.current.bind(binding);
+  const capturedBinding = Object.freeze(Object.fromEntries(['sessionId', 'connection', 'profile'].map(key => [key, binding[key]])));
+  const guard = () => {
+    if (!client.current() || !isCurrent() || !bindingCurrent()) throw new Error('The task, native chat, connection or profile changed. No later command will be sent from this panel. Read saved operation status.');
+  };
+  const after = async fn => { guard(); const value = await fn(); guard(); return value; };
+  const read = async id => {
+    if (!operationUUID(id)) throw new Error('Invalid operation ID.');
+    return validateWorkOperation(await after(() => client.request(`/work-operations/${id}?${new URLSearchParams({ workspace_token: workspaceToken })}`)), scope);
+  };
+  async function registry(route) {
+    if (!/^crm-assignment-[0-9a-f]{32}$/.test(workCommandName || '')) throw new Error('The backend did not advertise a supported workspace-specific command. No command was sent.');
+    const catalog = await after(() => hostAPI.requestProfile(route, 'commands.catalog', { session_id: capturedBinding.sessionId, profile: route.targetProfile }));
+    validateWorkCommandCatalog(catalog, workCommandName);
+  }
+  async function target(expected = null) {
+    guard();
+    if (workCommandCapabilities(hostAPI).length) throw new Error('This Desktop SDK cannot safely send scoped CRM commands. Save and local status reads remain available.');
+    const routes = await after(() => hostAPI.profileRoutes());
+    const candidates = Array.isArray(routes) ? routes.filter(r => r?.connectionId === capturedBinding.connection && r.profile === capturedBinding.profile &&
+      r.targetProfile === workspaceProfile && ['local', 'remote'].includes(r.mode)) : [];
+    if (candidates.length !== 1) throw new Error('The exact native profile route is unavailable or ambiguous. No command was sent.');
+    const route = frozenCopy(Object.fromEntries(['connectionId', 'profile', 'targetProfile', 'mode'].map(key => [key, candidates[0][key]])));
+    const runtime = await after(() => hostAPI.requestProfile(route, 'runtime.describe', {}));
+    if (!runtime || typeof runtime.instance_id !== 'string' || !runtime.instance_id || typeof runtime.profile_id !== 'string' || !runtime.profile_id ||
+        !Number.isSafeInteger(runtime.authority_epoch) || runtime.authority_epoch < 0) throw new Error('The native runtime identity is unavailable. No command was sent.');
+    const info = await after(() => hostAPI.requestProfile(route, 'session.info', { session_id: capturedBinding.sessionId, profile: route.targetProfile }));
+    if (info?.source !== 'gui' || info.desktop_protocol !== 'hermes-gateway-v1' || info.profile_id !== runtime.profile_id || info.profile_name !== workspaceProfile)
+      throw new Error('This is not the matching existing native Desktop conversation. No command was sent.');
+    await registry(route);
+    const captured = frozenCopy({ route, sessionId: capturedBinding.sessionId, instanceId: runtime.instance_id,
+      profileId: runtime.profile_id, authorityEpoch: runtime.authority_epoch });
+    if (expected && canonicalOperation(captured) !== canonicalOperation(expected)) throw new Error('The native runtime changed after review. Read status and withdraw the old preparation before preparing again.');
+    return captured;
+  }
+  return {
+    async prepare(body) {
+      const selected = frozenCopy(body);
+      if (selected.intended_session_id && selected.intended_session_id !== capturedBinding.sessionId)
+        throw new Error('Return to the original intended native conversation before retrying this preparation.');
+      const request = frozenCopy({ ...selected, intended_session_id: capturedBinding.sessionId, workspace_token: workspaceToken });
+      const captured = await target();
+      const row = validateWorkOperation(await after(() => {
+        // Monotonic uncertainty begins BEFORE invoking REST, even if it throws.
+        onPrepareAttempt();
+        return client.request('/work-operations', { method: 'POST', body: request });
+      }), scope);
+      if (row.verb !== selected.verb || row.assignment_id !== selected.assignment_id || row.expected_assignment_version !== selected.expected_assignment_version ||
+          row.idempotency_key !== selected.idempotency_key || row.intended_session_id !== capturedBinding.sessionId)
+        throw new Error('Preparation response did not match the reviewed request. Read saved operation status.');
+      return { row, target: captured };
+    },
+    async confirm(prepared) {
+      const capturedTarget = frozenCopy(prepared.target);
+      const reviewed = validateWorkOperation(prepared.row, scope);
+      guard();
+      if (attempts.has(reviewed.id) || reviewed.state !== 'prepared' || reviewed.deadline_elapsed || Date.parse(reviewed.expires_at) <= Date.now())
+        throw new Error('This operation cannot be submitted again. Read saved status; withdraw an unclaimed preparation before starting another.');
+      // The one-use latch precedes the first await. No thrown error or late
+      // callback restores it. Reopened history is always recovery-only.
+      attempts.add(reviewed.id);
+      let release;
+      try {
+        release = await hostAPI.retainProfile(capturedTarget.route, { spawnPriority: 'foreground' });
+        if (typeof release !== 'function') throw new Error('Native route retention is unavailable.');
+        guard();
+        await target(capturedTarget);
+        const latest = validateWorkOperation(await read(reviewed.id), scope, reviewed);
+        if (latest.state !== 'prepared' || latest.version !== reviewed.version || latest.deadline_elapsed || Date.parse(latest.expires_at) <= Date.now())
+          throw new Error('This operation is no longer the fresh reviewed preparation. Read saved status.');
+        await registry(capturedTarget.route);
+        guard();
+        const reply = await after(() => hostAPI.requestProfile(capturedTarget.route, 'command.dispatch', {
+          session_id: capturedBinding.sessionId, profile: capturedTarget.route.targetProfile, name: workCommandName, arg: reviewed.id,
+        }, 30000));
+        if (reply?.type !== 'exec' || typeof reply.output !== 'string') throw new Error('Native command result was not confirmed. Read saved status without resending.');
+        let result;
+        try { result = JSON.parse(reply.output); } catch { throw new Error('Native command result was not confirmed. Read saved status without resending.'); }
+        if (result?.schema_version !== 1 || result.ok !== true) throw new Error('The native command did not confirm its result. Read saved status; do not resend.');
+        const commandResult = validateWorkOperation(result.operation, scope, reviewed);
+        const row = validateWorkOperation(await read(reviewed.id), scope, commandResult);
+        return { row, commandResult };
+      } finally { if (typeof release === 'function') { try { release(); } catch {} } }
+    },
+  };
+}
+
+const operationFinished = row => row && (['finished', 'stale', 'expired', 'withdrawn'].includes(row.state) ||
+  (row.state === 'unknown' && row.mutation_slot_held === false && (row.verb === 'check' || (row.result && row.result.state !== 'pending'))));
+function operationPreview(row) {
+  const a = row.snapshot.assignment, t = row.snapshot.task, p = a.payload;
+  return JSON.stringify({ action: row.verb, profile: row.profile, intended_native_conversation: row.intended_session_id,
+    operation_id: row.id, native_command_name: row.command_name, operation_version: row.version, request_key: row.idempotency_key, confirm_before: row.expires_at,
+    assignment_id: a.id, assignment_version: a.version, assignment_generation: a.generation, assignment_digest: a.digest,
+    saved_state: a.state, native_job_id: a.job_id, task_id: t.id, task_title: t.title, task_version: t.version, task_status: t.status,
+    business_due_at: t.due_at, frozen_task_version: p.task_version, requested_run_at: p.run_at,
+    human_owner: p.human_owner, instructions: p.prompt, success_criteria: p.success_criteria,
+    scheduled_toolsets: p.enabled_toolsets, execution_source: p.execution_source }, null, 2);
+}
+function WorkOperationEvidence({ row }) {
+  const result = row.result;
+  return h('div', null,
+    h('p', null, `Operation ${row.id} · ${label(row.verb)} · ${label(row.state)} · Version ${row.version} · ${label(row.reason)}`),
+    h('p', null, `Profile ${row.profile} · Intended native conversation ${row.intended_session_id} · Actual command conversation ${row.actual_session_id || 'not recorded'}`),
+    h('p', null, `Confirmation deadline ${exactTime(row.expires_at)}${row.deadline_elapsed ? ' · elapsed' : ''}. Stored operation state is separate from scheduler state.`),
+    ['prepared', 'dispatching', 'unknown'].includes(row.state) && h('p', { className: 'hc-notice' }, row.state === 'prepared'
+      ? 'Prepared is not proof a command was never sent. If a previous reply was lost, the command may still arrive. Do not resend it; read status or withdraw while it remains unclaimed.'
+      : 'The operation is in progress or its outcome is unknown. Read local status or explicitly check native status. Do not repeat scheduling or assume it failed.'),
+    result && h('p', null, `Recorded assignment result: ${result.id} · Version ${result.version} · ${label(result.state)} · ${label(result.reason)} · Native job ${result.job_id || 'not bound'}. ${(result.reports || []).length} authenticated reports recorded; reports await human review.`),
+    row.state === 'finished' && h('p', null, 'The command returned its recorded result. This does not prove an agent executed, a model was available, or the business task was completed.'));
+}
+function WorkOperationPanel({ entry, fresh, busy, notice, confirm, retryPreparation, readStatus, withdraw, close }) {
+  const heading = useRef(null);
+  useEffect(() => { heading.current?.focus(); }, []);
+  const row = entry.row;
+  return h('section', { className: 'hc-card hc-request', 'aria-label': 'CRM-confirmed assignment operation' },
+    h('div', { className: 'hc-row' }, h('h3', { ref: heading, tabIndex: -1 }, 'CRM-confirmed assignment operation'), button('Close operation review', close)),
+    h('p', { className: 'hc-notice' }, 'This is an explicit CRM user command, not native/model approval. No chat prompt is sent. Scheduling creates a one-shot internal-analysis job through the current native session. Analysis uses this profile’s configured model provider, which may receive CRM data. Output is delivered locally; local delivery does not mean local-only data processing. A running gateway and working model configuration are required.'),
+    entry.body && h('p', { className: 'hc-record-meta' }, `Preparation request key: ${entry.body.idempotency_key} · Assignment ${entry.body.assignment_id} · Version ${entry.body.expected_assignment_version} · Intended conversation ${entry.body.intended_session_id}`),
+    row ? h('div', null,
+      h(WorkOperationEvidence, { row }),
+      h('label', null, 'Server-derived operation preview', h('textarea', { 'aria-label': 'Server-derived operation preview', readOnly: true, value: operationPreview(row), rows: 22, spellCheck: false })),
+      h('p', null, row.verb === 'cancel' ? 'Cancellation invalidates local intent and requests pausing the exact future job. It does not stop an agent already running or undo earlier effects.'
+        : row.verb === 'schedule' ? 'Scope: existing CRM reads and authenticated reports only, local delivery. No web research, messaging, business-record changes or automatic task completion. Saving or registering a job is not execution.'
+          : 'Native status check observes the existing job only. It does not create, resume, replace or retry a schedule.'),
+      h('div', { className: 'hc-actions' },
+        fresh && row.state === 'prepared' && !row.deadline_elapsed && button(row.verb === 'schedule' ? 'Confirm schedule in CRM' : row.verb === 'cancel' ? 'Confirm cancellation in CRM' : 'Check native status', confirm, { disabled: busy }),
+        button('Read local operation status', readStatus, { disabled: busy }),
+        row.state === 'prepared' && button('Withdraw unclaimed operation', withdraw, { disabled: busy })),
+      h('p', { className: 'hc-muted' }, 'Closing, navigating or losing the connection does not cancel a sent command. Withdraw is only a local fence if the operation is still unclaimed; it does not cancel an existing assignment or running agent. Recovered history never resends a command.'))
+      : h('div', null, h('p', { role: 'status' }, busy ? 'Preparing the exact server preview… No command has been sent.' : entry.preparationAttempted === false
+        ? 'Preparation stopped before any save request was attempted. Correct the host issue, then explicitly retry this same frozen request and key. This retry only prepares a review; it does not send a native command.'
+        : 'Preparation was not confirmed. Keep this request key and read the operation history; do not create a replacement blindly.'),
+        entry.preparationAttempted === false && !busy && button('Retry same preparation', retryPreparation)),
+    notice && h('p', { role: 'status', className: 'hc-notice' }, notice));
+}
+export function WorkOperationHistory({ client, workspaceToken, workspaceProfile, taskId, workCommandName, generation, onSelect, disabled }) {
+  const [offset, setOffset] = useState(0), [reload, setReload] = useState(0), [page, setPage] = useState(null), [failure, setFailure] = useState(false);
+  const ticket = useRef(0), scope = JSON.stringify([workspaceToken, workspaceProfile, taskId, workCommandName, offset]);
+  const currentPage = page?.scope === scope && page.client === client ? page : null;
+  useEffect(() => {
+    let live = true; const serial = ++ticket.current; setFailure(false);
+    client.request(`/work-operations?${new URLSearchParams({ workspace_token: workspaceToken, task_id: taskId, limit: '25', offset: String(offset) })}`)
+      .then(value => {
+        if (!Array.isArray(value?.items) || !Number.isSafeInteger(value.total) || value.total < 0 || value.offset !== offset || value.limit !== 25 || value.task_id !== taskId || !Number.isFinite(Date.parse(value.observed_at)) || value.items.length > 25 || value.workspace_token !== workspaceToken || value.profile !== workspaceProfile)
+          throw new Error('Unverified operation history');
+        const items = value.items.map(row => validateWorkOperation(row, { workspaceToken, workspaceProfile, taskId, workCommandName }));
+        if (live && client.current() && serial === ticket.current) setPage({ scope, client, ...value, items });
+      }).catch(() => { if (live && client.current() && serial === ticket.current) setFailure(true); });
+    return () => { live = false; };
+  }, [client, scope, reload, generation]);
+  function change(fn) { ticket.current++; fn(); }
+  return h('section', { className: 'hc-card', 'aria-label': 'CRM command operation history' },
+    h('div', { className: 'hc-row' }, h('h3', null, 'CRM command operation history'), button('Refresh local operation history', () => change(() => setReload(v => v + 1)))),
+    h('p', { className: 'hc-muted' }, 'Durable local evidence only. Refresh does not query the native scheduler or send a command. Unresolved operations remain visible across pages.'),
+    failure && h('p', { role: 'status' }, 'Operation history could not be refreshed. This is not proof that no operation exists. Any displayed rows are earlier observations.'),
+    currentPage && h('div', null,
+      h('p', null, `${currentPage.total} operations · ${currentPage.items.length ? offset + 1 : 0}–${offset + currentPage.items.length} shown · Read at ${exactTime(currentPage.observed_at)}`),
+      currentPage.items.map(row => h('details', { key: row.id, className: 'hc-work-item' },
+        h('summary', null, `${label(row.verb)} · ${label(row.state)} · ${row.id}`), h(WorkOperationEvidence, { row }),
+        button('Open operation recovery', () => { if (!disabled && client.current()) onSelect(row); }, { disabled }))),
+      h('div', { className: 'hc-actions' }, button('Previous operations', () => change(() => setOffset(v => Math.max(0, v - 25))), { disabled: offset === 0 }),
+        button('Next operations', () => change(() => setOffset(v => v + 25)), { disabled: offset + currentPage.items.length >= currentPage.total }))));
+}
+function captureWorkCommandBinding(ctx, identity) {
+  const chat = captureChatBinding(ctx, identity), lifetime = lifetimes.get(ctx);
+  const panes = ['workspace', `plugin-workspace:hermes-crm:chat:${lifetime.id}`].map(id => host.paneVisibility(id));
+  if (panes.some(pane => typeof pane?.get !== 'function' || typeof pane?.listen !== 'function' || pane.get() !== true))
+    throw new Error('This Desktop build cannot verify that the main chat and CRM companion stay visible. Use the manual Copy workflow.');
+  let live = true, valid = true;
+  let previous = JSON.stringify(panes.map(pane => pane.get()));
+  const stops = [];
+  try {
+    for (const pane of panes) stops.push(pane.listen(() => {
+      const next = JSON.stringify(panes.map(value => value.get()));
+      if (next !== previous) valid = false;
+      previous = next;
+    }));
+  } catch (error) { for (const stop of stops) stop(); throw error; }
+  return { ...chat, current: () => live && valid && chat.current() && panes.every(pane => pane.get() === true),
+    dispose() { if (!live) return; live = false; for (const stop of stops) stop(); } };
+}
+function useWorkCommands({ ctx, identity, client, task, workspaceToken, workspaceProfile, workCommandName, disabled, viewRequest, companion, openNativeChat, onChange, taskHeadingRef }) {
+  const lifetime = lifetimes.get(ctx), mounted = useRef(false), serial = useRef(0), lock = useRef(false), latest = useRef(null), returnFocus = useRef(null), restoreFocus = useRef(false), bindings = useRef(new Set());
+  const [panel, setPanel] = useState(null), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [generation, setGeneration] = useState(0);
+  const revision = viewRequest.current;
+  const [connection, displayProfile] = JSON.parse(identity);
+  latest.current = { task, workspaceToken, workspaceProfile, workCommandName, disabled, revision };
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; serial.current++; for (const binding of bindings.current) binding.dispose(); bindings.current.clear(); }; }, []);
+  const current = () => mounted.current && !disabled && !latest.current.disabled && client.current() && latest.current.task === task &&
+    latest.current.workspaceToken === workspaceToken && latest.current.workspaceProfile === workspaceProfile && latest.current.workCommandName === workCommandName && revision === viewRequest.current;
+  useEffect(() => {
+    if (!panel && restoreFocus.current) {
+      restoreFocus.current = false;
+      if (current()) { const node = returnFocus.current?.isConnected ? returnFocus.current : taskHeadingRef?.current; node?.focus(); }
+    }
+  }, [panel]);
+  function changed() { setGeneration(v => v + 1); onChange(); }
+  function controller(binding, tick, entry = null) { return createWorkCommandController({ client, binding, workspaceToken, workspaceProfile, taskId: task.id, workCommandName,
+    isCurrent: () => current() && serial.current === tick, attempts: lifetime.operationAttempts,
+    onPrepareAttempt: () => { if (entry) entry.preparationAttempted = true; } }); }
+  function close() {
+    serial.current++; panel?.binding?.dispose(); if (panel?.binding) bindings.current.delete(panel.binding); restoreFocus.current = true; setPanel(null); setNotice('');
+  }
+  async function start(verb, work, event) {
+    if (!current() || lock.current || panel) return;
+    if (!companion) { if (openNativeChat()) setNotice('Choose this CRM operation beside the matching native chat. Nothing has been prepared or sent.'); return; }
+    if (workCommandCapabilities().length) { setNotice('This Desktop SDK lacks scoped native commands. Save and read local history, or use the existing Copy request workflow.'); return; }
+    let binding;
+    try { binding = captureWorkCommandBinding(ctx, identity); bindings.current.add(binding); if (host.state.focusedSessionId.get() !== binding.sessionId) throw new Error("This host does not expose the exact canonical main native session. Use the manual Copy workflow."); } catch (error) { binding?.dispose(); if (binding) bindings.current.delete(binding); setNotice(error.message); return; }
+    returnFocus.current = event?.currentTarget || null;
+    const key = JSON.stringify([connection, displayProfile, workspaceToken, workspaceProfile, task.id, work.id, verb]);
+    let entry = lifetime.operationDrafts.get(key);
+    if (entry && !operationFinished(entry.row)) { setPanel({ entry, fresh: false, binding, key }); setNotice('Recover this existing preparation before starting another. This panel will not repeat a command.'); return; }
+    entry = { scope: { connection, displayProfile, workspaceToken, workspaceProfile, taskId: task.id }, body: frozenCopy({ verb, assignment_id: work.id, expected_assignment_version: work.version, intended_session_id: binding.sessionId, idempotency_key: crypto.randomUUID() }), preparationAttempted: false, row: null, target: null };
+    lifetime.operationDrafts.set(key, entry);
+    await prepareEntry(entry, binding, key, verb === 'check');
+  }
+  async function retryPreparation() {
+    if (!current() || lock.current || !panel || panel.entry.row || panel.entry.preparationAttempted !== false) return;
+    let binding;
+    try {
+      binding = captureWorkCommandBinding(ctx, identity);
+      if (host.state.focusedSessionId.get() !== binding.sessionId || binding.sessionId !== panel.entry.body.intended_session_id)
+        throw new Error('Return to the original intended main native conversation before retrying this preparation.');
+      bindings.current.add(binding);
+    } catch (error) { binding?.dispose(); setNotice(error.message); return; }
+    panel.binding?.dispose(); if (panel.binding) bindings.current.delete(panel.binding);
+    await prepareEntry(panel.entry, binding, panel.key, false);
+  }
+  async function prepareEntry(entry, binding, key, runCheck) {
+    lock.current = true; setBusy(true); setNotice(''); setPanel({ entry, fresh: false, binding, key });
+    const tick = ++serial.current;
+    try {
+      const prepared = await controller(binding, tick, entry).prepare(entry.body);
+      // The scoped journal survives a closed panel; late results are never
+      // allowed to restore its one-view confirmation affordance.
+      entry.row = prepared.row; entry.target = prepared.target;
+      if (runCheck) {
+        const result = await controller(binding, tick).confirm(prepared); entry.row = result.row;
+        if (current() && tick === serial.current && binding.current()) { setPanel({ entry, fresh: false, binding, key }); setNotice('Native status check returned. Showing durable observations; no scheduling or replacement was requested.'); changed(); }
+      } else if (current() && tick === serial.current && binding.current()) { setPanel({ entry, fresh: true, binding, key }); changed(); }
+    } catch { if (current() && tick === serial.current) setNotice(entry.row && lifetime.operationAttempts.has(entry.row.id) ? 'Native status check outcome was not confirmed. Read local operation status; do not resend the command.' : entry.preparationAttempted === false ? 'Native preflight stopped before saving. Check the matching chat, profile route and command discovery, then use Retry same preparation.' : 'Preparation was not confirmed. Read local operation history using this request key; do not create a replacement.'); }
+    finally { lock.current = false; if (mounted.current) setBusy(false); }
+  }
+  async function confirm() {
+    if (!current() || lock.current || !panel?.fresh || !panel.entry.row) return;
+    if (!panel.binding.current()) { setPanel({ ...panel, fresh: false }); setNotice('The native chat or pane visibility changed. This review cannot send a command; read status or withdraw the unclaimed preparation.'); return; }
+    const captured = panel, tick = ++serial.current;
+    lock.current = true; setBusy(true); setPanel({ ...captured, fresh: false }); setNotice('Sending this explicit CRM command once. A timeout or closing the review does not cancel it.');
+    try {
+      const result = await controller(captured.binding, tick).confirm({ row: captured.entry.row, target: captured.entry.target });
+      captured.entry.row = result.row;
+      if (current() && tick === serial.current && captured.binding.current()) { setPanel({ ...captured, fresh: false }); setNotice('Native command returned; showing the durable operation result below. Agent execution and task completion are separate.'); changed(); }
+    } catch { if (current() && tick === serial.current) setNotice('Command outcome was not confirmed. Do not resend. Read local operation status; a still-prepared row may be a delayed command, not proof it was never sent.'); }
+    finally { lock.current = false; if (mounted.current) setBusy(false); }
+  }
+  function remember(row) {
+    for (const remembered of lifetime.operationDrafts.values()) {
+      const scoped = remembered.scope?.connection === connection && remembered.scope?.displayProfile === displayProfile && remembered.scope?.workspaceToken === workspaceToken && remembered.scope?.workspaceProfile === workspaceProfile && remembered.scope?.taskId === task.id;
+      if (scoped && remembered.body?.idempotency_key === row.idempotency_key && remembered.body.assignment_id === row.assignment_id && remembered.body.verb === row.verb) remembered.row = row;
+    }
+  }
+  function recover(row, event) {
+    if (!current() || lock.current || panel) return;
+    remember(row);
+    returnFocus.current = event?.currentTarget || null; serial.current++;
+    setPanel({ entry: { row, body: null, target: null }, fresh: false, binding: null }); setNotice('Recovery is read-only unless you explicitly withdraw a still-unclaimed preparation. No command will be repeated.');
+  }
+  async function localAction(withdraw = false) {
+    if (!current() || lock.current || !panel?.entry.row) return;
+    const captured = panel, original = captured.entry.row, tick = ++serial.current;
+    if (withdraw && original.state !== 'prepared') return;
+    lock.current = true; setBusy(true); setPanel({ ...captured, fresh: false }); setNotice('');
+    try {
+      const path = `/work-operations/${original.id}`;
+      const value = await client.request(withdraw ? `${path}/withdraw` : `${path}?${new URLSearchParams({ workspace_token: workspaceToken })}`,
+        withdraw ? { method: 'POST', body: { workspace_token: workspaceToken } } : undefined);
+      const row = validateWorkOperation(value, { workspaceToken, workspaceProfile, taskId: task.id, workCommandName }, original);
+      captured.entry.row = row;
+      remember(row);
+      if (current() && tick === serial.current) { setPanel({ ...captured, fresh: false }); setNotice(withdraw ? 'Read the recorded withdrawal result. No existing schedule or running agent was cancelled by this local action.' : 'Read local operation state only; the scheduler was not queried.'); changed(); }
+    } catch { if (current() && tick === serial.current) setNotice('Local operation status was not confirmed. Keep the exact operation ID and read status before any further action.'); }
+    finally { lock.current = false; if (mounted.current) setBusy(false); }
+  }
+  return { start, recover, active: Boolean(panel), busy, notice, generation,
+    panel: panel && h(WorkOperationPanel, { entry: panel.entry, fresh: panel.fresh, busy: busy || disabled, notice,
+      confirm, retryPreparation, readStatus: () => localAction(false), withdraw: () => localAction(true), close }) };
 }
 
 function Activity({ rows = [] }) {
@@ -1489,7 +1830,14 @@ export function pauseEvidence(work) {
   return paused ? `Future schedule pause observed at ${exactTime(event.created_at)}. This historical observation is not a live check. An already running agent was not stopped.`
     : `Local assignment invalidated. Future schedule pause is unverified${event ? "; latest applicable evidence at " + exactTime(event.created_at) : ""}; an already running agent was not stopped.`;
 }
-export function AssignedWork({ client, task, workspaceToken, snapshotGeneration, onPrepare, disabled }) {
+function WorkCommandActions({ work, task, onOperation, disabled }) {
+  return h('div', { className: 'hc-actions' },
+    work.state === 'pending' && work.reason === 'not_scheduled' && work.source_task_current === true && task.status === 'open' &&
+      button('Review CRM scheduling', event => onOperation('schedule', work, event), { disabled }),
+    button('Check native status', event => onOperation('check', work, event), { disabled }),
+    button('Review CRM cancellation', event => onOperation('cancel', work, event), { disabled }));
+}
+export function AssignedWork({ client, task, workspaceToken, snapshotGeneration, onPrepare, onOperation, disabled }) {
   const [result, setResult] = useState(null), [failure, setFailure] = useState(null);
   const [reload, setReload] = useState(0), [offset, setOffset] = useState(0), [expanded, setExpanded] = useState({});
   const [revision, setRevision] = useState(0), requestGeneration = useRef(0);
@@ -1550,6 +1898,7 @@ export function AssignedWork({ client, task, workspaceToken, snapshotGeneration,
           h("b", null, event.kind === "job_observed" && event.evidence?.job_id === work.job_id
             ? `Host observed ${label(event.evidence.state || "unknown")} · ${event.evidence.source || "recorded observation"}` : label(event.kind)),
           h("p", { className: "hc-muted" }, exactTime(event.created_at))))),
+        onOperation && h(WorkCommandActions, { work, task, onOperation, disabled }),
         onPrepare && h("div", { className: "hc-actions" },
           work.state === "pending" && work.reason === "not_scheduled" && work.source_task_current === true && task.status === "open" &&
             button("Ask to schedule saved assignment", () => onPrepare("schedule", work), { disabled }),
@@ -1560,7 +1909,7 @@ export function AssignedWork({ client, task, workspaceToken, snapshotGeneration,
         button("Previous assignments", () => changeHistory(() => setOffset(value => Math.max(0, value - 25))), { disabled: offset === 0 || refreshing }),
         button("Next assignments", () => changeHistory(() => setOffset(value => value + 25)), { disabled: offset + history.length >= result.page.total || refreshing }))));
 }
-export function TaskWork({ ctx, identity, client, task, workspaceToken, workspaceProfile, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork, taskHeadingRef }) {
+export function TaskWork({ ctx, identity, client, task, workspaceToken, workspaceProfile, workCommandName, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork, taskHeadingRef }) {
   const lifetime = lifetimes.get(ctx);
   useValue(lifetime.assignmentSaveGeneration);
   const saveScope = assignmentSaveScope(identity, workspaceToken, task.id, workspaceProfile);
@@ -1568,6 +1917,10 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
   const savedWork = savedEntry?.work || lifetime.assignmentReceipts.get(saveScope);
   const [saving, setSaving] = useState(false), [savedGeneration, setSavedGeneration] = useState(0);
   const [prepared, setPrepared] = useState(null), [notice, setNotice] = useState("");
+  const commands = useWorkCommands({ ctx, identity, client, task, workspaceToken, workspaceProfile, workCommandName,
+    disabled: disabled || saving || Boolean(prepared), viewRequest, companion, openNativeChat,
+    onChange: () => setSavedGeneration(value => value + 1), taskHeadingRef });
+  const blocked = disabled || commands.active || commands.busy;
   const prepareLock = useRef(false), selectedRevision = viewRequest.current;
   const rootRef = useRef(null), prepareButton = useRef(null), saveButton = useRef(null), anotherSaveButton = useRef(null);
   const returnFocus = useRef(null), returnAction = useRef("prepare"), hadPrepared = useRef(false);
@@ -1585,7 +1938,7 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
     hadPrepared.current = Boolean(prepared || saving);
   }, [prepared, saving]);
   function prepare(mode = "future", work = null) {
-    if (disabled || saving || prepared || prepareLock.current || selectedRevision !== viewRequest.current || !client.current()) return;
+    if (blocked || saving || prepared || prepareLock.current || selectedRevision !== viewRequest.current || !client.current()) return;
     if (!companion) { if (openNativeChat()) setNotice("Prepare beside native chat: choose this task’s request action in the companion CRM workspace. No request has been created."); return; }
     try {
       const binding = captureChatBinding(ctx, identity);
@@ -1597,20 +1950,22 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
   }
   return h("div", { className: "hc-stack", ref: rootRef },
     !prepared && !saving && (task.status === "open" || savedEntry) && button(savedEntry ? savedEntry.work ? "Review saved assignment" : "Recover unconfirmed save" : "Save future assignment", event => {
-      if (!disabled && !prepareLock.current && selectedRevision === viewRequest.current && client.current()) {
+      if (!blocked && !prepareLock.current && selectedRevision === viewRequest.current && client.current()) {
         returnAction.current = "save"; returnFocus.current = event?.currentTarget || saveButton.current; setSaving(true);
       }
-    }, { disabled, ref: saveButton }),
+    }, { disabled: blocked, ref: saveButton }),
     !prepared && !saving && savedEntry?.work && task.status === "open" && button("Save another future assignment", event => {
-      if (disabled || prepareLock.current || selectedRevision !== viewRequest.current || !client.current() || !lifetime.assignmentSaves.get(saveScope)?.work) return;
+      if (blocked || prepareLock.current || selectedRevision !== viewRequest.current || !client.current() || !lifetime.assignmentSaves.get(saveScope)?.work) return;
       returnAction.current = "another"; returnFocus.current = event?.currentTarget || anotherSaveButton.current;
       lifetime.assignmentSaves.delete(saveScope); publishAssignmentSave(lifetime); setSaving(true);
-    }, { disabled, ref: anotherSaveButton }),
-    task.status === "open" && !prepared && !saving && button("Prepare agent request", () => prepare(), { disabled: disabled || Boolean(savedEntry && !savedEntry.work), ref: prepareButton,
+    }, { disabled: blocked, ref: anotherSaveButton }),
+    task.status === "open" && !prepared && !saving && button("Prepare agent request", () => prepare(), { disabled: blocked || Boolean(savedEntry && !savedEntry.work), ref: prepareButton,
       title: companion ? "Prepare reviewable text for this task" : "Open native chat beside CRM before preparing a request" }),
     !companion && h("p", { className: "hc-muted" }, "Request actions first open native chat beside CRM. Choose the same action in that companion workspace to start preparing; unsaved form fields are never moved."),
     task.status !== "open" && h("p", null, "This business task is done. Existing assignments may still need a check or future-schedule cancellation; new work requires deliberate reopening."),
     notice && h("p", { role: "status", className: "hc-notice" }, notice),
+    !commands.active && commands.notice && h('p', { role: 'status', className: 'hc-notice' }, commands.notice),
+    commands.panel,
     savedEntry && !savedEntry.work && !saving && h("p", { role: "status", className: "hc-notice" }, "A save for this task is unconfirmed. Recover the exact request before preparing another assignment; closing the form did not cancel it."),
     saving && h(SaveAssignment, { ctx, identity, client, task, workspaceToken, workspaceProfile, disabled, viewRequest,
       close: () => setSaving(false), onSaved: () => setSavedGeneration(value => value + 1) }),
@@ -1619,26 +1974,30 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
       h("p", null, `Assignment ${savedWork.id} · Version ${savedWork.version} · Generation ${savedWork.generation} · ${label(savedWork.state)}`),
       h("p", null, `Requested run: ${exactTime(savedWork.payload.run_at)} · Native job ${savedWork.job_id || "not bound"}`),
       h("p", null, "This exact save receipt is independent of the history page. It is not a live scheduler check. Native-chat preparation reads the assignment again before using it."),
+      h(WorkCommandActions, { work: savedWork, task, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
       h("div", { className: "hc-actions" },
         savedWork.state === "pending" && savedWork.reason === "not_scheduled" && savedWork.source_task_current === true && task.status === "open" &&
-          button("Prepare scheduling for saved assignment", () => prepare("schedule", savedWork), { disabled: disabled || saving || Boolean(prepared) }),
-        button("Prepare check for saved assignment", () => prepare("check", savedWork), { disabled: disabled || saving || Boolean(prepared) }),
-        button("Prepare cancellation for saved assignment", () => prepare("cancel", savedWork), { disabled: disabled || saving || Boolean(prepared) }))),
+          button("Prepare scheduling for saved assignment", () => prepare("schedule", savedWork), { disabled: blocked || saving || Boolean(prepared) }),
+        button("Prepare check for saved assignment", () => prepare("check", savedWork), { disabled: blocked || saving || Boolean(prepared) }),
+        button("Prepare cancellation for saved assignment", () => prepare("cancel", savedWork), { disabled: blocked || saving || Boolean(prepared) }))),
     selectedWork && h("section", { className: "hc-notice", "aria-label": "Exact assignment selected from coverage" },
       h("h3", null, "Selected assignment from coverage"),
       h("p", null, `Assignment ${selectedWork.id} · Version ${selectedWork.version} · Generation ${selectedWork.generation} · ${label(selectedWork.state)}`),
       h("p", null, `Requested run: ${exactTime(selectedWork.payload?.run_at)} · Native job ${selectedWork.job_id || "not bound"}`),
       h("p", null, "This exact assignment was read separately; it may not appear on the current history page. Preview will check it again."),
+      h(WorkCommandActions, { work: selectedWork, task, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
       h("div", { className: "hc-actions" },
         selectedWork.state === "pending" && selectedWork.reason === "not_scheduled" && selectedWork.source_task_current === true && task.status === "open" &&
-          button("Prepare scheduling for selected assignment", () => prepare("schedule", selectedWork), { disabled: disabled || saving || Boolean(prepared) }),
-        button("Prepare check for selected assignment", () => prepare("check", selectedWork), { disabled: disabled || saving || Boolean(prepared) }),
-        button("Prepare cancellation for selected assignment", () => prepare("cancel", selectedWork), { disabled: disabled || saving || Boolean(prepared) }))),
+          button("Prepare scheduling for selected assignment", () => prepare("schedule", selectedWork), { disabled: blocked || saving || Boolean(prepared) }),
+        button("Prepare check for selected assignment", () => prepare("check", selectedWork), { disabled: blocked || saving || Boolean(prepared) }),
+        button("Prepare cancellation for selected assignment", () => prepare("cancel", selectedWork), { disabled: blocked || saving || Boolean(prepared) }))),
     prepared && h(AgentRequest, { ctx, identity, client, task, workspaceToken, viewRequest, disabled,
       mode: prepared.mode, work: prepared.work, initialBinding: prepared.binding,
       close: () => { prepareLock.current = false; setPrepared(null); },
       openNativeChat: () => { if (prepared.binding.current()) openNativeChat(); else setNotice("The native conversation changed. Discard this preparation and select the intended main chat before opening it."); } }),
-    h(AssignedWork, { client, task, workspaceToken, snapshotGeneration: `${snapshotGeneration}:${savedGeneration}`, onPrepare: prepare, disabled: disabled || saving || Boolean(prepared) }));
+    h(AssignedWork, { client, task, workspaceToken, snapshotGeneration: `${snapshotGeneration}:${savedGeneration}`, onPrepare: prepare, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
+    h(WorkOperationHistory, { client, workspaceToken, workspaceProfile, taskId: task.id, workCommandName, generation: `${snapshotGeneration}:${commands.generation}`,
+      onSelect: commands.recover, disabled: blocked || saving || Boolean(prepared) }));
 }
 
 const COVERAGE_FILTERS = {
@@ -1753,7 +2112,7 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
           h("p", { className: "hc-muted" }, "CRM record changes only. Sent and received emails are not synced here."),
           h(Timeline, { rows: activity || [] }),
           h("p", { className: "hc-record-meta" }, isContact ? "Up to 100 recent CRM changes for this contact and its linked records." : "Matching changes from the latest 100 workspace activity records.")),
-        !isContact && !isDeal && h(TaskWork, { ctx, identity, client, task: row, workspaceToken: detail.workspaceToken, workspaceProfile: data.meta.profile, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork: detail.assignment, taskHeadingRef: headingRef })),
+        !isContact && !isDeal && h(TaskWork, { ctx, identity, client, task: row, workspaceToken: detail.workspaceToken, workspaceProfile: data.meta.profile, workCommandName: data.meta.work_command_name, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork: detail.assignment, taskHeadingRef: headingRef })),
       h("aside", { className: "hc-stack hc-record-related", "aria-label": "Related records" },
         h(RecordSection, { title: isDeal ? "Linked contact" : "Related deals", action: isContact ? badge(deals.length) : null },
           isDeal ? h(Properties, { rows: [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)]] })

@@ -106,3 +106,28 @@ audit event is a failed overall result even if functional assertions pass.
 Keep generated logs, databases, profiles, and paths private. The synthetic fixture
 produces temporary evidence; it does not publish or upload it. Earlier failed
 experiments must remain distinguishable from final strict passing runs.
+
+## CRM-confirmed command-to-run variant
+
+Use the same pinned runtime, dependency closure, host revision and safety guard
+above. A separate opt-in fixture changes only setup admission: it creates a real
+durable native user session, prepares the exact operation through authenticated
+CRM REST and dispatches its UUID through the registered workspace-specific user
+command. It also cancels the second future assignment through that lane.
+
+```sh
+cd "$CRM"
+HERMES_SOURCE="$HOST" HERMES_NATIVE_E2E=1 HERMES_NATIVE_COMMAND_E2E=1 "$CASE/venv/bin/python" -m pytest -q tests/test_native_work_commands_e2e.py -x --basetemp="$CASE/command-results"
+```
+
+The original guard, actual scheduler/agent/report assertions, fatal bootstrap
+negatives and cleanup requirements remain unchanged. The setup context is an
+authenticated local user command, not an active model turn or model approval
+receipt. Both plugin isolation modes must pass. This verifies the command-to-run
+backend path, not a real native-window click or model reasoning. The original
+fixture still tests the separate agent-tool scheduling path.
+
+The selected, privacy-safe results and exact tested source hashes are in
+`command-result-summary.json`. Its evidence supplements the historical manifest
+and result summary above; it does not replace their original scope. Raw temporary
+homes, logs, sessions, databases, transcripts and tokens are not distributed.

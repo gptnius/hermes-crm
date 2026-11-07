@@ -54,6 +54,7 @@ async function fixture(options = {}) {
       if (path.startsWith('/tasks/t1?')) { if (e.taskError) throw Error('Synthetic task read failure'); return e.taskGate ? e.taskGate.promise : clone(e.task); }
       if (path.startsWith('/work/a1?')) return e.workGate ? e.workGate.promise : clone(e.work);
       if (path.startsWith('/work/saved-work-')) return clone([...e.savedWorks.values()].find(w => path.startsWith(`/work/${w.id}?`)));
+      if (path.startsWith('/work-operations?')) return { items: [], total: 0, limit: 25, offset: Number(params.get('offset')), workspace_token: e.token, profile: 'work', task_id: e.task.id, observed_at: '2026-11-07T13:00:00Z' };
       if (path.startsWith('/reports/work?')) { if (e.historyError) throw Error('Untrusted provider detail must not be shown'); return e.historyPages?.(params) || { items: [clone(e.work)], total: 1, limit: 25, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00+00:00' }; }
       if (path.startsWith('/reports/coverage?')) { if (e.coverageError) throw Error('Private raw provider error'); return e.coveragePages?.(params) || { items: [], total: 0, limit: 50, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00+00:00', workspace_token: e.token }; }
       if (path.startsWith('/tasks?')) return [clone(e.task)];

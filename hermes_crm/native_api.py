@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from .coverage import coverage_report
 from .domain import CRMError, CONTACT_REPORT_FILTERS, LIST_FILTERS, validate_query
 from .native_work import NativeWorkStore
+from .native_work_operations import command_name
 from .runtime import open_profile_crm
 
 router = APIRouter()
@@ -71,13 +72,20 @@ def require_workspace(crm, supplied):
 
 def metadata(crm):
     return dict(crm.info(), workspace_token=crm.workspace_token(),
-                native_desktop=True, scheduler='existing-agent', api_version=1)
+                native_desktop=True, scheduler='existing-agent', api_version=1,
+                work_command_name=command_name(crm.workspace_token(), crm.profile))
 
 
 @router.get('/meta')
 def meta():
     with service() as crm:
         return metadata(crm)
+
+
+# Keep these fixed paths before the generic /{kind} routes. REST only prepares,
+# observes and withdraws local operations; the real native command owns dispatch.
+from .native_work_operations_api import build_router
+router.include_router(build_router(service, require_workspace))
 
 
 @router.get('/snapshot')

@@ -26,7 +26,11 @@ Saved follow-ups also support a reviewed [assignment request workflow](ASSIGNMEN
 
 The separate **Save future assignment** form writes real local intent without an
 open chat. It does not submit a native request or schedule the saved assignment.
-Its confirmed assignment can then be selected for the reviewed chat workflow.
+Its confirmed assignment can then be selected for the reviewed chat workflow or
+for [CRM-confirmed scheduling](CRM_CONFIRMED_OPERATIONS.md). The latter is a
+separate explicit user-command action beside the same verified native conversation,
+not a chat message, composer submission or model approval receipt. It retains
+the source/profile/session guards and does not read or change native drafts.
 
 ## Routing and lifecycle
 

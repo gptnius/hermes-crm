@@ -1,0 +1,166 @@
+{
+  "verified_date_utc": "2026-11-07",
+  "host_commit": "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19",
+  "pytest": "2 passed in 38.03s",
+  "guard": "Original source-pinned SAFETY_GUARD and runner in test_native_work_e2e.py unchanged. Fatal bootstrap negatives and zero forbidden audit events required.",
+  "setup": "Actual authenticated CRM REST operation preparation, durable native session creation and UUID-only registered command dispatch. Synthetic records only.",
+  "cases": [
+    {
+      "isolation": "in_process",
+      "synthetic_model": true,
+      "live_model_quality_verified": false,
+      "desktop_notification_verified": false,
+      "python": "3.14.9 (main, Oct 21 2026, 17:48:02) [Clang 23.1.3 ]",
+      "command_session_durable": true,
+      "terminal_status": "completed",
+      "model_requests": 7,
+      "streaming_requests": 7,
+      "all_model_requests_at_or_after_due": true,
+      "ledger_started_at_or_after_due": true,
+      "local_output_verified": true,
+      "duplicate_extra_ticks": false,
+      "canonical_admission_verified": true,
+      "scheduled_discovery": {
+        "search_catalog": [
+          "crm_contact_get",
+          "crm_contact_list",
+          "crm_contact_report",
+          "crm_deal_get",
+          "crm_deal_list",
+          "crm_overview",
+          "crm_task_get",
+          "crm_task_list",
+          "crm_work_get",
+          "crm_work_list",
+          "crm_work_report"
+        ],
+        "total_available": 11,
+        "forbidden_descriptions_unavailable": [
+          "crm_task_update",
+          "crm_work_create",
+          "crm_work_schedule",
+          "cronjob_manage",
+          "delegate_task",
+          "send_message"
+        ]
+      },
+      "cancelled_before_due_never_executed": true,
+      "cleanup": {
+        "enabled_jobs": 0,
+        "scheduler_stopped": true,
+        "plugin_host_stopped": true,
+        "endpoint_stopped": true
+      },
+      "tested_plugin_sha256": {
+        "hermes_crm/native_work.py": "716e306b0a47d3471e8d823eeba50a092008e6fa53b44b3c4733d575f0d46cbf",
+        "hermes_crm/native_work_operations.py": "a67961cc675f152955c65c61093ee6663ab4b0d7ba42b2a2fb4d696bb4616232",
+        "hermes_crm/native_work_commands.py": "981885a37f4e98bd62f796544c8afcb15736b30bf83bde1f908920d4e512a6ee",
+        "hermes_crm/native_work_operations_api.py": "c6a87be9f7994484e650c6995589ebed808a54593394590d85147b6082396f66",
+        "hermes_crm/plugin.py": "67f469e75438bd8dfc015c8c4cf4684a017f754578f08a13f44689d2c92a4d97",
+        "hermes_crm/native_api.py": "26cf81c7b55db8e5afa2c767dcf15ed65d592fdb837cec2eac322534b0499619",
+        "plugin.yaml": "995467f096214e37c6125f9848ab8cd83839d62b4d19cea8cc82173b6f113d21"
+      },
+      "commands": [
+        {
+          "verb": "schedule",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "schedule",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "cancel",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        }
+      ]
+    },
+    {
+      "isolation": "host",
+      "synthetic_model": true,
+      "live_model_quality_verified": false,
+      "desktop_notification_verified": false,
+      "python": "3.14.9 (main, Oct 21 2026, 17:48:02) [Clang 23.1.3 ]",
+      "command_session_durable": true,
+      "terminal_status": "completed",
+      "model_requests": 7,
+      "streaming_requests": 7,
+      "all_model_requests_at_or_after_due": true,
+      "ledger_started_at_or_after_due": true,
+      "local_output_verified": true,
+      "duplicate_extra_ticks": false,
+      "canonical_admission_verified": true,
+      "scheduled_discovery": {
+        "search_catalog": [
+          "crm_contact_get",
+          "crm_contact_list",
+          "crm_contact_report",
+          "crm_deal_get",
+          "crm_deal_list",
+          "crm_overview",
+          "crm_task_get",
+          "crm_task_list",
+          "crm_work_get",
+          "crm_work_list",
+          "crm_work_report"
+        ],
+        "total_available": 11,
+        "forbidden_descriptions_unavailable": [
+          "crm_task_update",
+          "crm_work_create",
+          "crm_work_schedule",
+          "cronjob_manage",
+          "delegate_task",
+          "send_message"
+        ]
+      },
+      "cancelled_before_due_never_executed": true,
+      "cleanup": {
+        "enabled_jobs": 0,
+        "scheduler_stopped": true,
+        "plugin_host_stopped": true,
+        "endpoint_stopped": true
+      },
+      "tested_plugin_sha256": {
+        "hermes_crm/native_work.py": "716e306b0a47d3471e8d823eeba50a092008e6fa53b44b3c4733d575f0d46cbf",
+        "hermes_crm/native_work_operations.py": "a67961cc675f152955c65c61093ee6663ab4b0d7ba42b2a2fb4d696bb4616232",
+        "hermes_crm/native_work_commands.py": "981885a37f4e98bd62f796544c8afcb15736b30bf83bde1f908920d4e512a6ee",
+        "hermes_crm/native_work_operations_api.py": "c6a87be9f7994484e650c6995589ebed808a54593394590d85147b6082396f66",
+        "hermes_crm/plugin.py": "67f469e75438bd8dfc015c8c4cf4684a017f754578f08a13f44689d2c92a4d97",
+        "hermes_crm/native_api.py": "26cf81c7b55db8e5afa2c767dcf15ed65d592fdb837cec2eac322534b0499619",
+        "plugin.yaml": "995467f096214e37c6125f9848ab8cd83839d62b4d19cea8cc82173b6f113d21"
+      },
+      "commands": [
+        {
+          "verb": "schedule",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "schedule",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        },
+        {
+          "verb": "cancel",
+          "state": "finished",
+          "provenance": "authenticated_local_command"
+        }
+      ]
+    }
+  ],
+  "test_sha256": {
+    "tests/test_native_work_commands_e2e.py": "9ce48678b5a7207f364e9afb3185d090b43aa8663a2d4aa1730000ddfb1ed07b",
+    "tests/test_native_work_e2e.py": "4ff3de7608ecab41c6e9b147c2f6f908285aa808b59fa8539eb1fa596fb486c6"
+  },
+  "limits": [
+    "Only the model HTTP responses are deterministic/keyless; not real-model reasoning or prompt-injection resistance.",
+    "No native window was opened or confirmation button clicked. No physical-human interaction or native/model approval receipt is attested.",
+    "No production data/configuration, credentials, external account or message delivery was used.",
+    "No owner-process restart/crash recovery, visible notification, real-provider availability or configured-MCP live run was tested.",
+    "Business tasks remain open; authenticated reports await human review."
+  ]
+}

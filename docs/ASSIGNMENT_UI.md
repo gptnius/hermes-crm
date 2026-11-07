@@ -1,19 +1,33 @@
-# Save agent assignments and inspect follow-up coverage
+# Save, schedule and review agent assignments
 
-The native CRM can save real future internal-work assignments directly, prepare a task-specific request beside the existing Hermes conversation, and show paged, server-derived coverage evidence. Saving is not scheduling; preparation is not dispatch. For execution requests, the user reviews the text, pastes it into the matching native chat and uses the host's normal Send action. There is no automatic prompt submission, direct cron button, email adapter or enabled Run now bridge.
+The native CRM can save future internal-work assignments, explicitly schedule/check/cancel them beside the existing Hermes conversation, and show paged coverage evidence. Saving is not scheduling; reviewing is not dispatch. CRM confirmation uses an authenticated native user command, separate from the model-tool approval path. Manual Preview/Copy into native chat remains available for conversational requests. There is no automatic prompt submission, email adapter or enabled Run now bridge.
 
 ## Save a future assignment in CRM
 
 1. Open an existing open follow-up and choose **Save future assignment**. No open native conversation is required.
 2. Enter the human owner, reviewed instructions, success criteria and an explicit offset-aware future run time. The owner is an accountability label, not a permission grant; run time is separate from the business due date. The form requires a five-minute buffer for new work.
 3. Choose **Review assignment**, check the exact task/version, fields and request key, then choose **Save assignment**. Preview alone writes nothing. The authenticated local REST handler atomically binds the source task version and saves the same native-work intent used by agent tools. It never receives a tool context or calls a scheduler or model.
-4. The exact returned assignment is pinned independently of the history page, and history refreshes. **Saved, not scheduled** means exactly that: there is no native job yet. Use its **Prepare scheduling for saved assignment** action for a separately reviewed native-chat request.
+4. The exact returned assignment is pinned independently of the history page, and history refreshes. **Saved, not scheduled** means exactly that: there is no native job yet. Use **Review CRM scheduling** for the separate confirmation below, or **Prepare scheduling for saved assignment** for a manual native-chat request.
 
 If saving is not confirmed, the form retains the immutable request and key and offers **Retry same save**. Replaying that exact request can recover its original assignment even if the task subsequently changes or the run time passes. It does not authorize execution. A rejected, malformed or lost response is not treated as proof of no save; the form cannot silently generate a replacement. Missing history is not proof of no save either.
 
 Recovery fields remain available across panel closure, sibling CRM views and profile changes within the same plugin lifetime. **An app/plugin reload loses this in-memory recovery panel.** Keep the selectable exact request before reloading and reconcile that key through the native agent if necessary. Confirmed assignments themselves are stored durably in the CRM. Closing a form does not cancel an in-flight save.
 
 After a confirmed save, **Save another future assignment** explicitly starts additional intent with a new key. It does not replace or cancel the earlier assignment; review existing history first. The backend profile from scoped CRM metadata is distinct from a Desktop display-profile alias, and both are kept bound to the captured workspace.
+
+## Schedule from CRM with explicit confirmation
+
+1. Open the intended existing primary Hermes conversation in this connection/profile. Use **Chat with Hermes** to place CRM beside it. An action chosen from the ordinary CRM page opens the companion first; choose it again there. No hidden session is created.
+2. On an exact saved assignment, choose **Review CRM scheduling**. The backend prepares a durable, short-lived operation from the current stored assignment and task. Preparation does not create a native job.
+3. Review the complete server-derived instructions, success criteria, owner, time, task/assignment versions, profile, intended conversation and existing job ID. The profile's configured model provider will process CRM data when a scheduled run executes; local output is not a promise of local-only model processing.
+4. Choose **Confirm schedule in CRM**. This sends only that operation's UUID to the workspace-specific registered native command, after checking the exact session/profile/runtime and current command catalog. The backend claims it once, creates a paused job, durably binds its exact ID, then resumes it. A successful scheduling result does not mean the agent has run or completed the business task.
+5. Use **Check native status** for an explicit host observation. **Review CRM cancellation**, then **Confirm cancellation in CRM**, invalidates the saved assignment and requests a pause of its exact future schedule. It cannot stop an already running agent. **Read local operation status** and **Refresh local operation history** read CRM evidence only, without querying the scheduler.
+
+Confirmation is recorded as a CRM user-command action, not a native approval receipt or proof of a physical human click. The native command has real session/source authorization, but does not run through model `pre_tool_call` approval hooks. Missing host capabilities, ambiguous routing, hidden companion/main panes, changed sessions/profiles, stale snapshots and catalog collisions block dispatch.
+
+A lost reply is **unknown**, not failed. The UI never resends an operation automatically, and recovered history does not offer the original Confirm button. Use its exact durable ID to read status. **Withdraw unclaimed operation** only fences an operation still stored as prepared, preventing a delayed command from claiming it; it does not cancel an assignment or existing schedule. Once dispatch starts, withdrawal cannot undo it. A still-dispatching or crashed operation retains its mutation reservation; status reads and Check do not clear it. There is no automatic recovery lease. Only a returned unknown result with atomically recorded, known non-pending assignment evidence can release that reservation and permit a separately reviewed cancellation, without authorizing a replacement schedule.
+
+Closing the review, switching views or reaching a timeout is not cancellation. Operation records survive app reload and are paged in task history. If preflight definitely failed before any preparation POST, **Retry same preparation** explicitly rechecks the same frozen key and scope and opens review only. Once a POST may have been invoked, that retry is unavailable; recover the original immutable key through history instead of replacing it blindly. The catalog/name check assumes stable trusted host configuration and cannot atomically attest plugin ownership. See [the full operation contract](CRM_CONFIRMED_OPERATIONS.md).
 
 ## Prepare a request
 
@@ -68,7 +82,7 @@ Several risk flags can apply to one row. Safely cancelled old work is not substi
 
 ## Storage, performance and verification limits
 
-No new table or schema migration is required for the UI reports or optional expected-version field. Assignment report routes do not initialize missing assignment tables. Multi-query reads use explicit SQLite snapshots or PostgreSQL repeatable-read, read-only transactions, including table availability checks. Unknown/incompatible state or corrupt stored intent fails visibly rather than producing a healthy coverage claim.
+The UI reports and optional expected-version field do not change existing tables. CRM-confirmed operations add one profile-scoped table lazily on explicit preparation; status reads do not create it. Incompatible shapes fail closed and require an explicit future migration. Assignment report routes do not initialize missing assignment tables. Multi-query reads use explicit SQLite snapshots or PostgreSQL repeatable-read, read-only transactions, including table availability checks. Unknown/incompatible state or corrupt stored intent fails visibly rather than producing a healthy coverage claim.
 
 This prototype classifies complete local task/assignment history before filtering and pagination. Work is proportional to that history, so server paging prevents display truncation but is not a large-dataset query optimization. A later page request is a new snapshot; concurrent changes can move items between offset pages. No background dispatcher, retry daemon, cadence engine, durable human-review toggle or never-missed guarantee is implied.
 

@@ -57,6 +57,12 @@ def register(ctx):
         return open_profile_crm(backend=ctx.get_config('backend', default='sqlite'),
                                 profile=str(getattr(ctx, 'profile_name', 'default')))
 
+    # A distinct explicit user-command lane, never a model approval shortcut.
+    # Older tool-only hosts keep their original registration behavior.
+    if callable(getattr(ctx, 'register_command', None)):
+        from .native_work_commands import register_work_command
+        register_work_command(ctx, service)
+
     def register_tool(name, description, properties, required, operation, read=False,
                       *, toolset=None, argument_model=None):
         schema={'name':name,'description':description,'parameters':{'type':'object','properties':properties,

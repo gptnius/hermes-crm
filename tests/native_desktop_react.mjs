@@ -170,6 +170,7 @@ const ctx = {
       "/contacts/c1": { contact, deals: relatedDeals, tasks: [task], activity: activityRows },
       "/tasks/t1": task,
       "/work": workRows,
+      "/work-operations": { items: [], total: 0, limit: 25, offset: Number(new URLSearchParams(path.split("?")[1]).get("offset") || 0), workspace_token: `token-${profile.get()}${backendTokenSuffix}`, profile: profile.get(), task_id: task.id, observed_at: "2026-11-07T13:00:00Z" },
       "/reports/work": { items: workRows, total: workRows.length, limit: 25, offset: Number(new URLSearchParams(path.split("?")[1]).get("offset") || 0), observed_at: "2026-11-06T13:00:00+00:00" },
       "/reports/coverage": { items: [], total: 0, limit: 50, offset: 0, workspace_token: `token-${profile.get()}${backendTokenSuffix}`, observed_at: "2026-11-06T13:00:00+00:00" },
     };
