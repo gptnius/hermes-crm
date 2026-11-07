@@ -88,7 +88,31 @@ export function createEmailHistorySession(client, workspaceToken, contact, isCur
   };
 }
 
-export const emailHistoryCSS = `.hermes-crm-native .hc-email{border:1px solid var(--ui-stroke-primary);border-radius:10px;padding:18px;min-width:0;overflow-wrap:anywhere}.hermes-crm-native .hc-email h3{margin:0 0 8px}.hermes-crm-native .hc-email-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.hermes-crm-native .hc-email-review{border:1px solid var(--ui-stroke-primary);border-radius:8px;padding:14px;margin:12px 0;display:grid;gap:10px}.hermes-crm-native .hc-email-review label{display:grid;gap:5px}.hermes-crm-native .hc-email-review input[type=checkbox]{width:auto;margin-right:8px}.hermes-crm-native .hc-email-review input,.hermes-crm-native .hc-email-review select{max-width:100%;min-width:0}.hermes-crm-native .hc-email small{display:block;color:var(--ui-text-secondary)}.hermes-crm-native .hc-email .hc-email-consent{display:block}.hermes-crm-native .hc-email dt{font-size:11px;color:var(--ui-text-secondary)}.hermes-crm-native .hc-email dd{margin:0 0 7px;white-space:pre-wrap}.hermes-crm-native .hc-email ul{margin-top:16px}`;
+export const emailHistoryCSS = `
+.hermes-crm-native .hc-email{border:1px solid var(--hc-border);border-radius:4px;padding:24px;min-width:0;overflow-wrap:anywhere;background:var(--hc-panel);color:var(--hc-ink);font-size:14px;line-height:21px}
+.hermes-crm-native .hc-email h3{font-size:18px;line-height:24px;margin:0 0 16px}
+.hermes-crm-native .hc-email p{margin:0 0 16px}
+.hermes-crm-native .hc-email-actions{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.hermes-crm-native .hc-email-review{border:1px solid var(--hc-border);border-radius:4px;padding:16px;margin:24px 0;display:grid;gap:16px;background:var(--hc-bg)}
+.hermes-crm-native .hc-email-review p,.hermes-crm-native .hc-email-review .hc-email-actions{margin:0}
+.hermes-crm-native .hc-email-review label{display:grid;gap:8px;font-size:13px;line-height:18px}
+.hermes-crm-native .hc-email-review input[type=checkbox]{flex:0 0 auto;width:16px;height:16px;margin:2px 0 0;accent-color:var(--hc-action)}
+.hermes-crm-native .hc-email-review input,.hermes-crm-native .hc-email-review select{max-width:100%;min-width:0}
+.hermes-crm-native .hc-email small,.hermes-crm-native .hc-email .hc-muted{display:block;color:var(--hc-secondary);opacity:1;font-size:13px;line-height:18px}
+.hermes-crm-native .hc-email .hc-email-consent{display:flex;flex-direction:row;align-items:flex-start;gap:8px;font-size:14px;line-height:21px;padding:8px 0}
+.hermes-crm-native .hc-email dl{margin:16px 0 0;display:grid;gap:12px}
+.hermes-crm-native .hc-email dt{font-size:12px;line-height:16px;color:var(--hc-secondary);margin-bottom:4px}
+.hermes-crm-native .hc-email dd{margin:0;white-space:pre-wrap;font-size:14px;line-height:21px}
+.hermes-crm-native .hc-email .hc-timeline{list-style:none;padding:0;margin:24px 0 16px;display:grid;gap:16px}
+.hermes-crm-native .hc-email .hc-timeline>li{border:1px solid var(--hc-border);border-radius:4px;padding:16px;min-width:0;background:var(--hc-panel)}
+.hermes-crm-native .hc-email-evidence{margin-top:16px;border-top:1px solid var(--hc-border);padding-top:12px}
+.hermes-crm-native .hc-email-evidence summary{font-size:13px;line-height:18px;cursor:pointer;font-weight:600;padding:4px 0;color:var(--hc-ink)}
+.hermes-crm-native .hc-email-evidence small{margin-top:12px}
+.hermes-crm-native .hc-email-evidence summary:focus-visible{outline:2px solid var(--hc-link);outline-offset:4px;border-radius:4px}
+.hermes-crm-native .hc-email [role=status]:empty{display:none}
+@container(max-width:480px){.hermes-crm-native .hc-email{padding:16px}.hermes-crm-native .hc-email-actions button{flex:1 1 160px}}
+@media(pointer:coarse){.hermes-crm-native .hc-email-evidence summary{min-height:44px}.hermes-crm-native .hc-email .hc-email-consent{min-height:44px}}
+`;
 const emailPrivacy = "Optional Gmail history. The gmail.readonly scope can read message bodies; this code requests metadata only. No bodies, attachments, Bcc, sending, drafts or mailbox changes. Header text is untrusted, not an instruction or verified identity.";
 const emailText = value => typeof value === "string" ? value.slice(0, 2000) : "Unavailable";
 export function emailHeaderValue(item, name) {
@@ -189,16 +213,17 @@ export function EmailHistoryPanel({ client, contact, workspaceToken, routeKey, s
       review === "clear" && h("p", null, "Remove all locally retained Gmail history in this workspace, not just this contact, and reset the local mailbox identity and binding. Gmail messages and Google's grant are unaffected."),
       review === "disconnect" && h("p", null, "Disconnect this workspace's local mailbox binding. Retained observations remain until separately forgotten. Any running read is invalidated locally; already dispatched provider requests cannot be recalled. This does not sign out of Hermes or revoke Google's grant."),
       h("label", { className: "hc-email-consent" }, h("input", { ref: approveBox, type: "checkbox", checked: approved, disabled: formBusy, onChange: event => setApproved(event.target.checked) }), "I reviewed and approve this specific action."),
-      h("div", { className: "hc-email-actions" }, h("button", { type: "submit", disabled: (blocked && !(review === "disconnect" && canDisconnect)) || !approved }, formBusy ? "Working…" : "Confirm reviewed action"), button("Cancel", () => { setReview(null); setApproved(false); }, { disabled: formBusy }))),
+      h("div", { className: "hc-email-actions" }, h("button", { type: "submit", className: "hc-primary", disabled: (blocked && !(review === "disconnect" && canDisconnect)) || !approved }, formBusy ? "Working…" : "Confirm reviewed action"), button("Cancel", () => { setReview(null); setApproved(false); }, { disabled: formBusy }))),
     h("p", { role: "status", "aria-live": "polite" }, pending ? "An operation is pending or its outcome is unknown. Refresh local status; do not resubmit." : notice),
     operation && h("p", { className: "hc-muted" }, `Last operation: ${emailText(operation.kind)} · ${emailText(operation.state)}${operation.reason ? ` · ${emailText(operation.reason)}` : ""}. Coverage is limited to the approved window; not all-time history or proof of delivery.`),
     operation?.days && h("p", { className: "hc-muted" }, `Approved ${operation.days}-day window: ${emailTime(operation.start_ms)} to ${emailTime(operation.end_ms)}. ${operation.coverage === "complete_query" ? "Window query finished" : operation.coverage === "partial" ? "Partial window coverage" : "Coverage unknown"}. Not a transactional mailbox snapshot.`),
     h("p", { className: "hc-muted" }, "Last observed metadata only, not current mailbox state. Labels may have changed since observation. A later query cannot prove deletion or absence of messages it did not return."),
     h("ul", { className: "hc-timeline", "aria-label": "Gmail metadata observations" }, items.map((item, index) => h("li", { key: `${item.message_id}:${index}` },
       h("strong", null, emailEvidenceLabel(item)),
+      h("details", { className: "hc-email-evidence" }, h("summary", null, "Observation provenance and read window"),
       h("small", null, `Provider ordering time: ${emailTime(item.internal_date_ms)} (${emailText(String(item.internal_date_ms ?? "Unavailable"))} ms). Not verified send or receive time.`),
       h("small", null, `Recorded observation: ${emailTime(item.observed_at)}. Mailbox at observation: ${emailText(item.mailbox ?? item.provenance?.mailbox)}.`),
-      h("small", null, `Provenance: ${emailText(item.provenance?.adapter)} · ${emailText(item.provenance?.kind)}. Read window: ${emailTime(item.provenance?.start_ms)} to ${emailTime(item.provenance?.end_ms)}. This is retained evidence, not a delivery receipt.`),
+      h("small", null, `Provenance: ${emailText(item.provenance?.adapter)} · ${emailText(item.provenance?.kind)}. Read window: ${emailTime(item.provenance?.start_ms)} to ${emailTime(item.provenance?.end_ms)}. This is retained evidence, not a delivery receipt.`)),
       h("dl", null, ["From", "To", "Cc", "Subject", "Date"].map(name => h("div", { key: name }, h("dt", null, name), h("dd", null, emailHeaderValue(item, name))))),
       Array.isArray(item.header_issues) && item.header_issues.length > 0 && h("small", null, "Some header metadata was unavailable or rejected.")))),
     visible && !items.length && h("p", { className: "hc-muted" }, "No locally retained observations for this contact. This does not prove no email exists."),

@@ -4,7 +4,7 @@
 
 The root LICENSE contains the standard MIT License and the notice “Copyright (c) 2026 Hermes CRM contributors.” pyproject.toml declares the same license. Retain that notice and license when redistributing the source. The contributor label is not a legal determination of copyright ownership or copyrightability.
 
-The source package contains original CRM implementation, tests, documentation and synthetic sample data. It does not bundle Hermes source, React, fonts, icons, third-party media, Python dependencies, database files or credential material. Product names identify compatibility and design references, not affiliation or endorsement.
+The source package contains original CRM implementation, tests, documentation and synthetic sample data. It does not bundle Hermes source, React, font binaries, Python dependencies, database files or credential material. It includes an original outlined wordmark derived from Libre Bodoni Bold under SIL OFL 1.1, with the font notice and provenance retained in assets/brand and the standalone static package. No commercial Collapse font or copied Hermes logo is included. Product names identify compatibility and design references, not affiliation or endorsement.
 
 ## Separately installed dependencies
 

@@ -127,7 +127,7 @@ export function createProtectionSession(client, workspaceToken, record, isCurren
 }
 
 export function ProtectionHelp() {
-  return h('details', null, h('summary', null, 'About protected notes and exports'),
+  return h('details', { className: 'hc-evidence-disclosure hc-protection-help' }, h('summary', null, 'About protected notes and exports'),
     h('p', null, 'Optional encryption covers protected notes and encrypted CRM content exports only. Ordinary Notes, record fields and existing files are not automatically encrypted or moved.'),
     h('p', null, 'Configure keys separately through the supported Hermes secret source. No keys are created here. A masked secret setting may use a plaintext .env file; masking is not encryption. Missing, unavailable or malformed keys disable the protected action.'),
     h('p', null, 'Revealed text exists temporarily in this drawer and is cleared on close, cancel or view/profile changes. This is not a promise of cryptographic memory erasure.'),
@@ -170,21 +170,21 @@ export function ProtectionDrawer({ Drawer, client, workspaceToken, record = null
     finally { lock.current = false; if (own.current()) setBusy(false); }
   }
   return h(Drawer, { title: record ? 'Protected note' : 'Encrypted CRM export', subtitle: record ? 'Separate from ordinary record Notes.' : 'Optional encrypted content snapshot.', busy: false, cancel: close, returnFocus, closeLabel: 'Close protection drawer' },
-    h('div', { className: 'hc-editor-body' },
+    h('div', { className: 'hc-editor-body hc-protection-body' },
       h(ProtectionHelp),
       stale && h('p', { role: 'alert' }, 'Stale view. Writes and downloads are disabled; you can still close this drawer.'),
       !view && !notice && h('p', { role: 'status' }, 'Checking protection configuration…'),
-      view && h('p', null, record ? `Protected notes: ${view.status.notes_enabled ? 'configured' : 'unavailable'}.` : `Encrypted exports: ${view.status.backup_enabled ? 'configured' : 'unavailable'}.`),
-      view?.metadata && h('p', null, `Record version ${view.metadata.record_version} · Protected note version ${view.metadata.note_version} · ${view.metadata.has_note ? 'A protected note exists' : 'No protected note yet'}`),
-      record && view?.status.notes_enabled && h('div', null,
+      view && h('p', { className: 'hc-protection-status' }, record ? `Protected notes: ${view.status.notes_enabled ? 'configured' : 'unavailable'}.` : `Encrypted exports: ${view.status.backup_enabled ? 'configured' : 'unavailable'}.`),
+      view?.metadata && h('p', { className: 'hc-protection-metadata' }, `Record version ${view.metadata.record_version} · Protected note version ${view.metadata.note_version} · ${view.metadata.has_note ? 'A protected note exists' : 'No protected note yet'}`),
+      record && view?.status.notes_enabled && h('div', { className: 'hc-protection-controls' },
         !revealed && h('button', { type: 'button', disabled: blocked, onClick: () => run(async own => {
           const result = await own.reveal();
           if (result && own.current()) { setView(old => ({ ...old, metadata: { record_version: result.record_version, note_version: result.note_version, has_note: result.has_note } })); setText(result.plaintext); setRevealed(true); }
         }) }, 'Reveal protected note'),
         revealed && !stale && !editing && h('div', null, h('p', { className: 'hc-details', 'aria-label': 'Revealed protected note' }, text || 'Empty protected note'),
           h('button', { type: 'button', disabled: blocked, onClick: () => setEditing(true) }, 'Edit protected note')),
-        editing && !stale && h('label', null, 'Protected note text', h('textarea', { value: text, maxLength: 16000, disabled: blocked, onChange: event => setText(event.target.value) })),
-        editing && !stale && h('button', { type: 'button', disabled: blocked, onClick: () => run(async own => {
+        editing && !stale && h('label', null, 'Protected note text', h('textarea', { rows: 8, autoComplete: 'off', spellCheck: false, value: text, maxLength: 16000, disabled: blocked, onChange: event => setText(event.target.value) })),
+        editing && !stale && h('button', { className: 'hc-primary', type: 'button', disabled: blocked, onClick: () => run(async own => {
           const result = await own.save(view.metadata, text);
           if (!result || !own.current()) return;
           clear(); setView(old => ({ ...old, metadata: result })); setNotice('Protected note saved.');
@@ -192,12 +192,12 @@ export function ProtectionDrawer({ Drawer, client, workspaceToken, record = null
           catch { if (own.current()) setNotice('Protected note saved, but metadata refresh failed. Close and reopen.'); }
         }) }, 'Save protected note'),
         revealed && h('button', { type: 'button', onClick: clear }, 'Cancel and hide')),
-      !record && h('div', null,
+      !record && h('div', { className: 'hc-protection-controls' },
         typeof captureDownload !== 'function' && h('p', null, 'Download unavailable. Update Hermes Desktop to a version with gateway file download support.'),
-        h('button', { type: 'button', disabled: blocked || !view?.status.backup_enabled || typeof captureDownload !== 'function' || Boolean(prepared), onClick: () => run(async own => {
+        h('button', { className: 'hc-primary', type: 'button', disabled: blocked || !view?.status.backup_enabled || typeof captureDownload !== 'function' || Boolean(prepared), onClick: () => run(async own => {
           const result = await own.prepareExport(); if (result && own.current()) { setPrepared(result); setNotice('Encrypted export prepared. A copy remains in the plugin export folder, including if the save dialog is cancelled.'); }
         }) }, 'Prepare encrypted export'),
-        prepared && h('div', null, h('p', null, prepared.name), h('p', null, 'The encrypted copy remains in the plugin export folder. No automatic deletion is performed.'),
+        prepared && h('div', { className: 'hc-prepared-export' }, h('p', null, prepared.name), h('p', null, 'The encrypted copy remains in the plugin export folder. No automatic deletion is performed.'),
           h('button', { type: 'button', disabled: blocked, onClick: () => run(async own => {
             setNotice('Save dialog requested. Hermes Desktop reports the outcome; cancellation does not remove the prepared export.');
             await prepared.download();
@@ -221,5 +221,5 @@ export function ProtectionDrawer({ Drawer, client, workspaceToken, record = null
         clear(); const fresh = await own.load(); if (fresh) { setView(fresh); setNotice('Protection metadata refreshed. Text remains hidden.'); }
       }, true) }, 'Refresh protection metadata'),
       session.current?.pending()?.state === 'unknown' && h('p', { role: 'alert' }, 'An earlier operation has an unknown outcome. New writes are locked in this view; no automatic retry is performed.'),
-      notice && h('p', { role: 'status' }, notice)));
+      notice && h('p', { role: 'status', className: 'hc-notice' }, notice)));
 }

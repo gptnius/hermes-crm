@@ -11,6 +11,7 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 ## What works
 
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
+- Workbench UI: coordinated light/dark pages, bright dark-mode metadata, flat cards, underlined tabs, structured record/transfer drawers and an original licensed HermesCRM wordmark. See the [design system and coverage](docs/DESIGN_SYSTEM.md).
 - Native conversation companion: open CRM beside an existing verified main Hermes chat; copy a validated minimal record reference in one click, with an optional hideable preview, for manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: preset stage/attention views plus a typed report builder, shared saved definitions, version-pinned table/KPI/bar/line/donut cards and live contributing-record drilldowns. See [flexible reports](docs/FLEXIBLE_REPORTS.md).
@@ -21,7 +22,7 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Native Hermes: 42 tools across separate record, assigned-work, native-report and schema permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain schema-writing tools.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
-- Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column spreadsheet-safe exports with explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
+- Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
 - Layered protection: reduced default agent output, explicit ordinary-field reads, optional separately encrypted protected notes and encrypted CRM content exports. Keys remain user-managed; no full restore or general security guarantee. See [scope and recovery limits](docs/PROTECTION.md).
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
 - Optional Gmail metadata history: default off, manual own-mailbox verification and reviewed contact/date reads through host-owned OAuth, a separate durable ledger and native contact timeline. Synthetic tests only; no live account connected or verified. See [setup and limits](docs/GMAIL_SETUP.md).
@@ -75,7 +76,9 @@ Other planned work remains explicitly separate:
   later provider-backed communication features. No automatic sending, account
   grants or inbox access is authorized by this roadmap. See
   [native chat](docs/NATIVE_CHAT.md) and [Gmail setup](docs/GMAIL_SETUP.md).
-- **Release quality:** wider native accessibility, responsive/dark-mode and
+- **Release quality:** the Workbench design system is applied across native pages,
+  dialogs and the standalone surface. Continue physical-host accessibility,
+  responsive/dark-mode and
   interrupted-workflow coverage, backup/restore validation, larger datasets and
   operational documentation. The current product remains a prototype.
 
@@ -165,6 +168,10 @@ python scripts/build_report_panels.py --check
 python scripts/build_customization_panel.py --check
 python scripts/build_protection_panel.py --check
 python scripts/build_contact_transfer_panel.py --check
+python scripts/build_design_system.py --check
+python scripts/build_wordmark_component.py --check
+node tests/native_workbench.mjs
+node tests/standalone_workbench.cjs
 node --experimental-vm-modules tests/desktop_contact_transfer.mjs
 node --experimental-vm-modules tests/desktop_protection.mjs
 node --experimental-vm-modules tests/desktop_reports.mjs
@@ -181,4 +188,4 @@ This is a single-workspace, local-user prototype. It has no public authenticatio
 
 ## License
 
-MIT for this project's source. Dependencies retain their own licenses, including LGPL-3.0-only for the optional separately installed PostgreSQL driver. See [licensing and distribution notes](docs/LICENSING.md). Product names are used to describe compatibility. This project is not affiliated with Nous Research, HubSpot or Salesforce.
+MIT for this project's code. The original outlined wordmark derives from SIL OFL 1.1 Libre Bodoni; its notice and provenance are retained. Dependencies retain their own licenses, including LGPL-3.0-only for the optional separately installed PostgreSQL driver. See [licensing and distribution notes](docs/LICENSING.md). Product names are used to describe compatibility. This project is not affiliated with Nous Research, HubSpot or Salesforce.

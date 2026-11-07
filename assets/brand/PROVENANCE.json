@@ -1,0 +1,42 @@
+{
+  "asset": "hermescrm-wordmark.svg",
+  "text": "HERMESCRM",
+  "accessible_name": "HermesCRM",
+  "viewbox": [
+    0,
+    0,
+    179.90721649484536,
+    24
+  ],
+  "font_family": "Libre Bodoni",
+  "weight": 700,
+  "font_license": "SIL OFL 1.1",
+  "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/librebodoni/LibreBodoni%5Bwght%5D.ttf",
+  "license_source": "https://raw.githubusercontent.com/google/fonts/main/ofl/librebodoni/OFL.txt",
+  "created": "2026-11-07",
+  "optical_adjustment": "84% horizontal scaling, 16/1000 em tracking, source pair kerning; wordmark outline only",
+  "files": {
+    "hermescrm-wordmark.svg": {
+      "sha256": "46f4adf91100e3229829f6bd6cc0330a9d73587cfec8ec283db55abc989dc0e6",
+      "bytes": 13402
+    },
+    "OFL.txt": {
+      "sha256": "12eb9fc9b38560e364501a7bc86d9de56ff0d50c6b8f359f8320bbb051aa18f7",
+      "bytes": 4398
+    },
+    "LibreBodoni.ttf": {
+      "sha256": "0d543665bd869819ffd7d46608804e245497ba835960832d44be89e561b0c717",
+      "bytes": 112160
+    },
+    "build_wordmark.py": {
+      "sha256": "7a6d579bf43ea82da3b051858de30a21e18907433405436d140f40c178150ba0",
+      "bytes": 5394
+    },
+    "handoff-preview.png": {
+      "sha256": "1406a06f338c8c814acbd442e2ef336908bdf691afcb162eff837c55f1982bdb",
+      "bytes": 65482
+    }
+  },
+  "upstream_license_sha256": "7ce3bf8e8087bf7495a3e1ed2044e83439db990c778d61b128fd09b7876d0420",
+  "license_normalization": "CRLF line endings converted to LF and trailing whitespace removed; license wording unchanged."
+}

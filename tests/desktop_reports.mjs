@@ -181,3 +181,12 @@ for (const kind of ['donut', 'line']) {
   await React.act(async () => tree.unmount());
 }
 console.log('desktop reports: session, idempotency, typed forms, saved versions, stale handlers, profile races, charts and drilldown passed');
+
+// Workbench result layout retains a keyboard-scrollable, labeled table and explicit empty state.
+await React.act(async () => { tree = Renderer.create(React.createElement(ReportResult, { result: { definition: reportPreset('leads'), total: 0, items: [] }, onOpenRecord() {} })); });
+assert.equal(tree.root.findByProps({ className: 'hc-report-scroll' }).props.tabIndex, 0);
+assert.equal(tree.root.findByProps({ className: 'hc-report-scroll' }).props['aria-label'], 'Report records');
+assert.equal(tree.root.findByType('table').props['aria-label'], 'Report results');
+assert.ok(tree.root.findAllByType('th').some(node => node.children.includes('Actions')));
+assert.ok(tree.root.findByProps({ role: 'status' }).children.join('').includes('No matching records'));
+await React.act(async () => tree.unmount());

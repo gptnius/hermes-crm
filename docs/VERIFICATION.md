@@ -2,6 +2,72 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Workbench UI application
+
+This presentation increment applies the approved light/dark system to the native
+pane, all existing native pages and drawers, report/dashboard builder, and the
+standalone surface. It adds an original outlined Libre Bodoni wordmark with the
+OFL notice, readable full-opacity dark metadata, contact table rows, compact
+stage summaries, flat cards, and grouped forms. It does not change the backend,
+permissions, schema or scheduling behavior. See [design coverage](DESIGN_SYSTEM.md).
+
+Automated checks on November 7, 2026:
+
+- **1,169 Python cases passed**, **552 optional cases skipped**, two known
+  dependency deprecation warnings. PostgreSQL was not rerun for this UI-only
+  increment; the unchanged backend retains the CSV portability evidence below.
+- **3 exact-host Python checks passed** against host source
+  2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19. These check authenticated routing and
+  shared record/catalog boundaries, not physical UI rendering.
+- Sixteen native SDK/React suites passed, including routing/profile changes,
+  stale forms, chart keyboard/drilldown behavior, assignment/operation unknown
+  outcomes, CSV consent/receipts and protected-note controls. The SDK source
+  contract suite passes; an optional exact nanostores visibility run remains
+  skipped without its separate fixture in this environment.
+- **25 execution bridge checks passed**. Standalone VM behavior/syntax,
+  native/standalone Workbench contrast/style checks, seven generator parity
+  checks and whitespace checks passed. Text/status/link color pairs tested
+  meet 4.5:1. These checks are not a screen-reader or accessibility certification.
+- Independent review found and corrected stacked report/Gmail checkboxes,
+  dark forced-color token specificity and narrow footer provenance wrapping.
+  It found no remaining routing, authorization or operation-state regression.
+
+Actual isolated rendering used Electron **44.9.3**, Chromium
+**152.0.7977.167** and React/ReactDOM **19.3.0**, with the real CRM component code
+and synthetic SDK/REST responses. It did not launch Hermes, use the authenticated
+backend or alter the active review app.
+
+- The native matrix covered **150 cases** across light and dark at 1280, 640 and
+  390 pixels: all five pages, report builder, contact/deal/task details and
+  editors, contact log, email setup, Customize, protection, CSV import/export,
+  loading, errors and empty states. No unintended viewport/drawer horizontal
+  overflow or missing navigation target was found. Tables and pipeline boards
+  retain intentional contained scrolling.
+- The standalone matrix covered **48 cases**: five routes and three creation
+  dialogs across the same two themes and three widths. No unintended page or
+  dialog horizontal overflow was found.
+- Representative screenshots of every native page and major drawer in both
+  themes were inspected, including narrow forms, reports, email/log sections
+  and error states. Full-size review verified the new wordmark, readable dark
+  text and padded CSV body/footer. Expanded standalone provenance wrapping passed. After the scoped filter-width
+  correction, all eight final Contacts/Tasks rerenders at 640/390 in both themes
+  passed: default dropdown labels are fully visible and page overflow is absent.
+- Supplemental rendered checks confirm inline checkbox captions, full-opacity
+  secondary/disabled text and live light-to-dark changes. DOM-dispatched modal
+  key handlers verify forward/reverse focus-boundary wrapping, Escape close
+  and opener-focus restoration. Genuine Electron key input did not reach the
+  hidden offscreen DOM reliably, so physical keyboard navigation/focus-visible
+  behavior is **not claimed as passed**. Screen readers, native file dialogs,
+  touch hardware and broad zoom testing remain unverified.
+- Renderers used sandboxing, context isolation, disposable state and blocked
+  HTTP(S). The final instrumented handler run recorded zero external request
+  attempts. Known owned harness processes exited; an OS-wide process audit was
+  not performed. No real model, provider, mailbox, key, active profile or
+  production data was used. No screenshot was published as part of the source.
+
+This is real browser rendering with synthetic transport, not a new end-to-end
+Hermes backend, scheduler, authorization or production-readiness certification.
+
 ## Contact-first CSV portability
 
 This increment adds native contact-only CSV mapping/preview, valid-row selection,

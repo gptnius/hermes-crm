@@ -65,10 +65,10 @@ export function ContactTransferRowValues({ row, mapping, columns }) {
     value === '' ? 'Empty text' : value === false ? 'No (false)' : value === true ? 'Yes (true)' : String(value);
   const identity = ['name', 'email', 'company'].filter(key => values[key] !== undefined && values[key] !== null && values[key] !== '');
   const fields = Object.entries(mapping || {}).filter(([, target]) => target !== null);
-  return h('div', null,
+  return h('div', { className: 'hc-transfer-values' },
     h('p', null, identity.length ? identity.map(key => `${columns.find(column => column.key === key)?.label || key}: ${display(values[key])}`).join(' · ') : 'No contact identity supplied'),
-    h('details', null, h('summary', null, `Review ${fields.length} mapped fields for row ${row.row_number}`),
-      h('dl', null, ...fields.map(([header, target]) => h('div', { key: header },
+    h('details', { className: 'hc-evidence-disclosure' }, h('summary', null, `Review ${fields.length} mapped fields for row ${row.row_number}`),
+      h('dl', { className: 'hc-setting-properties' }, ...fields.map(([header, target]) => h('div', { key: header },
         h('dt', null, `${columns.find(column => column.key === target)?.label || target} · CSV column: ${header}`),
         h('dd', { style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } },
           display(target.startsWith('custom.') ? values.custom_fields?.[target.slice(7)] : values[target])))))));
@@ -88,7 +88,7 @@ export function ContactTransferDrawer({Drawer,client,workspaceToken,current,inva
   const close=()=>{clear();setArtifact(null);setResult(null);session.current?.close();cancel();};
   async function perform(fn){if(!valid()||lock.current||renderedRevision!==draftRevision.current)return;lock.current=true;setBusy(true);setNotice('');try{await fn(session.current);}catch{if(valid())setNotice(session.current.pending()?'Outcome unknown. Check the original receipt before doing anything else.':'Operation could not be completed. Review your settings or close and reopen.');}finally{lock.current=false;if(valid())setBusy(false);}}
   async function chooseFile(event){const file=event.target.files?.[0];event.target.value='';if(!valid()||lock.current||pending||!file)return;clear();const ticket=++readId.current;setNotice('');if(file.size>2*1024*1024){setNotice('Choose a CSV file no larger than 2 MB.');return;}try{const bytes=await file.arrayBuffer();const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(!valid()||ticket!==readId.current)return;setCsv(text);setFileName(file.name);}catch{if(valid()&&ticket===readId.current)setNotice('The selected file could not be read.');}}
-  const actButton=(text,fn,off=disabled)=>h('button',{type:'button',disabled:off,onClick:()=>perform(fn)},text);
+  const actButton=(text,fn,off=disabled)=>h('button',{type:'button',className:['Import valid rows','Prepare CSV export','Download CSV'].includes(text)?'hc-primary':undefined,disabled:off,onClick:()=>perform(fn)},text);
   const revokeApproval=()=>{draftRevision.current++;approvalRevision.current=null;setConfirmed(false);};
   const changeImport=fn=>{if(!valid()||disabled||lock.current)return;revokeApproval();setPreview(null);setSelected([]);fn();};
   const showPreview=async own=>{
@@ -99,22 +99,24 @@ export function ContactTransferDrawer({Drawer,client,workspaceToken,current,inva
     if(v.needs_mapping)setMapping(Object.fromEntries(v.headers.map(k=>[k,catalog.columns.some(column=>!column.archived&&column.key===v.suggested_mapping[k])?v.suggested_mapping[k]:null])));
   };
   return h(Drawer,{title:'Contact CSV transfer',subtitle:'Local, contact-first import and export',cancel:close,busy:false,returnFocus,closeLabel:'Close contact transfer'},
-    h('p',null,'Spreadsheet-safe exports escape formula-like text; review these values deliberately before reimporting. Import preserves apostrophes; existing contact validation and whitespace normalization apply. CSV is plaintext. Protected notes and keys are never included. File contents are sent to this Hermes workspace only when you choose Preview or Import.'),
+    h('div',{className:'hc-editor-body hc-transfer-body'},
+    h('p',{className:'hc-safety-note'},'Exports escape formula-like text to reduce spreadsheet risk; no CSV escaping strategy works in every spreadsheet. Review these values before reimporting. Import preserves apostrophes; existing contact validation and whitespace normalization apply. CSV is plaintext. Protected notes and keys are never included. File contents are sent to this Hermes workspace only when you choose Preview or Import.'),
     invalidated?h('p',{role:'status'},'Workspace or view changed. Close and reopen.'):h('div',null,
-      h('div',{className:'hc-actions'},...['import','export'].map(value=>h('button',{key:value,type:'button',disabled, 'aria-pressed':mode===value,onClick:()=>{if(!valid()||disabled)return;clear();setMode(value);setNotice('');setConsent(false);setArtifact(null);setResult(null);}},value==='import'?'Import contacts':'Export contacts'))),
+      h('div',{className:'hc-tabs hc-transfer-tabs','aria-label':'Contact transfer mode'},...['import','export'].map(value=>h('button',{key:value,type:'button',disabled, 'aria-pressed':mode===value,onClick:()=>{if(!valid()||disabled)return;clear();setMode(value);setNotice('');setConsent(false);setArtifact(null);setResult(null);}},value==='import'?'Import contacts':'Export contacts'))),
       pending&&h('p',{role:'status'},`${pending.kind} ${pending.state}. Original request: ${pending.id}. No new operation can run until its outcome is confirmed.`),
       pending?.state==='unknown'&&actButton('Check original receipt',async session=>{const recovered=await session.recover();if(recovered){if(recovered.kind==='export')setArtifact(recovered.result);else{setResult(recovered.result);onImported?.();}setNotice('Original operation confirmed.');}},busy),
-      mode==='import'?h('section',null,
+      mode==='import'?h('section',{className:'hc-settings-section','aria-label':'Import contacts'},
+        h('h3',null,'Import contacts'),h('p',{className:'hc-muted'},'Choose a CSV, map its columns, then review the rows before importing.'),
         h('label',null,'Choose contact CSV',h('input',{ref:input,type:'file',accept:'.csv,text/csv',disabled,onChange:chooseFile})),fileName&&h('p',null,`Selected: ${fileName}`),
-        mapping&&h('fieldset',{disabled},h('legend',null,'Map every column, or explicitly ignore it'),...Object.keys(mapping).map(header=>h('label',{key:header},header,h('select',{'aria-label':`Map column ${header}`,value:mapping[header]||'',onChange:e=>changeImport(()=>setMapping(old=>({...old,[header]:e.target.value||null})))},h('option',{value:''},'Ignore this column'),...catalog.columns.filter(column=>!column.archived).map(column=>h('option',{key:column.key,value:column.key},column.label)))))),
+        mapping&&h('fieldset',{disabled,className:'hc-transfer-mapping'},h('legend',null,'Map every column, or explicitly ignore it'),...Object.keys(mapping).map(header=>h('label',{key:header},header,h('select',{'aria-label':`Map column ${header}`,value:mapping[header]||'',onChange:e=>changeImport(()=>setMapping(old=>({...old,[header]:e.target.value||null})))},h('option',{value:''},'Ignore this column'),...catalog.columns.filter(column=>!column.archived).map(column=>h('option',{key:column.key,value:column.key},column.label)))))),
         actButton(mapping?'Preview mapped rows':'Preview CSV columns',showPreview,disabled||!csv),
         preview&&!preview.needs_mapping&&h('div',null,
           h('p',null,`${preview.counts.ready} ready; ${preview.counts.duplicate} duplicates; ${preview.counts.invalid} invalid. Existing contacts are never overwritten.`),
           h('p',{role:'status'},`${selected.length} ready rows selected; ${preview.counts.ready-selected.length+preview.counts.invalid} rows excluded; ${preview.counts.duplicate} duplicates will be skipped (or reject the import).`),
           h('p',null,`Ignored columns: ${(preview.ignored_columns||[]).join(', ')||'None'}`),
           h('label',null,'Duplicate handling',h('select',{value:duplicates,disabled,onChange:e=>{if(!valid()||disabled||lock.current)return;revokeApproval();setDuplicates(e.target.value);}},h('option',{value:'skip'},'Skip duplicates'),h('option',{value:'reject'},'Reject import if duplicates exist'))),
-          h('ol',null,...preview.rows.map(row=>h('li',{key:row.row_number},
-            h('p',null,`Row ${row.row_number} · ${row.status==='ready'?'Ready to import':row.status==='duplicate'?'Duplicate (will not be created)':'Invalid (excluded)'}`),
+          h('ol',{className:'hc-transfer-rows','aria-label':'CSV row preview'},...preview.rows.map(row=>h('li',{key:row.row_number,className:`hc-transfer-row hc-transfer-row-${row.status}`},
+            h('p',{className:'hc-transfer-row-heading'},`Row ${row.row_number} · ${row.status==='ready'?'Ready to import':row.status==='duplicate'?'Duplicate (will not be created)':'Invalid (excluded)'}`),
             row.status==='ready'&&h('label',null,h('input',{type:'checkbox','aria-label':`Select row ${row.row_number}`,checked:selected.includes(row.row_number),disabled,onChange:e=>{if(!valid()||disabled||lock.current)return;revokeApproval();setSelected(old=>e.target.checked?[...old.filter(n=>n!==row.row_number),row.row_number]:old.filter(n=>n!==row.row_number));}}),'Import this row'),
             row.errors.length>0&&h('ul',{'aria-label':`Validation errors for row ${row.row_number}`},...row.errors.map((error,index)=>h('li',{key:index},error))),
             row.duplicates.length>0&&h('ul',{'aria-label':`Duplicate matches for row ${row.row_number}`},...row.duplicates.map((duplicate,index)=>h('li',{key:index},`${duplicate.source==='workspace'?'Existing contact':'CSV row '+duplicate.row_number}: matching ${duplicate.reason==='name_company'?'name and company':duplicate.reason}${duplicate.id?' ('+duplicate.id+')':''}`))),
@@ -122,13 +124,17 @@ export function ContactTransferDrawer({Drawer,client,workspaceToken,current,inva
           h('label',null,h('input',{type:'checkbox','aria-label':'Confirm selected rows',checked:confirmed,disabled,onChange:e=>{if(!valid()||disabled||lock.current)return;if(renderedRevision!==draftRevision.current)return;approvalRevision.current=e.target.checked?draftRevision.current:null;setConfirmed(e.target.checked);}}),'I reviewed ignored columns and row results. Import only my selected valid, nonduplicate rows.'),
           actButton('Import valid rows',async session=>{if(approvalRevision.current!==draftRevision.current)return;const body={csv_text:csv,mapping,spreadsheet_safe:false,expected_fingerprint:preview.fingerprint,approved_rows:preview.rows.filter(r=>r.status==='duplicate'||(r.status==='ready'&&selected.includes(r.row_number))).map(r=>r.row_number),duplicate_policy:duplicates};clear();const done=await session.import(body);if(done){setResult(done);setNotice('Import completed.');onImported?.();}},disabled||!confirmed||!selected.length||(duplicates==='reject'&&preview.counts.duplicate>0))),
         result&&h('div',{role:'status'},h('p',null,`Batch ${result.batch_id}: ${result.counts.created} created; ${result.counts.skipped} skipped; ${result.counts.excluded} excluded.`),h('ul',null,...[...result.skipped.map(row=>({...row,outcome:'skipped'})),...result.excluded.map(row=>({...row,outcome:'excluded'}))].map((row,index)=>h('li',{key:index},`Row ${row.row_number}: ${row.outcome} (${row.reason})`)))))
-      :h('section',null,
+      :h('section',{className:'hc-settings-section','aria-label':'Export contacts'},
+        h('h3',null,'Export contacts'),
         h('p',null,`Export all contacts matching the current filters, not only the visible page: ${JSON.stringify(filters)}`),
-        h('fieldset',{disabled},h('legend',null,'Columns to include'),...(catalog?.columns||[]).map(column=>h('label',{key:column.key},h('input',{type:'checkbox',checked:columns.includes(column.key),onChange:e=>{setColumns(old=>e.target.checked?[...old,column.key]:old.filter(k=>k!==column.key));setConsent(false);setArtifact(null);}}),column.label+(column.archived?' (archived)':'')))),
+        h('fieldset',{disabled,className:'hc-transfer-columns'},h('legend',null,'Columns to include'),...(catalog?.columns||[]).map(column=>h('label',{key:column.key},h('input',{type:'checkbox',checked:columns.includes(column.key),onChange:e=>{setColumns(old=>e.target.checked?[...old,column.key]:old.filter(k=>k!==column.key));setConsent(false);setArtifact(null);}}),column.label+(column.archived?' (archived)':'')))),
         h('p',null,'Preparing creates a private plaintext CSV artifact on the Hermes host. It is retained until manually removed; closing this drawer does not delete it. Download creates another plaintext copy. Notes and custom fields require explicit column selection.'),
         h('label',null,h('input',{type:'checkbox',checked:consent,disabled,onChange:e=>{setConsent(e.target.checked);if(!e.target.checked)setArtifact(null);}}),'I approve these fields, filters and plaintext export retention.'),
         typeof captureDownload!=='function'&&h('p',null,'Update Hermes Desktop to enable supported CSV downloads.'),
         actButton('Prepare CSV export',async session=>{setArtifact(null);const prepared=await session.export({filters,columns,spreadsheet_safe:true});if(prepared)setArtifact(prepared);},disabled||!consent||!columns.length||typeof captureDownload!=='function'),
         artifact&&h('div',null,h('p',null,`${artifact.row_count} contacts. ${artifact.escaped_cells} cells escaped for spreadsheet safety.`),actButton('Download CSV',async()=>{if(await artifact.download())setNotice('Save dialog requested. This does not confirm the file was saved.');},busy||invalidated)))),
-    notice&&h('p',{role:'status'},notice));
+    ),
+    h('footer',{className:'hc-editor-footer hc-transfer-footer'},
+      notice&&h('p',{role:'status',className:'hc-notice'},notice),
+      h('button',{type:'button',onClick:close},'Close contact transfer')));
 }

@@ -198,6 +198,20 @@ function defer(endpoint) {
   assert(customDetails.includes('(archived)') && customDetails.includes('&lt;value&gt;'));
   assert(customDetails.includes('Edit custom fields in Hermes Desktop.'));
   console.log('PASS: dynamic stage identity/label/color, separate contact types and retained custom values');
+  const overdue = run(`taskRows([{id:'late',title:'Call customer',status:'open',due_at:'2020-01-01T12:00:00Z'}])`);
+  assert(overdue.includes('Overdue · '), 'Overdue state must not depend on color');
+  assert(overdue.includes('aria-pressed="false"'));
+  assert(run(`taskRows([{id:'done',title:'Finished',status:'done'}])`).includes('aria-pressed="true"'));
+  assert(run(`contactTable([{id:'c',name:'Ada'}])`).includes('role="region" aria-label="Contacts table" tabindex="0"'));
+  assert(run('stageChart([])').includes('class="donut-track"'));
+  for (const kind of ['contact','deal','task']) {
+    await run(`openForm('${kind}')`);
+    assert(nodes.get('#modal').open);
+    assert(nodes.get('#modal-body').innerHTML.includes('id="dialog-title"'));
+    assert(nodes.get('#modal-body').innerHTML.includes('data-action="close">Cancel'));
+    run('closeModal()');
+  }
+  console.log('PASS: non-color overdue labels, completion state, keyboard scroll region, all editor shells');
   console.log("All UI VM smoke checks passed.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 

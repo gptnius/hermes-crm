@@ -204,13 +204,14 @@ const workspaceCatalog = data => data?.meta?.catalog;
 const stageDefinitions = data => catalogStages(workspaceCatalog(data) || { stages: STAGES.map((key, order) => ({ key, label: label(key), order, probability: PROBABILITY[order], outcome: key === "won" || key === "lost" ? key : "open" })) });
 const stageLabel = (data, key) => workspaceCatalog(data)?.stages.find(stage => stage.key === key)?.label || label(key);
 const label = (value) =>
-  String(value || "")
+  String(value ?? "")
     .replace(/[_-]/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 const money = (cents) =>
   new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: "USD",
+    minimumFractionDigits: (cents || 0) % 100 ? 2 : 0,
     maximumFractionDigits: 2,
   }).format((cents || 0) / 100);
 const date = (value) =>
@@ -221,7 +222,10 @@ const date = (value) =>
     : "Not set";
 const button = (text, onClick, props = {}) =>
   h("button", { type: "button", onClick, ...props }, text);
-const badge = (text) => h("span", { className: "hc-badge" }, label(text));
+export const badge = (text) => h("span", { className: "hc-badge", "data-tone":
+  ["done", "completed", "won"].includes(String(text)) ? "success" :
+  ["overdue", "failed", "lost"].includes(String(text)) ? "danger" :
+  ["unknown", "needs_review", "awaiting_human_review"].includes(String(text)) ? "warning" : undefined }, label(text));
 
 // ctx.rest follows the ACTIVE app route, not the focused conversation tile.
 export function routeIdentity(ctx) {
@@ -282,37 +286,177 @@ export function createPayload(data, idempotencyKey) {
   return { data, idempotency_key: idempotencyKey };
 }
 
+// BEGIN GENERATED WORDMARK
+export function Wordmark() {
+  return h("svg", { className: "hc-wordmark-svg", viewBox: "0 0 179.907216 24", width: 180, height: 24,
+    fill: "currentColor", role: "img", "aria-label": "HermesCRM", focusable: false },
+    h("path", { d: "M0.0 23.5979381443299V22.670103092783506H2.468041237113402V1.2061855670103085H0.0V0.27835051546391654H9.118762886597938V1.2061855670103085H6.572783505154639V11.103092783505156H13.924948453608248V1.2061855670103085H11.37896907216495V0.27835051546391654H20.549690721649483V1.2061855670103085H18.029690721649484V22.670103092783506H20.549690721649483V23.5979381443299H11.37896907216495V22.670103092783506H13.924948453608248V12.030927835051548H6.572783505154639V22.670103092783506H9.118762886597938V23.5979381443299Z M21.874639175257734 23.5979381443299V22.670103092783506H32.863917525773196Q34.32662219526986 22.670103092783506 35.33588841722256 21.742268041237114Q36.345154639175256 20.814432989690722 36.90546670381722 19.300596852957135Q37.46577876845918 17.78676071622355 37.495268877124545 16.02061855670103H38.52742268041237V23.5979381443299ZM24.342680412371134 23.134020618556704V0.27835051546391654H28.447422680412373V23.134020618556704ZM33.10134020618557 16.917525773195877Q33.071752577319586 15.432989690721651 32.60412371134021 14.474226804123713Q32.13649484536083 13.515463917525775 31.097319587628867 13.051546391752579Q30.05814432989691 12.587628865979383 28.343505154639175 12.587628865979383V11.659793814432991Q30.05814432989691 11.659793814432991 31.097319587628867 11.226804123711341Q32.13649484536083 10.793814432989691 32.60412371134021 9.896907216494846Q33.071752577319586 9.0 33.097731958762886 7.63917525773196H34.13690721649485V16.917525773195877ZM37.09855670103093 6.463917525773198Q37.07161512027491 5.032646048109964 36.55972508591066 3.849656357388314Q36.04783505154639 2.6666666666666643 35.118350515463916 1.9364261168384864Q34.18886597938145 1.2061855670103085 32.863917525773196 1.2061855670103085H21.874639175257734V0.27835051546391654H38.137731958762885V6.463917525773198Z M46.78886597938145 11.474226804123713V10.546391752577321H48.94515463917526Q50.19216494845361 10.546391752577321 50.97154639175258 10.175257731958764Q51.75092783505155 9.804123711340207 52.10164948453608 8.778604617395093Q52.45237113402062 7.753085523449979 52.45237113402062 5.814432989690722Q52.45237113402062 3.850515463917528 52.114639175257736 2.868556701030929Q51.77690721649485 1.8865979381443303 51.11443298969073 1.5463917525773194Q50.451958762886605 1.2061855670103085 49.46474226804124 1.2061855670103085H40.3719587628866V0.27835051546391654H50.763711340206186Q52.63422680412371 0.27835051546391654 54.13040994542147 0.9123711340206189Q55.626593086719225 1.5463917525773212 56.50752334748333 2.7216494845360835Q57.38845360824743 3.8969072164948457 57.38845360824743 5.597938144329898Q57.38845360824743 7.484536082474229 56.37525773195877 8.798969072164951Q55.362061855670106 10.113402061855671 53.47855670103093 10.793814432989691Q51.59505154639176 11.474226804123713 48.94515463917526 11.474226804123713ZM40.3719587628866 23.5979381443299V22.670103092783506H50.01030927835052V23.5979381443299ZM42.84 23.134020618556704V0.27835051546391654H46.94474226804124V23.134020618556704ZM56.42721649484537 23.5979381443299Q55.13433634020619 23.5979381443299 54.09211662371135 23.01030927835052Q53.0498969072165 22.422680412371136 52.41502577319588 21.355670103092784Q51.780154639175265 20.288659793814436 51.72494845360825 18.8659793814433L51.59505154639176 15.494845360824744Q51.51711340206186 13.422680412371134 50.581085910652924 12.448453608247423Q49.64505841924399 11.474226804123713 48.19175257731959 11.474226804123713L50.16618556701032 11.288659793814434H51.906804123711346V11.412371134020619Q53.0758762886598 11.721649484536083 54.18000000000001 12.61855670103093Q55.28412371134021 13.515463917525775 55.98556701030928 14.783505154639178Q56.68701030927835 16.05154639175258 56.68701030927835 17.536082474226806V18.927835051546392Q56.68701030927835 21.061855670103093 57.076701030927836 21.835051546391753Q57.46639175257732 22.608247422680414 58.479587628865985 22.608247422680414H59.46680412371134V23.5979381443299Z M69.67670103092783 23.876288659793815 64.11711340206186 2.443298969072167H64.01319587628866V22.670103092783506H66.87092783505155V23.5979381443299H60.01237113402062V22.670103092783506H62.87010309278351V1.2061855670103085H60.01237113402062V0.27835051546391654H68.2218556701031L71.89642400860161 14.350515463917526H71.98886597938144L75.65195876288661 0.27835051546391654H83.1859793814433V1.2061855670103085H80.4841237113402V22.670103092783506H83.1859793814433V23.5979381443299H73.59958762886598V22.670103092783506H76.37938144329897V2.443298969072167H76.27546391752577L70.74185567010309 23.876288659793815Z M84.51092783505155 23.5979381443299V22.670103092783506H95.50020618556701Q96.96291085506368 22.670103092783506 97.97217707701637 21.742268041237114Q98.98144329896907 20.814432989690722 99.54175536361103 19.300596852957135Q100.102067428253 17.78676071622355 100.13155753691836 16.02061855670103H101.16371134020619V23.5979381443299ZM86.97896907216494 23.134020618556704V0.27835051546391654H91.0837113402062V23.134020618556704ZM95.73762886597939 16.917525773195877Q95.7080412371134 15.432989690721651 95.24041237113403 14.474226804123713Q94.77278350515465 13.515463917525775 93.7336082474227 13.051546391752579Q92.69443298969072 12.587628865979383 90.979793814433 12.587628865979383V11.659793814432991Q92.69443298969072 11.659793814432991 93.7336082474227 11.226804123711341Q94.77278350515465 10.793814432989691 95.24041237113403 9.896907216494846Q95.7080412371134 9.0 95.7340206185567 7.63917525773196H96.77319587628867V16.917525773195877ZM99.73484536082475 6.463917525773198Q99.70790378006873 5.032646048109964 99.19601374570448 3.849656357388314Q98.6841237113402 2.6666666666666643 97.75463917525772 1.9364261168384864Q96.82515463917525 1.2061855670103085 95.50020618556701 1.2061855670103085H84.51092783505155V0.27835051546391654H100.7740206185567V6.463917525773198Z M110.23051546391753 24.0Q108.64577319587629 24.0 107.50268041237113 23.47422680412371Q106.35958762886598 22.948453608247423 105.39835051546392 22.113402061855673L104.17731958762887 23.5979381443299H103.3979381443299V17.103092783505154H104.20329896907216Q104.51505154639176 18.61855670103093 105.22948453608248 19.948453608247426Q105.9439175257732 21.27835051546392 107.16494845360825 22.0979381443299Q108.3859793814433 22.917525773195877 110.15257731958764 22.917525773195877Q111.60742268041237 22.917525773195877 112.58164948453609 22.360824742268044Q113.55587628865979 21.804123711340207 114.06247422680411 20.829896907216494Q114.56907216494845 19.855670103092784 114.56907216494845 18.68041237113402Q114.56907216494845 17.474226804123713 114.10144329896907 16.7319587628866Q113.6338144329897 15.989690721649485 112.89340206185568 15.572164948453608Q112.15298969072165 15.154639175257733 111.30865979381443 14.907216494845361Q110.46432989690722 14.659793814432991 109.71092783505155 14.443298969072167Q107.89237113402062 13.88659793814433 106.51546391752578 12.974226804123713Q105.13855670103094 12.061855670103094 104.37216494845362 10.608247422680414Q103.6057731958763 9.154639175257733 103.6057731958763 6.989690721649485Q103.6057731958763 4.608247422680414 104.46309278350516 3.0618556701030943Q105.32041237113403 1.515463917525775 106.72329896907218 0.7577319587628875Q108.12618556701031 0.0 109.71092783505155 0.0Q110.88 0.0 111.80226804123711 0.40206185567010344Q112.72453608247423 0.8041237113402069 113.76371134020619 1.5773195876288675L114.77690721649485 0.27835051546391654H115.58226804123711V6.587628865979383H114.80288659793814Q114.04948453608247 3.6494845360824755 112.77649484536082 2.3659793814432994Q111.50350515463917 1.0824742268041234 109.65896907216495 1.0824742268041234Q108.54185567010309 1.0824742268041234 107.61958762886599 1.5Q106.69731958762887 1.9175257731958766 106.1517525773196 2.690721649484537Q105.60618556701031 3.463917525773198 105.60618556701031 4.515463917525775Q105.60618556701031 5.5051546391752595 106.07381443298969 6.13917525773196Q106.54144329896907 6.773195876288661 107.29484536082475 7.144329896907218Q108.04824742268042 7.515463917525775 108.90556701030928 7.762886597938145Q109.76288659793815 8.010309278350515 110.54226804123712 8.226804123711341Q112.51670103092783 8.783505154639176 113.86762886597938 9.757731958762887Q115.21855670103093 10.731958762886599 115.92 12.309278350515465Q116.62144329896907 13.88659793814433 116.62144329896907 16.2680412371134Q116.62144329896907 19.917525773195877 114.97175257731959 21.95876288659794Q113.3220618556701 24.0 110.23051546391753 24.0Z M128.3901030927835 24.0Q126.33773195876289 24.0 124.62309278350516 23.04123711340206Q122.90845360824743 22.082474226804123 121.64845360824742 20.427835051546392Q120.38845360824742 18.77319587628866 119.68701030927835 16.623711340206185Q118.98556701030928 14.474226804123713 118.98556701030928 12.09278350515464Q118.98556701030928 9.711340206185568 119.67402061855671 7.546391752577321Q120.36247422680412 5.381443298969074 121.63546391752578 3.6804123711340218Q122.90845360824743 1.9793814432989691 124.64907216494845 0.9896907216494846Q126.38969072164949 0.0 128.4940206185567 0.0Q129.84494845360825 0.0 130.81917525773196 0.44845360824742286Q131.79340206185566 0.8969072164948457 132.83257731958764 1.8247422680412377L133.9756701030928 0.27835051546391654H134.62515463917526V7.422680412371136H133.8457731958763Q133.56 5.628865979381445 132.89752577319587 4.190721649484537Q132.23505154639176 2.7525773195876297 131.13092783505155 1.9175257731958766Q130.02680412371134 1.0824742268041234 128.3901030927835 1.0824742268041234Q127.42886597938144 1.0824742268041234 126.61051546391752 1.5154639175257731Q125.7921649484536 1.9484536082474229 125.19463917525772 3.13917525773196Q124.59711340206185 4.329896907216497 124.25938144329896 6.57216494845361Q123.92164948453609 8.814432989690722 123.92164948453609 12.43298969072165Q123.92164948453609 15.61855670103093 124.19443298969072 17.675257731958766Q124.46721649484536 19.7319587628866 125.03876288659794 20.876288659793815Q125.61030927835051 22.02061855670103 126.45463917525774 22.469072164948454Q127.29896907216495 22.917525773195877 128.4160824742268 22.917525773195877Q130.18268041237113 22.917525773195877 131.36474226804125 22.082474226804123Q132.54680412371135 21.247422680412374 133.23525773195877 19.87113402061856Q133.92371134020618 18.494845360824744 134.20948453608247 16.88659793814433H134.98886597938144V23.5979381443299H134.20948453608247L133.06639175257732 22.175257731958766Q131.94927835051547 23.134020618556704 130.79319587628868 23.567010309278352Q129.63711340206186 24.0 128.3901030927835 24.0Z M143.5101030927835 11.474226804123713V10.546391752577321H145.66639175257734Q146.9134020618557 10.546391752577321 147.69278350515467 10.175257731958764Q148.47216494845364 9.804123711340207 148.82288659793818 8.778604617395093Q149.1736082474227 7.753085523449979 149.1736082474227 5.814432989690722Q149.1736082474227 3.850515463917528 148.8358762886598 2.868556701030929Q148.49814432989692 1.8865979381443303 147.8356701030928 1.5463917525773194Q147.17319587628867 1.2061855670103085 146.1859793814433 1.2061855670103085H137.0931958762887V0.27835051546391654H147.48494845360827Q149.35546391752578 0.27835051546391654 150.85164705882354 0.9123711340206189Q152.3478302001213 1.5463917525773212 153.2287604608854 2.7216494845360835Q154.1096907216495 3.8969072164948457 154.1096907216495 5.597938144329898Q154.1096907216495 7.484536082474229 153.09649484536084 8.798969072164951Q152.0832989690722 10.113402061855671 150.199793814433 10.793814432989691Q148.31628865979383 11.474226804123713 145.66639175257734 11.474226804123713ZM137.0931958762887 23.5979381443299V22.670103092783506H146.7315463917526V23.5979381443299ZM139.5612371134021 23.134020618556704V0.27835051546391654H143.66597938144332V23.134020618556704ZM153.14845360824745 23.5979381443299Q151.85557345360826 23.5979381443299 150.8133537371134 23.01030927835052Q149.77113402061858 22.422680412371136 149.13626288659796 21.355670103092784Q148.50139175257735 20.288659793814436 148.44618556701033 18.8659793814433L148.31628865979383 15.494845360824744Q148.23835051546394 13.422680412371134 147.302323024055 12.448453608247423Q146.36629553264606 11.474226804123713 144.91298969072167 11.474226804123713L146.88742268041239 11.288659793814434H148.62804123711342V11.412371134020619Q149.79711340206188 11.721649484536083 150.9012371134021 12.61855670103093Q152.0053608247423 13.515463917525775 152.70680412371138 14.783505154639178Q153.40824742268043 16.05154639175258 153.40824742268043 17.536082474226806V18.927835051546392Q153.40824742268043 21.061855670103093 153.79793814432992 21.835051546391753Q154.1876288659794 22.608247422680414 155.20082474226805 22.608247422680414H156.18804123711342V23.5979381443299Z M166.39793814432988 23.876288659793815 160.83835051546393 2.443298969072167H160.73443298969073V22.670103092783506H163.59216494845361V23.5979381443299H156.7336082474227V22.670103092783506H159.59134020618558V1.2061855670103085H156.7336082474227V0.27835051546391654H164.94309278350516L168.61766112200368 14.350515463917526H168.7101030927835L172.37319587628866 0.27835051546391654H179.90721649484536V1.2061855670103085H177.20536082474229V22.670103092783506H179.90721649484536V23.5979381443299H170.32082474226803V22.670103092783506H173.10061855670102V2.443298969072167H172.99670103092785L167.46309278350515 23.876288659793815Z" }));
+}
+// END GENERATED WORDMARK
+
 const CSS = `
-.hermes-crm-native{height:100%;min-height:0;position:relative;overflow:hidden;container-type:inline-size;background:var(--ui-bg-editor);color:var(--ui-text-primary);font:13px/1.5 system-ui,sans-serif}
-.hermes-crm-native *{box-sizing:border-box}.hermes-crm-native .hc-wrap{height:100%;overflow:auto;max-width:1500px;margin:auto;padding:16px 20px;scrollbar-gutter:stable}.hermes-crm-native .hc-wrap[inert]{overflow:hidden}
-.hermes-crm-native h1{font-size:21px;letter-spacing:-.5px;line-height:1.2;margin:0}.hermes-crm-native h2{font-size:17px;margin:0 0 14px}.hermes-crm-native h3{font-size:14px;margin:0}
-.hermes-crm-native p{margin:6px 0 14px}.hermes-crm-native .hc-muted{color:var(--ui-text-secondary)}.hermes-crm-native .hc-eyebrow{font-size:10px;letter-spacing:2px;font-weight:700;color:var(--ui-text-tertiary)}
-.hermes-crm-native .hc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hermes-crm-native .hc-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.hermes-crm-native button,.hermes-crm-native input,.hermes-crm-native select,.hermes-crm-native textarea{font:inherit;color:inherit;background:var(--ui-bg-elevated,var(--ui-bg-editor));border:1px solid var(--ui-stroke-primary);border-radius:8px;padding:9px 12px}
-.hermes-crm-native button{cursor:pointer;text-align:left}.hermes-crm-native button:hover{background:var(--ui-row-hover-background)}.hermes-crm-native button:disabled{opacity:.45;cursor:not-allowed}.hermes-crm-native :focus-visible{outline:2px solid var(--ui-accent);outline-offset:3px}
-.hermes-crm-native .hc-primary{background:var(--ui-accent);color:var(--ui-bg-editor);border-color:var(--ui-accent)}.hermes-crm-native .hc-tabs{display:flex;gap:6px;border-bottom:1px solid var(--ui-stroke-primary);padding:10px 0 8px;margin-bottom:12px;overflow:auto}
-.hermes-crm-native .hc-tabs button{border:0;white-space:nowrap}.hermes-crm-native button[aria-current=page]{background:var(--ui-row-hover-background);color:var(--ui-accent);font-weight:700}
-.hermes-crm-native .hc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}.hermes-crm-native .hc-card{border:1px solid var(--ui-stroke-primary);border-radius:12px;padding:20px;background:var(--ui-bg-elevated,var(--ui-bg-editor))}.hermes-crm-native .hc-card strong{display:block;font-size:28px;letter-spacing:-1px;margin:8px 0}
-.hermes-crm-native .hc-two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;margin:18px 0}.hermes-crm-native .hc-badge{display:inline-block;font-size:11px;border:1px solid var(--ui-stroke-primary);border-radius:20px;padding:2px 8px;color:var(--ui-text-secondary)}
-.hermes-crm-native .hc-bar-row{display:grid;grid-template-columns:100px 1fr 85px;gap:12px;align-items:center;width:100%;border:0;padding:10px 0;background:transparent}.hermes-crm-native .hc-track{height:10px;border-radius:8px;background:var(--ui-row-hover-background);overflow:hidden}.hermes-crm-native .hc-fill{height:100%;background:var(--ui-accent);border-radius:8px}
-.hermes-crm-native .hc-list{display:grid;gap:10px}.hermes-crm-native .hc-list-item{width:100%;border:1px solid var(--ui-stroke-primary);border-radius:10px;padding:14px;display:flex;justify-content:space-between;gap:12px;align-items:center}.hermes-crm-native .hc-list-item p{margin:3px 0 0}
-.hermes-crm-native .hc-board{display:grid;grid-template-columns:repeat(6,minmax(210px,1fr));gap:12px;overflow:auto;padding:18px 0}.hermes-crm-native .hc-column{border-radius:12px;background:var(--ui-row-hover-background);padding:12px;min-height:250px}.hermes-crm-native .hc-column>header{margin-bottom:14px}.hermes-crm-native .hc-deal{display:block;width:100%;margin:9px 0;background:var(--ui-bg-elevated,var(--ui-bg-editor));padding:15px}.hermes-crm-native .hc-deal strong{display:block;margin:12px 0}
-.hermes-crm-native .hc-empty{text-align:center;padding:42px 18px;color:var(--ui-text-secondary);border:1px dashed var(--ui-stroke-primary);border-radius:12px}.hermes-crm-native .hc-notice{padding:14px;border:1px solid var(--ui-stroke-primary);border-left:3px solid var(--ui-accent);border-radius:8px;margin:14px 0;overflow-wrap:anywhere}
-.hermes-crm-native .hc-editor{border:1px solid var(--ui-accent);border-radius:12px;padding:22px;margin:18px 0}.hermes-crm-native .hc-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.hermes-crm-native label{display:flex;flex-direction:column;gap:5px}.hermes-crm-native textarea{min-height:90px;resize:vertical}.hermes-crm-native .hc-wide{grid-column:1/-1}.hermes-crm-native .hc-details{white-space:pre-wrap;overflow-wrap:anywhere}.hermes-crm-native .hc-footer{margin-top:26px;border-top:1px solid var(--ui-stroke-primary);padding-top:14px;font-size:11px;color:var(--ui-text-tertiary)}
-.hermes-crm-native .hc-workspace-header button{padding:6px 10px}.hermes-crm-native .hc-context{padding:8px 10px;margin:8px 0}.hermes-crm-native .hc-context p{margin:6px 0 0}.hermes-crm-native .hc-context textarea{width:100%;margin-top:6px}.hermes-crm-native .hc-context button{padding:5px 9px}.hermes-crm-native .hc-context-preview{margin-top:8px}.hermes-crm-native .hc-scope{font-size:11px;color:var(--ui-text-secondary);overflow-wrap:anywhere}
-/* Record workspaces and pane-scoped drawers share the host theme. */
-.hermes-crm-native [hidden]{display:none!important}.hermes-crm-native .hc-record{margin:18px 0;min-width:0}.hermes-crm-native .hc-record-header{padding:22px;border:1px solid var(--ui-stroke-primary);border-radius:12px;background:var(--ui-bg-elevated,var(--ui-bg-editor))}
-.hermes-crm-native .hc-identity{display:flex;align-items:center;gap:14px;min-width:0}.hermes-crm-native .hc-identity>div:last-child{min-width:0}.hermes-crm-native .hc-identity h2{font-size:24px;letter-spacing:-.5px;line-height:1.25;margin:4px 0;overflow-wrap:anywhere}.hermes-crm-native .hc-avatar{width:48px;height:48px;flex-shrink:0;display:grid;place-items:center;border-radius:12px;background:var(--ui-row-hover-background);color:var(--ui-accent);font-size:18px;font-weight:700}
-.hermes-crm-native .hc-record-actions{margin-top:18px;padding-top:16px;border-top:1px solid var(--ui-stroke-primary)}.hermes-crm-native .hc-record-layout{display:grid;grid-template-columns:minmax(210px,.8fr) minmax(280px,1.5fr) minmax(210px,.85fr);align-items:start;gap:16px;margin-top:16px}.hermes-crm-native .hc-record-layout>*{min-width:0}.hermes-crm-native .hc-stack{display:grid;gap:16px}.hermes-crm-native .hc-section-title{margin-bottom:14px}.hermes-crm-native .hc-section-title h3{font-size:14px}
-.hermes-crm-native .hc-properties{margin:0;display:grid;gap:15px}.hermes-crm-native .hc-properties dt{font-size:11px;color:var(--ui-text-secondary);margin-bottom:3px}.hermes-crm-native .hc-properties dd{margin:0;overflow-wrap:anywhere}.hermes-crm-native .hc-properties.hc-inline-properties{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:20px;padding-top:16px;border-top:1px solid var(--ui-stroke-primary)}
-.hermes-crm-native .hc-timeline{list-style:none;margin:0;padding:0}.hermes-crm-native .hc-timeline>li{position:relative;padding:0 0 22px 23px;border-left:1px solid var(--ui-stroke-primary);margin-left:5px;overflow-wrap:anywhere}.hermes-crm-native .hc-timeline>li:last-child{padding-bottom:0;border-left-color:transparent}.hermes-crm-native .hc-timeline>li:before{content:"";position:absolute;width:9px;height:9px;border:2px solid var(--ui-bg-elevated,var(--ui-bg-editor));background:var(--ui-accent);border-radius:50%;top:5px;left:-5px}.hermes-crm-native .hc-timeline p{margin:4px 0}.hermes-crm-native .hc-related{display:grid;gap:10px}.hermes-crm-native .hc-related button{width:100%;display:block;padding:13px;overflow-wrap:anywhere}.hermes-crm-native .hc-related strong{font-size:13px;letter-spacing:0;margin:0 0 4px}.hermes-crm-native .hc-related small{display:block;margin-top:5px;color:var(--ui-text-secondary)}.hermes-crm-native .hc-record-meta{font-size:11px;color:var(--ui-text-tertiary);overflow-wrap:anywhere;margin-top:18px}
-.hermes-crm-native .hc-stage-path{list-style:none;display:flex;gap:5px;margin:20px 0 0;padding:0;flex-wrap:wrap}.hermes-crm-native .hc-stage-path li{flex:1;min-width:85px;padding:7px 10px;text-align:center;border-radius:6px;border:1px solid var(--ui-stroke-primary);color:var(--ui-text-secondary);font-size:11px}.hermes-crm-native .hc-stage-path li[aria-current=step]{border-color:var(--ui-accent);background:var(--ui-row-hover-background);color:var(--ui-accent);font-weight:700}
-.hermes-crm-native .hc-overlay{position:absolute;inset:0;z-index:10;background:rgb(0 0 0 / .32);display:flex;justify-content:flex-end;min-height:0}.hermes-crm-native .hc-drawer{width:min(600px,100%);height:100%;min-height:0;display:flex;flex-direction:column;background:var(--ui-bg-editor);border-left:1px solid var(--ui-stroke-primary);box-shadow:-12px 0 36px rgb(0 0 0 / .18)}
-.hermes-crm-native .hc-drawer-header{padding:22px 24px 18px;border-bottom:1px solid var(--ui-stroke-primary);flex-shrink:0}.hermes-crm-native .hc-drawer-header h2{font-size:21px;margin:4px 0}.hermes-crm-native .hc-drawer-header p{margin:8px 0 0}.hermes-crm-native .hc-editor{display:flex;flex-direction:column;border:0;border-radius:0;padding:0;margin:0;flex:1;min-height:0}.hermes-crm-native .hc-editor-body{overflow:auto;overscroll-behavior:contain;flex:1;min-height:0;padding:22px 24px}.hermes-crm-native .hc-form-section{border:0;margin:0 0 24px;padding:0;min-width:0}.hermes-crm-native .hc-form-section:last-child{margin-bottom:0}.hermes-crm-native .hc-form-section legend{font-size:13px;font-weight:700;padding:0;margin:0 0 12px}.hermes-crm-native .hc-form-section p{font-size:12px;margin:0 0 14px}.hermes-crm-native .hc-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:17px 14px}.hermes-crm-native .hc-fields label{font-size:12px;font-weight:600;min-width:0}.hermes-crm-native .hc-fields input,.hermes-crm-native .hc-fields select,.hermes-crm-native .hc-fields textarea{width:100%;min-width:0;font-size:13px;font-weight:400;padding:10px 12px}.hermes-crm-native .hc-field-hint{font-size:11px;font-weight:400;color:var(--ui-text-secondary)}.hermes-crm-native .hc-required{color:var(--ui-accent)}.hermes-crm-native .hc-editor-footer{padding:16px 24px;border-top:1px solid var(--ui-stroke-primary);background:var(--ui-bg-elevated,var(--ui-bg-editor));flex-shrink:0}.hermes-crm-native .hc-editor-footer .hc-notice{margin:0 0 14px}.hermes-crm-native .hc-work-item{border-top:1px solid var(--ui-stroke-primary);padding-top:15px;margin-top:15px}.hermes-crm-native .hc-request textarea{width:100%;min-width:0}.hermes-crm-native .hc-coverage{margin:18px 0;overflow-wrap:anywhere}.hermes-crm-native .hc-request{min-width:0;overflow-wrap:anywhere}.hermes-crm-native .hc-work-item summary{cursor:pointer;font-weight:600}.hermes-crm-native .hc-work-item .hc-properties{margin:14px 0}.hermes-crm-native .hc-work-item .hc-notice{font-size:12px}
-@container(max-width:1050px){.hermes-crm-native .hc-record-layout{grid-template-columns:minmax(200px,.8fr) minmax(260px,1.4fr)}.hermes-crm-native .hc-record-related{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}}
-@container(max-width:640px){.hermes-crm-native .hc-record-layout{grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-record-related{grid-column:auto;grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-inline-properties{grid-template-columns:minmax(0,1fr)!important}.hermes-crm-native .hc-record-header{padding:18px}.hermes-crm-native .hc-drawer-header,.hermes-crm-native .hc-editor-body{padding:18px}.hermes-crm-native .hc-editor-footer{padding:14px 18px}}
-@container(max-width:850px){.hermes-crm-native .hc-grid{grid-template-columns:1fr 1fr}.hermes-crm-native .hc-two{grid-template-columns:1fr}.hermes-crm-native .hc-wrap{padding:18px}}
-@container(max-width:480px){.hermes-crm-native .hc-grid,.hermes-crm-native .hc-fields{grid-template-columns:1fr}.hermes-crm-native .hc-bar-row{grid-template-columns:85px 1fr 70px}.hermes-crm-native h1{font-size:21px}}
+/* HermesCRM Workbench. Component tokens are pane-scoped; host chrome is untouched. */
+.hermes-crm-native{--hc-bg:#F5F7FA;--hc-panel:#FFFFFF;--hc-ink:#18191B;--hc-secondary:#5F636B;--hc-border:#D8DFE8;--hc-input-border:#8C929B;--hc-action:#1F4DFF;--hc-action-hover:#173DCC;--hc-link:#1F4DFF;--hc-selection:#EAF0FE;--hc-hover:#F0F3F8;--hc-disabled-bg:#E8EBF0;--hc-disabled-ink:#5F636B;--hc-danger:#B42318;--hc-danger-bg:#FFF0EE;--hc-warning:#885000;--hc-warning-bg:#FFF4DE;--hc-success:#13734B;--hc-success-bg:#E8F4ED;--hc-overlay:rgb(10 18 32 / .32);--ui-bg-editor:var(--hc-bg);--ui-bg-elevated:var(--hc-panel);--ui-text-primary:var(--hc-ink);--ui-text-secondary:var(--hc-secondary);--ui-text-tertiary:var(--hc-secondary);--ui-stroke-primary:var(--hc-border);--ui-row-hover-background:var(--hc-hover);--ui-accent:var(--hc-link);color-scheme:light;height:100%;min-height:0;position:relative;overflow:hidden;container-type:inline-size;background:var(--hc-bg);color:var(--hc-ink);font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+:root.dark .hermes-crm-native{--hc-bg:#101216;--hc-panel:#181B21;--hc-ink:#F2F4F8;--hc-secondary:#D6DCE5;--hc-border:#343B46;--hc-input-border:#697586;--hc-action:#365DEB;--hc-action-hover:#294BC7;--hc-link:#8FAAFF;--hc-selection:#243254;--hc-hover:#222832;--hc-disabled-bg:#292F39;--hc-disabled-ink:#B8C2D0;--hc-danger:#FFB4AB;--hc-danger-bg:#3D2428;--hc-warning:#FFCD80;--hc-warning-bg:#3A301F;--hc-success:#A0E4BF;--hc-success-bg:#1D362B;--hc-overlay:rgb(0 0 0 / .5);color-scheme:dark}
+.hermes-crm-native *{box-sizing:border-box}.hermes-crm-native [hidden]{display:none!important}.hermes-crm-native .hc-wrap{height:100%;overflow:auto;max-width:1600px;margin:auto;padding:24px;scrollbar-gutter:stable}.hermes-crm-native .hc-wrap[inert]{overflow:hidden}
+.hermes-crm-native h1{font-size:28px;line-height:32px;letter-spacing:-.6px;margin:0;font-weight:650}.hermes-crm-native h2{font-size:18px;line-height:24px;margin:0 0 12px;font-weight:650}.hermes-crm-native h3{font-size:14px;line-height:21px;margin:0;font-weight:650}.hermes-crm-native p{margin:8px 0 12px}.hermes-crm-native small{font-size:13px;line-height:18px}.hermes-crm-native .hc-muted{color:var(--hc-secondary);opacity:1}.hermes-crm-native .hc-eyebrow{font-size:12px;line-height:16px;letter-spacing:.06em;font-weight:600;color:var(--hc-secondary)}
+.hermes-crm-native .hc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hermes-crm-native .hc-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.hermes-crm-native .hc-actions>*{max-width:100%}.hermes-crm-native .hc-stack{display:grid;gap:16px;min-width:0}
+.hermes-crm-native button,.hermes-crm-native input,.hermes-crm-native select,.hermes-crm-native textarea{font:inherit;color:var(--hc-ink);background:var(--hc-panel);border:1px solid var(--hc-input-border);border-radius:4px;min-height:36px;padding:6px 12px;max-width:100%;accent-color:var(--hc-action)}.hermes-crm-native input::placeholder,.hermes-crm-native textarea::placeholder{color:var(--hc-secondary);opacity:1}.hermes-crm-native button{cursor:pointer;text-align:left;border-color:var(--hc-border);font-weight:550;transition:background-color 120ms,color 120ms,border-color 120ms}.hermes-crm-native button:hover:not(:disabled){background:var(--hc-hover);border-color:var(--hc-input-border)}.hermes-crm-native button:active:not(:disabled){background:var(--hc-selection)}.hermes-crm-native button:disabled,.hermes-crm-native input:disabled,.hermes-crm-native select:disabled,.hermes-crm-native textarea:disabled{opacity:1;background:var(--hc-disabled-bg);color:var(--hc-disabled-ink);cursor:not-allowed;border-color:var(--hc-border)}.hermes-crm-native :focus-visible{outline:2px solid var(--hc-link);outline-offset:3px}.hermes-crm-native [aria-invalid=true]{border-color:var(--hc-danger)}.hermes-crm-native input[type=checkbox],.hermes-crm-native input[type=radio]{min-height:18px;width:18px;flex-shrink:0;margin:0}
+.hermes-crm-native .hc-primary{background:var(--hc-action);color:#FFFFFF;border-color:var(--hc-action)}.hermes-crm-native .hc-primary:hover:not(:disabled){background:var(--hc-action-hover);border-color:var(--hc-action-hover)}.hermes-crm-native .hc-primary:active:not(:disabled){background:var(--hc-action-hover)}.hermes-crm-native .hc-link-button{border-color:transparent;background:transparent;color:var(--hc-link);padding:4px 0;min-height:36px}.hermes-crm-native .hc-link-button:hover:not(:disabled){background:transparent;border-color:transparent;text-decoration:underline}
+.hermes-crm-native .hc-brandbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:16px}.hermes-crm-native .hc-brand{display:flex;align-items:center;gap:16px;min-width:0}.hermes-crm-native .hc-wordmark{font-family:Georgia,serif;font-weight:700;font-size:24px;line-height:1;letter-spacing:.01em;white-space:nowrap;color:var(--hc-ink)}.hermes-crm-native .hc-brand-tagline{font-size:12px;line-height:16px;color:var(--hc-secondary)}.hermes-crm-native .hc-workspace-header{padding:16px 0 20px;align-items:flex-start}.hermes-crm-native .hc-workspace-header .hc-actions{align-items:center}.hermes-crm-native .hc-icon-button{width:36px;padding:0;display:grid;place-items:center;border-color:transparent;background:transparent}.hermes-crm-native .hc-scope{font-size:12px;line-height:16px;color:var(--hc-secondary);overflow-wrap:anywhere}
+.hermes-crm-native .hc-tabs{display:flex;gap:24px;border-bottom:1px solid var(--hc-border);padding:0;margin:0 0 20px;overflow:auto}.hermes-crm-native .hc-tabs button{border:0;border-radius:0;min-height:44px;padding:8px 0;background:transparent;white-space:nowrap;border-bottom:2px solid transparent;font-weight:500}.hermes-crm-native .hc-tabs button:hover:not(:disabled){background:transparent;border-bottom-color:var(--hc-input-border)}.hermes-crm-native .hc-tabs button[aria-current=page]{background:transparent;color:var(--hc-ink);border-bottom-color:var(--hc-ink);font-weight:700}
+.hermes-crm-native .hc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:0 0 20px}.hermes-crm-native .hc-card{border:1px solid var(--hc-border);border-radius:4px;padding:20px;background:var(--hc-panel);min-width:0}.hermes-crm-native .hc-card strong{font-weight:650}.hermes-crm-native .hc-kpi strong{display:block;font-size:28px;line-height:32px;letter-spacing:-.6px;margin:8px 0}.hermes-crm-native .hc-kpi small{display:block}.hermes-crm-native .hc-two{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;margin:20px 0}.hermes-crm-native .hc-attention{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.hermes-crm-native .hc-attention h2{margin-bottom:4px}.hermes-crm-native .hc-attention p{margin:0;font-size:13px;line-height:18px}
+.hermes-crm-native .hc-badge{display:inline-flex;align-items:center;max-width:100%;font-size:12px;line-height:16px;font-weight:600;border:1px solid transparent;border-radius:4px;padding:3px 8px;color:var(--hc-secondary);background:var(--hc-hover);overflow-wrap:anywhere}.hermes-crm-native .hc-badge[data-tone=success]{color:var(--hc-success);background:var(--hc-success-bg)}.hermes-crm-native .hc-badge[data-tone=warning]{color:var(--hc-warning);background:var(--hc-warning-bg)}.hermes-crm-native .hc-badge[data-tone=danger]{color:var(--hc-danger);background:var(--hc-danger-bg)}.hermes-crm-native .hc-bar-row{display:grid;grid-template-columns:100px 1fr 85px;gap:12px;align-items:center;width:100%;border:0;padding:8px 0;background:transparent}.hermes-crm-native .hc-track{height:8px;border-radius:4px;background:var(--hc-hover);overflow:hidden}.hermes-crm-native .hc-fill{height:100%;background:var(--hc-action);border-radius:4px}
+.hermes-crm-native .hc-list{display:grid;gap:0;min-width:0}.hermes-crm-native .hc-list-item{width:100%;border:0;border-bottom:1px solid var(--hc-border);border-radius:0;padding:12px 0;display:flex;justify-content:space-between;gap:12px;align-items:center;background:transparent;overflow-wrap:anywhere;min-width:0}.hermes-crm-native .hc-list-item:last-child{border-bottom:0}.hermes-crm-native .hc-list-item>div{min-width:0}.hermes-crm-native .hc-list-item p{margin:4px 0 0}.hermes-crm-native .hc-list-item>button:first-child{border:0;background:transparent;padding:0;min-width:0}.hermes-crm-native .hc-list-item>button:last-child{flex-shrink:0}
+.hermes-crm-native .hc-table-wrap{max-width:100%;overflow:auto;border:1px solid var(--hc-border);border-radius:4px;background:var(--hc-panel)}.hermes-crm-native .hc-table{border-collapse:collapse;width:100%;text-align:left}.hermes-crm-native .hc-table th{font-size:12px;line-height:16px;color:var(--hc-secondary);font-weight:600;background:var(--hc-panel);padding:12px 16px;border-bottom:1px solid var(--hc-border)}.hermes-crm-native .hc-table td{padding:12px 16px;border-bottom:1px solid var(--hc-border);vertical-align:middle;max-width:280px;overflow-wrap:anywhere}.hermes-crm-native .hc-table tr:last-child td{border-bottom:0}.hermes-crm-native .hc-table tbody tr:hover{background:var(--hc-hover)}.hermes-crm-native .hc-table td small{display:block;color:var(--hc-secondary);margin-top:2px}.hermes-crm-native .hc-table .hc-link-button{font-weight:650;color:var(--hc-ink);text-align:left}.hermes-crm-native .hc-table .hc-link-button:hover{color:var(--hc-link)}.hermes-crm-native .hc-table-caption{padding:12px 16px;text-align:left;font-size:13px;color:var(--hc-secondary)}.hermes-crm-native .hc-pagination{padding:12px 0;font-size:13px;color:var(--hc-secondary)}
+.hermes-crm-native .hc-filters{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:0 0 16px;padding:16px;border:1px solid var(--hc-border);border-radius:4px;background:var(--hc-panel)}.hermes-crm-native .hc-filters .hc-actions{align-items:flex-end;flex:1 1 auto}.hermes-crm-native .hc-filters label{min-width:120px;flex:1 1 120px;max-width:240px;font-size:12px;line-height:16px;font-weight:600}.hermes-crm-native .hc-filters label input,.hermes-crm-native .hc-filters label select{font-size:14px;font-weight:400;width:100%;min-width:0}
+.hermes-crm-native .hc-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(212px,1fr);gap:12px;overflow:auto;padding:0 0 16px;align-items:start}.hermes-crm-native .hc-column{border:1px solid var(--hc-border);border-radius:4px;background:var(--hc-hover);padding:12px;min-height:240px}.hermes-crm-native .hc-column>header{margin-bottom:8px}.hermes-crm-native .hc-column>p{margin:0 0 12px;font-size:13px}.hermes-crm-native .hc-deal{display:block;width:100%;margin:8px 0 0;background:var(--hc-panel);padding:16px 12px;overflow-wrap:anywhere}.hermes-crm-native .hc-deal strong{display:block;font-size:18px;line-height:24px;margin:12px 0}.hermes-crm-native .hc-deal p{margin:4px 0}.hermes-crm-native .hc-deal small{display:block;margin-top:8px}
+.hermes-crm-native .hc-empty{text-align:center;padding:32px 20px;color:var(--hc-secondary);border:1px dashed var(--hc-input-border);border-radius:4px;background:var(--hc-panel)}.hermes-crm-native .hc-notice{padding:12px 16px;border:1px solid var(--hc-border);border-left:3px solid var(--hc-link);border-radius:4px;margin:12px 0;overflow-wrap:anywhere;background:var(--hc-panel)}.hermes-crm-native [role=alert].hc-notice{border-left-color:var(--hc-danger);color:var(--hc-danger);background:var(--hc-danger-bg)}.hermes-crm-native .hc-notice p:last-child{margin-bottom:0}.hermes-crm-native .hc-footer{margin-top:24px;border-top:1px solid var(--hc-border);padding-top:12px;font-size:12px;line-height:18px;color:var(--hc-secondary)}.hermes-crm-native .hc-footer summary{min-height:36px;cursor:pointer;display:list-item}
+.hermes-crm-native .hc-context{padding:12px 16px;margin:0 0 16px}.hermes-crm-native .hc-context p{margin:4px 0 0;font-size:13px;line-height:18px}.hermes-crm-native .hc-context textarea{width:100%;margin-top:8px}.hermes-crm-native .hc-context-preview{margin-top:12px}.hermes-crm-native label{display:flex;flex-direction:column;gap:6px;min-width:0}.hermes-crm-native textarea{min-height:96px;resize:vertical}.hermes-crm-native .hc-wide{grid-column:1/-1}.hermes-crm-native .hc-details{white-space:pre-wrap;overflow-wrap:anywhere}.hermes-crm-native details>summary{cursor:pointer;min-height:36px;padding:8px 0;font-size:13px;font-weight:600;color:var(--hc-secondary)}
+.hermes-crm-native .hc-record{margin:0;min-width:0}.hermes-crm-native .hc-record-header{padding:20px;border:1px solid var(--hc-border);border-radius:4px;background:var(--hc-panel)}.hermes-crm-native .hc-identity{display:flex;align-items:center;gap:12px;min-width:0}.hermes-crm-native .hc-identity>div:last-child{min-width:0}.hermes-crm-native .hc-identity h2{font-size:24px;line-height:28px;letter-spacing:-.4px;margin:4px 0;overflow-wrap:anywhere}.hermes-crm-native .hc-identity p{margin:4px 0 0}.hermes-crm-native .hc-avatar{width:44px;height:44px;flex-shrink:0;display:grid;place-items:center;border-radius:4px;background:var(--hc-selection);color:var(--hc-link);font-size:18px;font-weight:650}.hermes-crm-native .hc-record-actions{margin-top:16px;padding-top:12px;border-top:1px solid var(--hc-border)}.hermes-crm-native .hc-record-layout{display:grid;grid-template-columns:minmax(200px,.8fr) minmax(280px,1.5fr) minmax(200px,.85fr);align-items:start;gap:16px;margin-top:16px}.hermes-crm-native .hc-record-layout>*{min-width:0}.hermes-crm-native .hc-section-title{margin-bottom:12px}.hermes-crm-native .hc-section-title h3{font-size:18px;line-height:24px}
+.hermes-crm-native .hc-properties{margin:0;display:grid;gap:12px}.hermes-crm-native .hc-properties dt{font-size:12px;line-height:16px;color:var(--hc-secondary);margin-bottom:4px}.hermes-crm-native .hc-properties dd{margin:0;overflow-wrap:anywhere}.hermes-crm-native .hc-properties.hc-inline-properties{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:16px;padding-top:12px;border-top:1px solid var(--hc-border)}.hermes-crm-native .hc-record-meta{font-size:12px;line-height:18px;color:var(--hc-secondary);overflow-wrap:anywhere;margin-top:12px}
+.hermes-crm-native .hc-timeline{list-style:none;margin:0;padding:0}.hermes-crm-native .hc-timeline>li{position:relative;padding:0 0 20px 20px;border-left:1px solid var(--hc-border);margin-left:4px;overflow-wrap:anywhere}.hermes-crm-native .hc-timeline>li:last-child{padding-bottom:0;border-left-color:transparent}.hermes-crm-native .hc-timeline>li:before{content:"";position:absolute;width:8px;height:8px;border:2px solid var(--hc-panel);background:var(--hc-link);border-radius:50%;top:6px;left:-4px}.hermes-crm-native .hc-timeline p{margin:4px 0}.hermes-crm-native .hc-related{display:grid;gap:0}.hermes-crm-native .hc-related button{width:100%;display:block;padding:12px 0;border:0;border-bottom:1px solid var(--hc-border);border-radius:0;overflow-wrap:anywhere;background:transparent}.hermes-crm-native .hc-related button:last-child{border-bottom:0}.hermes-crm-native .hc-related strong{font-size:14px;letter-spacing:0;margin:0 0 4px}.hermes-crm-native .hc-related small{display:block;margin-top:4px;color:var(--hc-secondary)}
+.hermes-crm-native .hc-stage-path{list-style:none;display:flex;gap:4px;margin:16px 0 0;padding:0;flex-wrap:wrap}.hermes-crm-native .hc-stage-path li{flex:1;min-width:80px;padding:8px;text-align:center;border-radius:4px;border:1px solid var(--hc-border);color:var(--hc-secondary);font-size:12px}.hermes-crm-native .hc-stage-path li[aria-current=step]{background:var(--hc-selection);color:var(--hc-ink);font-weight:700;outline:1px solid var(--hc-link)}
+.hermes-crm-native .hc-overlay{position:absolute;inset:0;z-index:10;background:var(--hc-overlay);display:flex;justify-content:flex-end;min-height:0}.hermes-crm-native .hc-drawer{width:min(600px,100%);height:100%;min-height:0;display:flex;flex-direction:column;background:var(--hc-panel);border-left:1px solid var(--hc-border);box-shadow:-8px 0 24px rgb(0 0 0 / .16)}.hermes-crm-native .hc-drawer-header{padding:20px 24px;border-bottom:1px solid var(--hc-border);flex-shrink:0}.hermes-crm-native .hc-drawer-header h2{font-size:24px;line-height:28px;margin:4px 0}.hermes-crm-native .hc-drawer-header p{font-size:13px;line-height:18px;margin:8px 0 0}.hermes-crm-native .hc-editor{display:flex;flex-direction:column;border:0;border-radius:0;padding:0;margin:0;flex:1;min-height:0}.hermes-crm-native .hc-editor-body{overflow:auto;overscroll-behavior:contain;flex:1;min-height:0;padding:24px}.hermes-crm-native .hc-form-section{border:0;margin:0 0 24px;padding:0;min-width:0}.hermes-crm-native .hc-form-section:last-child{margin-bottom:0}.hermes-crm-native .hc-form-section legend{font-size:18px;line-height:24px;font-weight:650;padding:0;margin:0 0 12px}.hermes-crm-native .hc-form-section p{font-size:13px;line-height:18px;margin:0 0 12px}.hermes-crm-native .hc-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.hermes-crm-native .hc-fields label{font-size:12px;line-height:16px;font-weight:600;min-width:0}.hermes-crm-native .hc-fields input,.hermes-crm-native .hc-fields select,.hermes-crm-native .hc-fields textarea{width:100%;min-width:0;font-size:14px;line-height:21px;font-weight:400}.hermes-crm-native .hc-field-hint{font-size:12px;line-height:16px;font-weight:400;color:var(--hc-secondary)}.hermes-crm-native .hc-required{color:var(--hc-link)}.hermes-crm-native .hc-editor-footer{padding:16px 24px;border-top:1px solid var(--hc-border);background:var(--hc-panel);flex-shrink:0}.hermes-crm-native .hc-editor-footer .hc-notice{margin:0 0 12px}
+.hermes-crm-native .hc-work-item{border-top:1px solid var(--hc-border);padding:16px 0;margin:0;min-width:0}.hermes-crm-native .hc-work-item summary{cursor:pointer;font-weight:600}.hermes-crm-native .hc-work-item .hc-properties{margin:12px 0}.hermes-crm-native .hc-work-item .hc-notice{font-size:13px}.hermes-crm-native .hc-request{min-width:0;overflow-wrap:anywhere}.hermes-crm-native .hc-request textarea{width:100%;min-width:0}.hermes-crm-native .hc-coverage{margin:20px 0;overflow-wrap:anywhere}.hermes-crm-native .hc-coverage .hc-fields{max-width:640px;margin:16px 0}.hermes-crm-native .hc-evidence{padding:0 12px;background:var(--hc-bg);border:1px solid var(--hc-border);border-radius:4px;margin:8px 0}.hermes-crm-native .hc-evidence p{font-size:13px;line-height:18px}.hermes-crm-native .hc-coverage-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.hermes-crm-native .hc-coverage-summary>div{min-width:0}.hermes-crm-native .hc-coverage-summary p{margin:4px 0;font-size:13px;line-height:18px}
+.hermes-crm-native .hc-stage-chart-body{display:grid;grid-template-columns:minmax(160px,.75fr) minmax(200px,1fr);gap:16px;align-items:center}.hermes-crm-native .hc-stage-plot{display:grid;place-items:center;position:relative}.hermes-crm-native .hc-stage-plot svg{max-width:100%;height:auto}.hermes-crm-native .hc-chart-total{text-align:center;margin:0 0 12px;font-size:13px;color:var(--hc-secondary)}.hermes-crm-native .hc-chart-total b{display:block;font-size:24px;line-height:28px;color:var(--hc-ink);margin-top:4px}.hermes-crm-native .hc-stage-legend{display:grid;gap:0}.hermes-crm-native .hc-stage-legend button{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 4px;border:0;border-bottom:1px solid var(--hc-border);border-radius:0;background:transparent;font-size:13px}.hermes-crm-native .hc-stage-legend button:last-child{border-bottom:0}.hermes-crm-native .hc-stage-legend small{display:block;font-size:12px;color:var(--hc-secondary)}.hermes-crm-native .hc-stage-dot{width:8px;height:8px;border-radius:50%;background:var(--stage-color);border:1px solid var(--hc-input-border)}.hermes-crm-native .hc-chart-hint{font-size:12px;line-height:18px;color:var(--hc-secondary);min-height:36px;margin:12px 0 0}
+@container(max-width:1100px){.hermes-crm-native .hc-record-layout{grid-template-columns:minmax(200px,.8fr) minmax(260px,1.4fr)}.hermes-crm-native .hc-record-related{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}.hermes-crm-native .hc-stage-chart-body{grid-template-columns:1fr}.hermes-crm-native .hc-stage-plot svg{max-width:200px}}
+@container(max-width:850px){.hermes-crm-native .hc-grid{grid-template-columns:1fr 1fr}.hermes-crm-native .hc-two{grid-template-columns:1fr}.hermes-crm-native .hc-wrap{padding:16px}.hermes-crm-native .hc-stage-chart-body{grid-template-columns:minmax(160px,.75fr) minmax(200px,1fr)}.hermes-crm-native .hc-brand-tagline{display:none}}
+@container(max-width:640px){.hermes-crm-native .hc-record-layout{grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-record-related{grid-column:auto;grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-inline-properties{grid-template-columns:minmax(0,1fr)!important}.hermes-crm-native .hc-record-header{padding:16px}.hermes-crm-native .hc-drawer-header,.hermes-crm-native .hc-editor-body{padding:16px}.hermes-crm-native .hc-editor-footer{padding:12px 16px}.hermes-crm-native .hc-card{padding:16px}.hermes-crm-native .hc-tabs{gap:20px}.hermes-crm-native .hc-coverage-summary{flex-direction:column;gap:8px}.hermes-crm-native .hc-table{min-width:650px}.hermes-crm-native .hc-stage-chart-body{grid-template-columns:1fr}}
+@container(max-width:480px){.hermes-crm-native .hc-grid,.hermes-crm-native .hc-fields{grid-template-columns:1fr}.hermes-crm-native .hc-bar-row{grid-template-columns:85px 1fr 70px}.hermes-crm-native h1{font-size:24px;line-height:28px}.hermes-crm-native .hc-filters label{max-width:none}.hermes-crm-native .hc-list-item{flex-wrap:wrap}.hermes-crm-native .hc-workspace-header{gap:12px}}
+@media(pointer:coarse){.hermes-crm-native button,.hermes-crm-native input,.hermes-crm-native select,.hermes-crm-native summary{min-height:44px}.hermes-crm-native .hc-icon-button{width:44px}.hermes-crm-native input[type=checkbox],.hermes-crm-native input[type=radio]{min-height:24px;width:24px}}
+@media(prefers-reduced-motion:reduce){.hermes-crm-native *{transition:none!important;scroll-behavior:auto!important}}
+@media(forced-colors:active){:root .hermes-crm-native,:root.dark .hermes-crm-native{--hc-bg:Canvas;--hc-panel:Canvas;--hc-ink:CanvasText;--hc-secondary:CanvasText;--hc-border:CanvasText;--hc-input-border:CanvasText;--hc-action:Highlight;--hc-link:LinkText;--hc-selection:Canvas;--hc-hover:Canvas;--hc-disabled-bg:Canvas;--hc-disabled-ink:GrayText}.hermes-crm-native .hc-primary{color:HighlightText}.hermes-crm-native .hc-badge{border-color:CanvasText;color:CanvasText;background:Canvas}.hermes-crm-native :focus-visible{outline-color:Highlight}.hermes-crm-native .hc-tabs button[aria-current=page]{border-bottom-color:Highlight}}
+/* Reports and contact history: shared Workbench surfaces and readable metadata. */
+.hermes-crm-native .hc-reports{margin-top:24px;display:grid;gap:16px;min-width:0;color:var(--hc-ink)}
+.hermes-crm-native .hc-report-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:8px 0}
+.hermes-crm-native .hc-report-header{align-items:center;margin:0}
+.hermes-crm-native .hc-report-header h2{flex:1 1 220px;margin:0}
+.hermes-crm-native .hc-report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:16px;align-items:start}
+.hermes-crm-native .hc-report-card,.hermes-crm-native .hc-report-library{border:1px solid var(--hc-border);border-radius:4px;padding:16px;background:var(--hc-panel);min-width:0;overflow-wrap:anywhere}
+.hermes-crm-native .hc-report-card h3{font-size:18px;line-height:24px;margin:0 0 8px}
+.hermes-crm-native .hc-report-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0;padding:16px;border:1px solid var(--hc-border);border-radius:4px;min-width:0}
+.hermes-crm-native div.hc-report-form{padding:0;border:0}
+.hermes-crm-native .hc-report-form>.hc-report-form,.hermes-crm-native .hc-report-form>p,.hermes-crm-native .hc-report-form>.hc-report-column-section,.hermes-crm-native .hc-report-form>.hc-report-filter,.hermes-crm-native .hc-report-form>.hc-report-toolbar{grid-column:1/-1}
+.hermes-crm-native .hc-report-form>button{justify-self:start}
+.hermes-crm-native .hc-report-form label,.hermes-crm-native .hc-report-field,.hermes-crm-native .hc-report-toolbar>label{display:grid;gap:8px;min-width:0;font-size:12px;line-height:16px;font-weight:600}
+.hermes-crm-native .hc-report-form input,.hermes-crm-native .hc-report-form select,.hermes-crm-native .hc-report-field select{max-width:100%;min-width:0;width:100%;font-size:14px;line-height:21px;font-weight:400}
+.hermes-crm-native .hc-report-column-section{border:0;border-top:1px solid var(--hc-border);padding:12px 0;min-width:0}
+.hermes-crm-native .hc-report-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:8px 16px}
+.hermes-crm-native .hc-report-columns label{display:flex;flex-direction:row;align-items:center;font-size:14px;line-height:21px;font-weight:400;min-height:36px}
+.hermes-crm-native .hc-report-columns input{width:16px;min-height:16px;flex:0 0 16px;accent-color:var(--hc-action)}
+.hermes-crm-native .hc-report-filter{border:1px solid var(--hc-border);padding:12px;border-radius:4px;min-width:0;margin:0;background:var(--hc-bg)}
+.hermes-crm-native .hc-report-filter legend,.hermes-crm-native .hc-report-form legend{font-size:13px;line-height:18px;font-weight:600;padding:0 4px}
+.hermes-crm-native .hc-report-condition{padding:12px 0;border-bottom:1px solid var(--hc-border)}
+.hermes-crm-native .hc-report-condition:last-of-type{border-bottom:0}
+.hermes-crm-native .hc-report-condition .hc-report-toolbar>label{flex:1 1 160px}
+.hermes-crm-native .hc-report-condition small{flex-basis:100%;color:var(--hc-secondary);font-size:13px;line-height:18px}
+.hermes-crm-native .hc-report-result{border-top:1px solid var(--hc-border);margin-top:16px;padding-top:12px;min-width:0}
+.hermes-crm-native .hc-report-scroll{overflow:auto;max-height:450px;border:1px solid var(--hc-border);border-radius:4px;overscroll-behavior:contain}
+.hermes-crm-native .hc-reports table{border-collapse:collapse;width:100%;font-size:14px;line-height:21px}
+.hermes-crm-native .hc-reports td,.hermes-crm-native .hc-reports th{text-align:left;padding:12px 16px;border-bottom:1px solid var(--hc-border);vertical-align:top;min-width:120px;max-width:360px;overflow-wrap:anywhere}
+.hermes-crm-native .hc-reports th{position:sticky;top:0;z-index:1;background:var(--hc-panel);font-size:12px;line-height:16px;color:var(--hc-secondary);font-weight:600}
+.hermes-crm-native .hc-reports tbody tr:last-child td{border-bottom:0}
+.hermes-crm-native .hc-reports tbody tr:focus-within{background:var(--hc-selection)}
+.hermes-crm-native .hc-report-muted{color:var(--hc-secondary);font-size:13px;line-height:18px;margin:8px 0}
+.hermes-crm-native .hc-report-empty{padding:16px;border:1px dashed var(--hc-border);border-radius:4px;color:var(--hc-secondary);background:var(--hc-bg);font-size:14px;line-height:21px}
+.hermes-crm-native .hc-report-notice{padding:12px 16px;border:1px solid var(--hc-input-border);border-radius:4px;color:var(--hc-ink);background:var(--hc-bg);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.hermes-crm-native .hc-report-error{border-left:3px solid var(--hc-danger)}
+.hermes-crm-native .hc-report-library summary{cursor:pointer;font-size:18px;line-height:24px;font-weight:600;min-height:36px}
+.hermes-crm-native .hc-report-saved-list{list-style:none;margin:0;padding:0}
+.hermes-crm-native .hc-report-saved-list li{padding:12px 0;margin:0;border-bottom:1px solid var(--hc-border);align-items:center}
+.hermes-crm-native .hc-report-saved-list li>button:first-child{flex:1 1 220px;text-align:left;color:var(--hc-link)}
+.hermes-crm-native .hc-report-metric{font-size:32px;line-height:40px;font-weight:600;font-variant-numeric:tabular-nums;padding:12px 16px}
+.hermes-crm-native .hc-report-chart-list{list-style:none;padding:0;margin:16px 0;display:grid;gap:8px}
+.hermes-crm-native .hc-report-chart-list button{width:100%;text-align:left;padding:12px;white-space:normal;font-variant-numeric:tabular-nums}
+.hermes-crm-native .hc-report-bar{display:block;height:8px;border-radius:0;background:var(--hc-link);margin-top:8px}
+.hermes-crm-native .hc-report-donut{width:180px;height:180px;overflow:visible;display:block;margin:24px auto}
+.hermes-crm-native .hc-report-line{width:100%;max-height:200px;overflow:visible;display:block;margin:24px 0}
+.hermes-crm-native .hc-report-plot-control{cursor:pointer}
+.hermes-crm-native .hc-report-plot-control:focus-visible{outline:none;stroke:var(--hc-ink);stroke-width:3px}
+.hermes-crm-native .hc-report-plot-control[aria-disabled=true]{cursor:default}
+.hermes-crm-native .hc-reports :is(button,input,select,summary,.hc-report-scroll):focus-visible,.hermes-crm-native .hc-contact-log :is(button,input,select,textarea):focus-visible{outline:2px solid var(--hc-link);outline-offset:3px}
+.hermes-crm-native .hc-contact-log{margin-top:16px;overflow-wrap:anywhere;min-width:0}
+.hermes-crm-native .hc-contact-log h3{font-size:18px;line-height:24px;margin:0 0 8px}
+.hermes-crm-native .hc-contact-log-help,.hermes-crm-native .hc-contact-log-meta{color:var(--hc-secondary);font-size:13px;line-height:18px}
+.hermes-crm-native .hc-contact-log-actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.hermes-crm-native .hc-contact-log-actions>.hc-primary{margin-left:auto}
+.hermes-crm-native .hc-contact-log-status:empty{display:none}
+.hermes-crm-native .hc-contact-log-notice,.hermes-crm-native .hc-contact-log-empty{padding:12px 16px;background:var(--hc-bg);border:1px solid var(--hc-border);border-radius:4px;color:var(--hc-ink)}
+.hermes-crm-native .hc-contact-log-form,.hermes-crm-native .hc-contact-log-correction{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;background:var(--hc-bg);border:1px solid var(--hc-border);border-radius:4px;padding:16px;margin:16px 0}
+.hermes-crm-native .hc-contact-log label{display:grid;gap:8px;font-size:12px;line-height:16px;font-weight:600;min-width:0}
+.hermes-crm-native .hc-contact-log :is(input,select,textarea){width:100%;min-width:0;font-size:14px;line-height:21px;font-weight:400}
+.hermes-crm-native .hc-contact-log textarea{min-height:96px;max-width:100%;resize:vertical}
+.hermes-crm-native .hc-contact-log-form>label:first-child,.hermes-crm-native .hc-contact-log-summary,.hermes-crm-native .hc-contact-log-correction>p,.hermes-crm-native .hc-contact-log-correction>label{grid-column:1/-1}
+.hermes-crm-native .hc-contact-log form>button{justify-self:start}
+.hermes-crm-native .hc-contact-log-list{list-style:none;margin:0;padding:0}
+.hermes-crm-native .hc-contact-log-entry{padding:16px 0;border-top:1px solid var(--hc-border)}
+.hermes-crm-native .hc-contact-log-entry time{font-size:13px;line-height:18px;font-variant-numeric:tabular-nums}
+.hermes-crm-native .hc-contact-log-entry p{white-space:pre-wrap;margin:8px 0}
+.hermes-crm-native .hc-contact-log-voided{border-left:3px solid var(--hc-input-border);padding:8px 12px;background:var(--hc-bg);font-size:13px;line-height:18px}
+.hermes-crm-native .hc-contact-log-history>button{margin:12px 8px 0 0}
+@container(max-width:640px){.hermes-crm-native .hc-report-form,.hermes-crm-native .hc-contact-log-form,.hermes-crm-native .hc-contact-log-correction{grid-template-columns:minmax(0,1fr);padding:12px;gap:12px}.hermes-crm-native .hc-report-card,.hermes-crm-native .hc-report-library{padding:12px}.hermes-crm-native .hc-report-toolbar>label{flex:1 1 100%}.hermes-crm-native .hc-reports :is(button,input:not([type=checkbox]),select),.hermes-crm-native .hc-contact-log :is(button,input,select){min-height:44px}.hermes-crm-native .hc-contact-log-actions>.hc-primary{margin-left:0}}
+@media(pointer:coarse){.hermes-crm-native .hc-reports :is(button,select,summary),.hermes-crm-native .hc-contact-log :is(button,select){min-height:44px}.hermes-crm-native .hc-report-columns label{min-height:44px}}
+/* Settings, protection and transfer: Workbench drawer composition. */
+.hermes-crm-native :is(.hc-transfer-body,.hc-customization-body,.hc-protection-body){color:var(--hc-ink);font-size:14px;line-height:21px;overflow-wrap:anywhere}
+.hermes-crm-native :is(.hc-transfer-body,.hc-customization-body,.hc-protection-body) p{margin:0 0 16px}
+.hermes-crm-native :is(.hc-transfer-body,.hc-customization-body,.hc-protection-body) :is(small,.hc-muted){color:var(--hc-secondary);opacity:1;font-size:13px;line-height:18px}
+.hermes-crm-native :is(.hc-settings-heading,.hc-settings-section h3){font-size:18px;line-height:24px;margin:24px 0 16px}
+.hermes-crm-native .hc-safety-note{background:var(--hc-bg);border:1px solid var(--hc-border);border-radius:4px;padding:16px;color:var(--hc-secondary);font-size:13px;line-height:18px}
+.hermes-crm-native .hc-transfer-tabs{margin:24px 0}
+.hermes-crm-native .hc-transfer-tabs button[aria-pressed=true]{border-bottom-color:var(--hc-ink);color:var(--hc-ink);font-weight:700;background:var(--hc-panel)}
+.hermes-crm-native .hc-settings-section{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:16px}
+.hermes-crm-native .hc-settings-section>h3,.hermes-crm-native .hc-settings-section>p{margin:0}
+.hermes-crm-native .hc-settings-section>button{align-self:flex-start}
+.hermes-crm-native .hc-settings-section label{font-size:13px;line-height:18px;gap:8px;min-width:0}
+.hermes-crm-native .hc-transfer-body :is(input,select){max-width:100%;min-width:0}
+.hermes-crm-native .hc-transfer-body input[type=file]{width:100%;padding:12px;border:1px solid var(--hc-input-border);border-radius:4px;background:var(--hc-panel);font-size:13px}
+.hermes-crm-native .hc-transfer-body input[type=file]::file-selector-button{padding:8px 12px;margin-right:12px;border:1px solid var(--hc-border);border-radius:4px;background:var(--hc-bg);color:var(--hc-ink);font:inherit;cursor:pointer}
+.hermes-crm-native :is(.hc-transfer-mapping,.hc-transfer-columns){min-width:0;margin:0;padding:16px;border:1px solid var(--hc-border);border-radius:4px;display:grid;gap:16px}
+.hermes-crm-native :is(.hc-transfer-mapping,.hc-transfer-columns) legend{padding:0 8px;font-size:13px;font-weight:700;color:var(--hc-ink)}
+.hermes-crm-native .hc-transfer-mapping{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hermes-crm-native .hc-transfer-columns{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.hermes-crm-native .hc-transfer-body label:has(input[type=checkbox]){display:flex;flex-direction:row;align-items:flex-start;gap:8px;font-size:14px;line-height:21px;padding:8px 0}
+.hermes-crm-native .hc-transfer-body input[type=checkbox]{flex:0 0 auto;width:16px;height:16px;margin:2px 0 0;accent-color:var(--hc-action)}
+.hermes-crm-native .hc-transfer-rows{list-style:none;padding:0;margin:24px 0;display:grid;gap:12px}
+.hermes-crm-native .hc-transfer-row{min-width:0;border:1px solid var(--hc-border);padding:16px;border-radius:4px;background:var(--hc-panel)}
+.hermes-crm-native .hc-transfer-row-heading{font-weight:700;font-size:14px;line-height:21px}
+.hermes-crm-native .hc-transfer-row ul{padding-left:20px;margin:8px 0 16px}
+.hermes-crm-native .hc-transfer-row li{margin:4px 0}
+.hermes-crm-native .hc-transfer-values>p{font-size:13px;line-height:18px}
+.hermes-crm-native .hc-evidence-disclosure{min-width:0;border:1px solid var(--hc-border);border-radius:4px;padding:12px 16px;background:var(--hc-bg)}
+.hermes-crm-native .hc-evidence-disclosure summary{font-size:13px;line-height:18px;font-weight:600;cursor:pointer;min-height:24px;padding:4px 0;color:var(--hc-ink)}
+.hermes-crm-native .hc-evidence-disclosure[open] summary{margin-bottom:12px}
+.hermes-crm-native .hc-evidence-disclosure summary:focus-visible{outline:2px solid var(--hc-link);outline-offset:4px;border-radius:4px}
+.hermes-crm-native .hc-setting-properties{margin:0;display:grid;gap:12px}
+.hermes-crm-native .hc-setting-properties>div{border-top:1px solid var(--hc-border);padding-top:12px;min-width:0}
+.hermes-crm-native .hc-setting-properties dt{color:var(--hc-secondary);font-size:12px;line-height:16px;margin-bottom:4px}
+.hermes-crm-native .hc-setting-properties dd{margin:0;color:var(--hc-ink);font-size:14px;line-height:21px}
+.hermes-crm-native .hc-transfer-footer{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.hermes-crm-native .hc-transfer-footer .hc-notice{flex:1 1 240px;margin:0}
+.hermes-crm-native .hc-definition-list{gap:0;border:1px solid var(--hc-border);border-radius:4px;overflow:hidden;margin-bottom:16px}
+.hermes-crm-native .hc-definition-item{border:0;border-bottom:1px solid var(--hc-border);border-radius:0;padding:16px;min-height:56px;text-align:left;flex-wrap:wrap;background:var(--hc-panel);font-size:14px;line-height:21px}
+.hermes-crm-native .hc-definition-item:last-child{border-bottom:0}
+.hermes-crm-native .hc-definition-item:focus-visible{outline-offset:-3px}
+.hermes-crm-native .hc-definition-meta{font-size:13px;line-height:18px;color:var(--hc-secondary);overflow-wrap:anywhere}
+.hermes-crm-native .hc-definition-editor{padding-top:8px}
+.hermes-crm-native .hc-definition-editor>.hc-muted{margin:16px 0}
+.hermes-crm-native .hc-definition-actions{border-top:1px solid var(--hc-border);padding-top:16px;margin-top:24px}
+.hermes-crm-native .hc-protection-help{margin-bottom:24px}
+.hermes-crm-native .hc-protection-status{font-weight:700}
+.hermes-crm-native .hc-protection-metadata{color:var(--hc-secondary);font-size:13px;line-height:18px}
+.hermes-crm-native .hc-protection-controls{display:flex;flex-direction:column;align-items:flex-start;gap:16px;margin:24px 0}
+.hermes-crm-native .hc-protection-controls>div,.hermes-crm-native .hc-protection-controls>label{width:100%;min-width:0}
+.hermes-crm-native .hc-protection-controls textarea{width:100%;min-height:168px;font-size:14px;line-height:21px;padding:12px}
+.hermes-crm-native .hc-protection-controls .hc-details{padding:16px;background:var(--hc-bg);border:1px solid var(--hc-border);border-radius:4px}
+.hermes-crm-native .hc-protection-body>button{margin:0 8px 12px 0}
+.hermes-crm-native .hc-prepared-export{border:1px solid var(--hc-border);border-radius:4px;padding:16px;background:var(--hc-bg)}
+@container(max-width:480px){.hermes-crm-native :is(.hc-transfer-mapping,.hc-transfer-columns){grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-definition-item{align-items:flex-start;flex-direction:column;gap:4px}}
+@media(pointer:coarse){.hermes-crm-native .hc-evidence-disclosure summary{min-height:44px}.hermes-crm-native .hc-transfer-body label:has(input[type=checkbox]){min-height:44px}}
+.hermes-crm-native .hc-wordmark-svg{width:180px;height:24px;min-width:150px;flex-shrink:0;color:var(--hc-ink)}.hermes-crm-native .hc-brandbar .hc-tabs{margin:0;border-bottom:0;gap:24px}.hermes-crm-native .hc-brandbar{border-bottom:1px solid var(--hc-border);padding-bottom:0}.hermes-crm-native .hc-stage-legend-content{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%}.hermes-crm-native .hc-stage-legend button{display:block}.hermes-crm-native .hc-brand-tagline{max-width:156px}
+@container(max-width:850px){.hermes-crm-native .hc-brandbar{gap:8px}.hermes-crm-native .hc-brandbar .hc-tabs{width:100%}.hermes-crm-native .hc-brandbar .hc-brand{padding-top:4px}}
+.hermes-crm-native .hc-filters label:has(select[aria-label="Contact type"]){min-width:170px}
+.hermes-crm-native .hc-filters label:has(select){min-width:150px}.hermes-crm-native .hc-filters label:has(select[aria-label="Contact type"]){min-width:170px}
 `;
 
 function Shell({ children, overlay, rootRef }) {
@@ -1118,33 +1262,38 @@ export function StageChart({ stages, onStage, catalog }) {
   const [active, setActive] = useState(null);
   let offset = 0;
   const describe = row => `${row.label || label(row.stage)}: ${money(row.value)} USD · ${(row.share * 100).toFixed(1)}% · ${row.count} deals · ${row.contact_count} distinct contacts`;
-  return h("section", { className: "hc-card" },
+  return h("section", { className: "hc-card hc-stage-chart" },
     h("h2", null, "Deal value by stage"),
     h("p", { className: "hc-muted" }, "All stages, including Won and Lost. Contacts may have multiple linked stages."),
-    h("p", null, `Total deal value: ${money(total)}`),
-    total > 0 ? h("svg", { viewBox: "0 0 120 120", width: 240, height: 240,
-      role: "group", "aria-label": "Deal value by stage. Select a stage to view linked contacts." },
-      rows.map((row, index) => {
-        const start = offset;
-        offset += row.share * 100;
-        if (!row.value) return null;
-        return h("circle", { key: row.stage, cx: 60, cy: 60, r: 44,
-          fill: "none", stroke: row.color || STAGE_COLORS[index % STAGE_COLORS.length], strokeWidth: 24,
-          pathLength: 100, strokeDasharray: `${row.share * 100} ${100 - row.share * 100}`,
-          strokeDashoffset: -start, transform: "rotate(-90 60 60)",
-          role: "button", tabIndex: 0, "aria-label": `${describe(row)}. View contacts.`,
-          style: { cursor: "pointer" },
-          onMouseEnter: () => setActive(row), onMouseLeave: () => setActive(null),
-          onFocus: () => setActive(row), onBlur: () => setActive(null),
-          onClick: () => onStage(row.stage),
-          onKeyDown: event => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); onStage(row.stage); } },
-        }, h("title", null, describe(row)));
-      })) : h(Empty, null, "No deal value to chart. Stage summaries remain available."),
-    h("p", { role: "status", className: "hc-muted" }, active ? describe(active) : "Hover or focus a segment for details. Select a segment or summary to view contacts."),
-    h("div", { className: "hc-list" }, rows.map((row, index) => button(
-      describe(row), () => onStage(row.stage), { key: row.stage, className: "hc-list-item",
-        style: { borderLeft: `5px solid ${row.color || STAGE_COLORS[index % STAGE_COLORS.length]}` },
-        "aria-label": `${describe(row)}. View contacts.` })))
+    h("div", { className: "hc-stage-chart-body" },
+      h("div", { className: "hc-stage-plot" },
+        total > 0 ? h("svg", { viewBox: "0 0 120 120", width: 224, height: 224,
+          role: "group", "aria-label": "Deal value by stage. Select a stage to view linked contacts." },
+          rows.map((row, index) => {
+            const start = offset;
+            offset += row.share * 100;
+            if (!row.value) return null;
+            return h("circle", { key: row.stage, cx: 60, cy: 60, r: 44,
+              fill: "none", stroke: row.color || STAGE_COLORS[index % STAGE_COLORS.length], strokeWidth: 22,
+              pathLength: 100, strokeDasharray: `${row.share * 100} ${100 - row.share * 100}`,
+              strokeDashoffset: -start, transform: "rotate(-90 60 60)",
+              role: "button", tabIndex: 0, "aria-label": `${describe(row)}. View contacts.`,
+              style: { cursor: "pointer" },
+              onMouseEnter: () => setActive(row), onMouseLeave: () => setActive(null),
+              onFocus: () => setActive(row), onBlur: () => setActive(null),
+              onClick: () => onStage(row.stage),
+              onKeyDown: event => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); onStage(row.stage); } },
+            }, h("title", null, describe(row)));
+          })) : h(Empty, null, "No deal value to chart. Stage summaries remain available."),
+        h("p", { className: "hc-chart-total" }, "Total deal value", h("b", null, money(total)))),
+      h("div", { className: "hc-stage-legend" }, rows.map((row, index) => button(
+        h("span", { className: "hc-stage-legend-content" },
+          h("span", { className: "hc-stage-dot", style: { "--stage-color": row.color || STAGE_COLORS[index % STAGE_COLORS.length] }, "aria-hidden": true }),
+          h("span", null, row.label || label(row.stage), h("small", null, `${row.count} deals · ${row.contact_count} contacts`)),
+          h("span", null, money(row.value))),
+        () => onStage(row.stage), { key: row.stage, "aria-label": `${describe(row)}. View contacts.`,
+          onMouseEnter: () => setActive(row), onMouseLeave: () => setActive(null), onFocus: () => setActive(row), onBlur: () => setActive(null) })))),
+    h("p", { role: "status", className: "hc-chart-hint" }, active ? describe(active) : "Hover or focus for details. Select a stage to view its contacts.")
   );
 }
 const EMPTY_FILTERS = { contact_type: "", company: "", email: "", followup: "", priority: "", due: "", min_value: "", max_value: "" };
@@ -1429,6 +1578,19 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
             h("p", null, `Add synthetic contacts, deals, and follow-ups to ${profile} on ${connection || "local"} (${label(demoConfirm.backend)} backend)?`),
             button("Add test records", () => write("/demo", { method: "POST", body: { confirm: true, workspace_token: demoConfirm.workspaceToken } }), { disabled }),
             button("Cancel", () => setDemoConfirm(false), { disabled: busy })))))) : null },
+    h("div", { className: "hc-brandbar" },
+      h("div", { className: "hc-brand" }, h(Wordmark), h("span", { className: "hc-brand-tagline" }, "Intelligent Relationship Management")),
+    h(
+      "nav",
+      { className: "hc-tabs", "aria-label": "CRM sections" },
+      ["overview", "contacts", "pipeline", "tasks", "activity"].map((tab) =>
+        button(label(tab), () => navigate(tab), {
+          key: tab,
+          "aria-current": page === tab ? "page" : undefined,
+          disabled: busy,
+        }),
+      ),
+    )),
     h(
       "header",
       { className: "hc-row hc-workspace-header" },
@@ -1437,7 +1599,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
         { className: "hc-actions" },
         h("h1", null, heading[0]),
         button("ⓘ", () => setHelp({ returnFocus: shellRef.current?.ownerDocument.activeElement }), {
-          "aria-label": `About ${heading[0]}`, "aria-haspopup": "dialog", disabled: Boolean(editor),
+          "aria-label": `About ${heading[0]}`, "aria-haspopup": "dialog", className: "hc-icon-button", disabled: Boolean(editor),
         }),
       ),
       h(
@@ -1455,17 +1617,6 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     ),
     chatNotice && h("p", { className: "hc-notice", role: "status" }, chatNotice),
     h(AgentContext, { key: `${viewRevision}:${detail?.kind}:${(detail?.row?.contact || detail?.row)?.id}:${data?.meta?.workspace_token}`, ctx, identity, client, data, detail, viewRequest, disabled: disabled || Boolean(editor) || detailLoading }),
-    h(
-      "nav",
-      { className: "hc-tabs", "aria-label": "CRM sections" },
-      ["overview", "contacts", "pipeline", "tasks", "activity"].map((tab) =>
-        button(label(tab), () => navigate(tab), {
-          key: tab,
-          "aria-current": page === tab ? "page" : undefined,
-          disabled: busy,
-        }),
-      ),
-    ),
     error && !editor &&
       h(
         "div",
@@ -1541,13 +1692,13 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                     h("small", { className: "hc-muted" }, caption),
                   ),
                   () => navigate(target),
-                  { className: "hc-card", key: title },
+                  { className: "hc-card hc-kpi", key: title },
                 ),
               ),
             ),
-            h("section", { className: "hc-card" },
-              h("h2", null, "Lead attention"),
-              h("p", { className: "hc-muted" }, "Stored follow-ups for lead contacts, not agent execution coverage."),
+            h("section", { className: "hc-card hc-attention" },
+              h("div", null, h("h2", null, "Lead attention"),
+                h("p", { className: "hc-muted" }, "Stored follow-ups for lead contacts, not agent execution coverage.")),
               h("div", { className: "hc-actions" },
                 button(`${overview.lead_attention?.no_open_followup ?? 0} leads with no open follow-up`, () => navigate("contacts", "", "missing")),
                 button(`${overview.lead_attention?.overdue_followup ?? 0} leads with overdue follow-up`, () => navigate("contacts", "", "overdue")))),
@@ -1625,20 +1776,20 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
         ["contacts", "pipeline", "tasks"].includes(page) &&
           h(
             "div",
-            { className: "hc-row" },
+            { className: "hc-filters" },
             h(
               "div",
               { className: "hc-actions" },
-              h("input", {
+              h("label", null, "Search", h("input", {
                 type: "search",
                 maxLength: 200,
                 value: query,
                 onChange: (e) => { invalidateView(); setQuery(e.target.value); },
                 placeholder: `Search ${page}…`,
                 "aria-label": `Search ${page}`,
-              }),
+              })),
               ["pipeline", "contacts"].includes(page) &&
-                h(
+                h("label", null, "Stage", h(
                   "select",
                   {
                     value: stage,
@@ -1649,9 +1800,9 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                   (page === "contacts" ? [...stages, "unassigned"] : stages).map((s) =>
                     h("option", { key: s, value: s }, stageLabel(data, s)),
                   ),
-                ),
+                )),
               page === "tasks" &&
-                h(
+                h("label", null, "Task status", h(
                   "select",
                   {
                     value: status,
@@ -1661,7 +1812,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                   ["open", "done", "all"].map((s) =>
                     h("option", { key: s, value: s }, label(s)),
                   ),
-                ),
+                )),
             ),
             h("div", { className: "hc-actions" },
               (page === "contacts" ? [["contact_type", "Contact type", ["lead", "customer", "partner"]],
@@ -1684,46 +1835,21 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
         !searchReady &&
           ["contacts", "pipeline", "tasks"].includes(page) &&
           h("p", { role: "status" }, "Loading matching records…"),
-        page === "contacts" && searchReady && h("div", { className: "hc-row", style: { marginTop: 18 } },
+        page === "contacts" && searchReady && h("div", { className: "hc-row hc-pagination" },
           h("p", { role: "status" }, `${stage === "unassigned" ? "Contacts without linked deals · " : stage ? `Contacts linked to ${stageLabel(data, stage)} stage · ` : filters.followup ? `${filters.contact_type === "lead" ? "Lead attention" : "Contacts"} · ${label(filters.followup)} follow-up · ` : ""}${searchResult.total} matching contacts · ${searchResult.total ? offset + 1 : 0}–${offset + searchRows().length} shown`),
           h("div", { className: "hc-actions" },
             button("Previous", () => { closeDetail(); reportRequest.current++; setEditor(null); setOffset(Math.max(0, offset - 50)); }, { disabled: offset === 0 }),
             button("Next", () => { closeDetail(); reportRequest.current++; setEditor(null); setOffset(offset + 50); }, { disabled: offset + searchRows().length >= searchResult.total }))),
-        page === "contacts" &&
-          searchReady &&
-          h(
-            "div",
-            { className: "hc-list", style: { marginTop: 18 } },
-            searchRows("contacts").length
-              ? searchRows("contacts").map((c) =>
-                  button(
-                    h(
-                      "div",
-                      { className: "hc-row", style: { width: "100%" } },
-                      h(
-                        "div",
-                        null,
-                        h("h3", null, c.name),
-                        h(
-                          "p",
-                          { className: "hc-muted" },
-                          [c.title, c.company, c.email]
-                            .filter(Boolean)
-                            .join(" · "),
-                        ),
-                      ),
-                      h("div", null, h("p", null, `Contact type: ${label(c.lifecycle)}`), h("p", null, `Linked stages: ${(c.deal_stages || []).map(key => stageLabel(data, key)).join(", ") || "Unassigned"}`)),
-                    ),
-                    () => open("contacts", c.id),
-                    { key: c.id, className: "hc-list-item" },
-                  ),
-                )
-              : h(
-                  Empty,
-                  null,
-                  "No contacts match. Add your first relationship or change your search.",
-                ),
-          ),
+        page === "contacts" && searchReady && (
+          searchRows("contacts").length ? h("div", { className: "hc-table-wrap", role: "region", "aria-label": "Matching contacts", tabIndex: 0 },
+            h("table", { className: "hc-table" },
+              h("thead", null, h("tr", null, ["Name & role", "Company & email", "Contact type", "Linked deal stages"].map(title => h("th", { key: title, scope: "col" }, title)))),
+              h("tbody", null, searchRows("contacts").map(c => h("tr", { key: c.id },
+                h("td", null, button(c.name, () => open("contacts", c.id), { className: "hc-link-button", disabled }), c.title && h("small", null, c.title)),
+                h("td", null, c.company || "Not set", c.email && h("small", null, c.email)),
+                h("td", null, badge(c.lifecycle)),
+                h("td", null, (c.deal_stages || []).map(key => stageLabel(data, key)).join(", ") || "Unassigned"))))))
+            : h(Empty, null, "No contacts match. Add your first relationship or change your search.")),
         page === "pipeline" &&
           searchReady &&
           h(
@@ -1772,7 +1898,6 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
               );
             }),
           ),
-        page === "tasks" && h(CoverageQueue, { client, workspaceToken: data.meta.workspace_token, snapshotGeneration, open, disabled }),
         page === "tasks" &&
           searchReady &&
           h(
@@ -1829,13 +1954,15 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
             ).length &&
               h(Empty, null, "No matching follow-ups. You’re clear for now."),
           ),
+        page === "tasks" && h(CoverageQueue, { client, workspaceToken: data.meta.workspace_token, snapshotGeneration, open, disabled }),
         page === "activity" && h(Activity, { rows: data.activity }),
         ),
       ),
     h(
       "footer",
       { className: "hc-footer" },
-      "Profile-local CRM · Desktop and agent tools share the same records · Refreshes every 30 seconds · Contact reports use server pagination. Deal/task lists and form choices show up to 500 records; displayed deal totals cover returned records only. The active app profile controls this view, not a focused chat in another profile.",
+      h("details", null, h("summary", null, "Workspace scope & data limits"),
+        "Profile-local CRM · Desktop and agent tools share the same records · Refreshes every 30 seconds · Contact reports use server pagination. Deal/task lists and form choices show up to 500 records; displayed deal totals cover returned records only. The active app profile controls this view, not a focused chat in another profile."),
     ),
   );
 }
@@ -2100,6 +2227,9 @@ export function CoverageQueue({ client, workspaceToken, snapshotGeneration, open
       page.items.length ? h("div", { className: "hc-list" }, page.items.map(row => h("article", { key: row.id, className: "hc-work-item", "aria-label": `Coverage ${row.row_kind}: ${row.id}` },
         h("div", { className: "hc-row" }, h("h3", null, row.task?.title || "No open next action"), badge(row.row_kind)),
         h("p", null, (row.risk_flags || []).map(flag => COVERAGE_FILTERS[flag] || label(flag)).join(" · ") || "No listed risk in this stored evidence"),
+        row.task && h("p", { className: "hc-muted" }, `${date(row.task.due_at)} · ${label(row.task.status)}`),
+        row.assignment && h("p", { className: "hc-muted" }, `Agent work: ${label(row.assignment.state)} · ${label(row.assignment.reason)}`),
+        h("details", { className: "hc-evidence" }, h("summary", null, "Saved evidence & technical details"),
         row.task && h("p", { className: "hc-muted" }, `Task ${row.task.id} · Version ${row.task.version} · ${label(row.task.status)} · Business due: ${exactTime(row.task.due_at)}`),
         row.assignment && h("div", null,
           h("p", null, `Assignment ${row.assignment.id} · Version ${row.assignment.version} · Generation ${row.assignment.generation} · ${label(row.assignment.state)} · ${label(row.assignment.reason)}`),
@@ -2107,7 +2237,7 @@ export function CoverageQueue({ client, workspaceToken, snapshotGeneration, open
           h("p", null, `Requested run: ${exactTime(row.assignment.run_at)} · Native job ${row.assignment.job_id || "not bound"}`),
           row.assignment.future_schedule_inactive_observed === true && row.assignment.inactive_observed_at && h("p", null, inactiveScheduleEvidence(row.assignment.inactive_observed_at)),
           row.assignment.latest_host_observation ? h("p", null, `Host observed ${label(row.assignment.latest_host_observation.state)} at ${exactTime(row.assignment.latest_host_observation.observed_at)} · ${row.assignment.latest_host_observation.age_seconds} seconds old at evidence read · ${row.assignment.latest_host_observation.source || "recorded source"} · Job ${row.assignment.latest_host_observation.job_id}`) : h("p", null, "No verified bound-job host observation recorded."),
-          row.assignment.latest_report ? h("p", null, `Agent reported ${label(row.assignment.latest_report.outcome)} at ${exactTime(row.assignment.latest_report.created_at)} · ${row.assignment.latest_report.age_seconds} seconds old at evidence read · ${label(row.assignment.latest_report.review_status)} · ${label(row.assignment.latest_report.provenance)}. Awaiting human review; host terminal success and delivery not established.`) : h("p", null, "No authenticated report observed. A passed run time does not establish failure or nonexecution.")),
+          row.assignment.latest_report ? h("p", null, `Agent reported ${label(row.assignment.latest_report.outcome)} at ${exactTime(row.assignment.latest_report.created_at)} · ${row.assignment.latest_report.age_seconds} seconds old at evidence read · ${label(row.assignment.latest_report.review_status)} · ${label(row.assignment.latest_report.provenance)}. Awaiting human review; host terminal success and delivery not established.`) : h("p", null, "No authenticated report observed. A passed run time does not establish failure or nonexecution."))),
         h("p", null, `Next action: ${label(row.next_action)}`),
         h("div", { className: "hc-actions" },
           row.task && (row.assignment ? button("Open exact assignment", () => select("tasks", row.task.id, row.assignment.id), { disabled }) : button("Open follow-up", () => select("tasks", row.task.id), { disabled })),
@@ -2150,15 +2280,16 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
         isContact && button("Create deal", () => create("deals", { contact_id: row.id }), { disabled }),
         button("Protected note", protect, { disabled, "aria-haspopup": "dialog" }),
         badge(isContact ? `Contact type: ${label(row.lifecycle)}` : isDeal ? stageLabel(data, row.stage) : row.status)),
-      isContact ? h(Properties, { inline: true, rows: [["Email", row.email], ["Company", row.company], ["Linked deal stages", [...new Set(deals.map(deal => stageLabel(data, deal.stage)))].join(", ") || "Unassigned"]] })
+      isContact ? h("p", { className: "hc-record-meta" }, `Linked deal stages: ${[...new Set(deals.map(deal => stageLabel(data, deal.stage)))].join(", ") || "Unassigned"}`)
         : isDeal ? h("ol", { className: "hc-stage-path", "aria-label": "Deal stage" }, stageDefinitions(data).map(stage => h("li", { key: stage.key, "aria-current": row.stage === stage.key ? "step" : undefined, style: { borderColor: stage.color } }, stage.label)))
           : h(Properties, { inline: true, rows: [["Due", date(row.due_at)], ["Reminder registration", label(row.schedule_status)], ["Record version", row.version]] })),
     h("div", { className: "hc-record-layout" },
       h("aside", { className: "hc-stack", "aria-label": "Record properties" },
         h(RecordSection, { title: "About this record" }, h(Properties, { rows: facts }),
-          h("p", { className: "hc-record-meta" }, `ID: ${row.id} · Version ${row.version}`),
-          row.created_at && h("p", { className: "hc-record-meta" }, `Created ${date(row.created_at)}`),
-          row.updated_at && h("p", { className: "hc-record-meta" }, `Updated ${date(row.updated_at)}`)),
+          h("details", { className: "hc-record-meta" }, h("summary", null, "Record metadata"),
+            h("p", null, `ID: ${row.id} · Version ${row.version}`),
+            row.created_at && h("p", null, `Created ${date(row.created_at)}`),
+            row.updated_at && h("p", null, `Updated ${date(row.updated_at)}`))),
         h(RecordSection, { title: "Custom fields" }, h(Properties, { rows: (workspaceCatalog(data)?.fields[detail.kind] || []).filter(field => !field.archived || row.custom_fields?.[field.key] != null).map(field => [field.label + (field.archived ? " (archived)" : ""), row.custom_fields?.[field.key] == null ? "Not set" : typeof row.custom_fields[field.key] === "boolean" ? (row.custom_fields[field.key] ? "Yes" : "No") : String(row.custom_fields[field.key])]) })),
         h(RecordSection, { title: "Notes" }, h("p", { className: "hc-details" }, row.notes || "No notes yet. Use Edit to add context."))),
       h("section", { className: "hc-stack", "aria-label": "Record history and next steps" },
@@ -2461,7 +2592,31 @@ export function createEmailHistorySession(client, workspaceToken, contact, isCur
   };
 }
 
-export const emailHistoryCSS = `.hermes-crm-native .hc-email{border:1px solid var(--ui-stroke-primary);border-radius:10px;padding:18px;min-width:0;overflow-wrap:anywhere}.hermes-crm-native .hc-email h3{margin:0 0 8px}.hermes-crm-native .hc-email-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.hermes-crm-native .hc-email-review{border:1px solid var(--ui-stroke-primary);border-radius:8px;padding:14px;margin:12px 0;display:grid;gap:10px}.hermes-crm-native .hc-email-review label{display:grid;gap:5px}.hermes-crm-native .hc-email-review input[type=checkbox]{width:auto;margin-right:8px}.hermes-crm-native .hc-email-review input,.hermes-crm-native .hc-email-review select{max-width:100%;min-width:0}.hermes-crm-native .hc-email small{display:block;color:var(--ui-text-secondary)}.hermes-crm-native .hc-email .hc-email-consent{display:block}.hermes-crm-native .hc-email dt{font-size:11px;color:var(--ui-text-secondary)}.hermes-crm-native .hc-email dd{margin:0 0 7px;white-space:pre-wrap}.hermes-crm-native .hc-email ul{margin-top:16px}`;
+export const emailHistoryCSS = `
+.hermes-crm-native .hc-email{border:1px solid var(--hc-border);border-radius:4px;padding:24px;min-width:0;overflow-wrap:anywhere;background:var(--hc-panel);color:var(--hc-ink);font-size:14px;line-height:21px}
+.hermes-crm-native .hc-email h3{font-size:18px;line-height:24px;margin:0 0 16px}
+.hermes-crm-native .hc-email p{margin:0 0 16px}
+.hermes-crm-native .hc-email-actions{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.hermes-crm-native .hc-email-review{border:1px solid var(--hc-border);border-radius:4px;padding:16px;margin:24px 0;display:grid;gap:16px;background:var(--hc-bg)}
+.hermes-crm-native .hc-email-review p,.hermes-crm-native .hc-email-review .hc-email-actions{margin:0}
+.hermes-crm-native .hc-email-review label{display:grid;gap:8px;font-size:13px;line-height:18px}
+.hermes-crm-native .hc-email-review input[type=checkbox]{flex:0 0 auto;width:16px;height:16px;margin:2px 0 0;accent-color:var(--hc-action)}
+.hermes-crm-native .hc-email-review input,.hermes-crm-native .hc-email-review select{max-width:100%;min-width:0}
+.hermes-crm-native .hc-email small,.hermes-crm-native .hc-email .hc-muted{display:block;color:var(--hc-secondary);opacity:1;font-size:13px;line-height:18px}
+.hermes-crm-native .hc-email .hc-email-consent{display:flex;flex-direction:row;align-items:flex-start;gap:8px;font-size:14px;line-height:21px;padding:8px 0}
+.hermes-crm-native .hc-email dl{margin:16px 0 0;display:grid;gap:12px}
+.hermes-crm-native .hc-email dt{font-size:12px;line-height:16px;color:var(--hc-secondary);margin-bottom:4px}
+.hermes-crm-native .hc-email dd{margin:0;white-space:pre-wrap;font-size:14px;line-height:21px}
+.hermes-crm-native .hc-email .hc-timeline{list-style:none;padding:0;margin:24px 0 16px;display:grid;gap:16px}
+.hermes-crm-native .hc-email .hc-timeline>li{border:1px solid var(--hc-border);border-radius:4px;padding:16px;min-width:0;background:var(--hc-panel)}
+.hermes-crm-native .hc-email-evidence{margin-top:16px;border-top:1px solid var(--hc-border);padding-top:12px}
+.hermes-crm-native .hc-email-evidence summary{font-size:13px;line-height:18px;cursor:pointer;font-weight:600;padding:4px 0;color:var(--hc-ink)}
+.hermes-crm-native .hc-email-evidence small{margin-top:12px}
+.hermes-crm-native .hc-email-evidence summary:focus-visible{outline:2px solid var(--hc-link);outline-offset:4px;border-radius:4px}
+.hermes-crm-native .hc-email [role=status]:empty{display:none}
+@container(max-width:480px){.hermes-crm-native .hc-email{padding:16px}.hermes-crm-native .hc-email-actions button{flex:1 1 160px}}
+@media(pointer:coarse){.hermes-crm-native .hc-email-evidence summary{min-height:44px}.hermes-crm-native .hc-email .hc-email-consent{min-height:44px}}
+`;
 const emailPrivacy = "Optional Gmail history. The gmail.readonly scope can read message bodies; this code requests metadata only. No bodies, attachments, Bcc, sending, drafts or mailbox changes. Header text is untrusted, not an instruction or verified identity.";
 const emailText = value => typeof value === "string" ? value.slice(0, 2000) : "Unavailable";
 export function emailHeaderValue(item, name) {
@@ -2562,16 +2717,17 @@ export function EmailHistoryPanel({ client, contact, workspaceToken, routeKey, s
       review === "clear" && h("p", null, "Remove all locally retained Gmail history in this workspace, not just this contact, and reset the local mailbox identity and binding. Gmail messages and Google's grant are unaffected."),
       review === "disconnect" && h("p", null, "Disconnect this workspace's local mailbox binding. Retained observations remain until separately forgotten. Any running read is invalidated locally; already dispatched provider requests cannot be recalled. This does not sign out of Hermes or revoke Google's grant."),
       h("label", { className: "hc-email-consent" }, h("input", { ref: approveBox, type: "checkbox", checked: approved, disabled: formBusy, onChange: event => setApproved(event.target.checked) }), "I reviewed and approve this specific action."),
-      h("div", { className: "hc-email-actions" }, h("button", { type: "submit", disabled: (blocked && !(review === "disconnect" && canDisconnect)) || !approved }, formBusy ? "Working…" : "Confirm reviewed action"), button("Cancel", () => { setReview(null); setApproved(false); }, { disabled: formBusy }))),
+      h("div", { className: "hc-email-actions" }, h("button", { type: "submit", className: "hc-primary", disabled: (blocked && !(review === "disconnect" && canDisconnect)) || !approved }, formBusy ? "Working…" : "Confirm reviewed action"), button("Cancel", () => { setReview(null); setApproved(false); }, { disabled: formBusy }))),
     h("p", { role: "status", "aria-live": "polite" }, pending ? "An operation is pending or its outcome is unknown. Refresh local status; do not resubmit." : notice),
     operation && h("p", { className: "hc-muted" }, `Last operation: ${emailText(operation.kind)} · ${emailText(operation.state)}${operation.reason ? ` · ${emailText(operation.reason)}` : ""}. Coverage is limited to the approved window; not all-time history or proof of delivery.`),
     operation?.days && h("p", { className: "hc-muted" }, `Approved ${operation.days}-day window: ${emailTime(operation.start_ms)} to ${emailTime(operation.end_ms)}. ${operation.coverage === "complete_query" ? "Window query finished" : operation.coverage === "partial" ? "Partial window coverage" : "Coverage unknown"}. Not a transactional mailbox snapshot.`),
     h("p", { className: "hc-muted" }, "Last observed metadata only, not current mailbox state. Labels may have changed since observation. A later query cannot prove deletion or absence of messages it did not return."),
     h("ul", { className: "hc-timeline", "aria-label": "Gmail metadata observations" }, items.map((item, index) => h("li", { key: `${item.message_id}:${index}` },
       h("strong", null, emailEvidenceLabel(item)),
+      h("details", { className: "hc-email-evidence" }, h("summary", null, "Observation provenance and read window"),
       h("small", null, `Provider ordering time: ${emailTime(item.internal_date_ms)} (${emailText(String(item.internal_date_ms ?? "Unavailable"))} ms). Not verified send or receive time.`),
       h("small", null, `Recorded observation: ${emailTime(item.observed_at)}. Mailbox at observation: ${emailText(item.mailbox ?? item.provenance?.mailbox)}.`),
-      h("small", null, `Provenance: ${emailText(item.provenance?.adapter)} · ${emailText(item.provenance?.kind)}. Read window: ${emailTime(item.provenance?.start_ms)} to ${emailTime(item.provenance?.end_ms)}. This is retained evidence, not a delivery receipt.`),
+      h("small", null, `Provenance: ${emailText(item.provenance?.adapter)} · ${emailText(item.provenance?.kind)}. Read window: ${emailTime(item.provenance?.start_ms)} to ${emailTime(item.provenance?.end_ms)}. This is retained evidence, not a delivery receipt.`)),
       h("dl", null, ["From", "To", "Cc", "Subject", "Date"].map(name => h("div", { key: name }, h("dt", null, name), h("dd", null, emailHeaderValue(item, name))))),
       Array.isArray(item.header_issues) && item.header_issues.length > 0 && h("small", null, "Some header metadata was unavailable or rejected.")))),
     visible && !items.length && h("p", { className: "hc-muted" }, "No locally retained observations for this contact. This does not prove no email exists."),
@@ -2629,10 +2785,11 @@ export function reportChartModel(result, kind) {
   const total = groups.reduce((sum, group) => sum + (Number(group.value) || 0), 0);
   return { groups, total, graphical: valid && (kind !== 'donut' || (!result.truncated && total > 0)), max: Math.max(1, ...groups.map(group => Math.abs(Number(group.value) || 0))) };
 }
-const reportColors = ['#467fd4', '#7c61bc', '#19877c', '#bd772e', '#b7507d', '#6f8696'];
-export const reportCSS = `.hermes-crm-native .hc-reports{margin-top:18px}.hermes-crm-native .hc-report-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}.hermes-crm-native .hc-report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px}.hermes-crm-native .hc-report-card{border:1px solid var(--ui-stroke-primary);border-radius:12px;padding:16px;min-width:0;overflow-wrap:anywhere}.hermes-crm-native .hc-report-form{display:grid;gap:12px;margin:14px 0}.hermes-crm-native .hc-report-form label{display:grid;gap:5px}.hermes-crm-native .hc-report-form input,.hermes-crm-native .hc-report-form select{max-width:100%;min-width:0}.hermes-crm-native .hc-report-columns{display:flex;flex-wrap:wrap;gap:12px}.hermes-crm-native .hc-report-columns label{display:flex;align-items:center}.hermes-crm-native .hc-report-columns input{width:auto}.hermes-crm-native .hc-report-filter{border:1px solid var(--ui-stroke-primary);padding:10px;border-radius:8px;min-width:0}.hermes-crm-native .hc-report-scroll{overflow:auto;max-height:450px}.hermes-crm-native .hc-reports table{border-collapse:collapse;width:100%}.hermes-crm-native .hc-reports td,.hermes-crm-native .hc-reports th{text-align:left;padding:8px;border-bottom:1px solid var(--ui-stroke-primary)}.hermes-crm-native .hc-report-bar{display:block;height:10px;border-radius:3px;background:#467fd4;margin-top:5px}.hermes-crm-native .hc-report-chart-list{list-style:none;padding:0;display:grid;gap:6px}.hermes-crm-native .hc-report-chart-list button{width:100%;text-align:left}.hermes-crm-native .hc-report-metric{font-size:32px;font-weight:600}.hermes-crm-native .hc-report-muted{color:var(--ui-text-secondary);font-size:12px}.hermes-crm-native .hc-report-plot-control{cursor:pointer}.hermes-crm-native .hc-report-plot-control:focus-visible{outline:none;stroke:var(--ui-text-primary);stroke-width:3px}.hermes-crm-native .hc-report-plot-control[aria-disabled=true]{cursor:default}.hermes-crm-native .hc-reports button:focus-visible{outline:2px solid #467fd4;outline-offset:3px}`;
+const reportColors = ['var(--hc-link)', 'var(--hc-chart-purple, #A58AE0)', 'var(--hc-chart-teal, #43AA99)', 'var(--hc-chart-amber, #CF974B)', 'var(--hc-chart-rose, #CE7BA2)', 'var(--hc-secondary)'];
+// Layout is owned by the shared Workbench stylesheet.
+export const reportCSS = '';
 function ReportSelect({ label, value, options, onChange, disabled }) {
-  return h('label', null, label, h('select', { value, disabled, onChange: event => onChange(event.target.value) }, options.map(option => h('option', { key: option.value, value: option.value }, option.label))));
+  return h('label', { className: 'hc-report-field' }, label, h('select', { value, disabled, onChange: event => onChange(event.target.value) }, options.map(option => h('option', { key: option.value, value: option.value }, option.label))));
 }
 export function reportFilterValue(field, raw) {
   if (['integer', 'number'].includes(field?.type)) return raw === '' ? '' : Number(raw);
@@ -2647,7 +2804,7 @@ function ReportFilter({ node, fields, onChange, disabled, depth = 0 }) {
   const group = node.all ? 'all' : node.any ? 'any' : null;
   if (group) return h('fieldset', { className: 'hc-report-filter', disabled },
     h('legend', null, group === 'all' ? 'ALL conditions must match' : 'ANY condition may match'),
-    node[group].map((child, index) => h('div', { key: index }, h(ReportFilter, { node: child, fields, disabled, depth: depth + 1, onChange: next => onChange({ [group]: node[group].map((old, i) => i === index ? next : old) }) }),
+    node[group].map((child, index) => h('div', { key: index, className: 'hc-report-condition' }, h(ReportFilter, { node: child, fields, disabled, depth: depth + 1, onChange: next => onChange({ [group]: node[group].map((old, i) => i === index ? next : old) }) }),
       h('button', { type: 'button', onClick: () => onChange({ [group]: node[group].filter((_, i) => i !== index) }) }, 'Remove condition'))),
     h('div', { className: 'hc-report-toolbar' }, h('button', { type: 'button', disabled: !fields.length, onClick: () => onChange({ [group]: [...node[group], { field: fields[0].key, op: fields[0].operators[0], value: fields[0].choices?.[0] ?? '' }] }) }, 'Add condition'),
       depth < 2 && h('button', { type: 'button', onClick: () => onChange({ [group]: [...node[group], { [group === 'all' ? 'any' : 'all']: [] }] }) }, group === 'all' ? 'Add ANY group' : 'Add ALL group')));
@@ -2708,28 +2865,29 @@ export function ReportResult({ result, kind = 'table', onDrill, disabled, onOpen
   const temporalLine = ['day'].includes(result.definition?.group_by?.interval);
   const columns = result.definition?.columns || Object.keys(result.items?.[0] || {});
   const caption = h('p', { className: 'hc-report-muted' }, `LIVE query • evaluated ${reportText(result.evaluated_at)} • UTC • ${reportText(result.metric_unit || 'field units shown in column headings')}. Last logged contact is self-reported CRM activity, not Gmail.`, result.truncated ? ' Group limit reached: partial results, not a complete distribution.' : '');
-  if (!result.groups) return h('div', null, caption, kind === 'metric' && h('button', { className: 'hc-report-metric', disabled: disabled || !result.detail_definition, onClick: () => onDrill(result.detail_definition, result.evaluated_at) }, reportText(result.metric ?? result.total)),
+  if (!result.groups) return h('div', { className: 'hc-report-result' }, caption, kind === 'metric' && h('button', { className: 'hc-report-metric', disabled: disabled || !result.detail_definition, onClick: () => onDrill(result.detail_definition, result.evaluated_at) }, reportText(result.metric ?? result.total)),
     h('p', null, `${result.total ?? result.items?.length ?? 0} matching records; showing ${result.items?.length ?? 0} from offset ${result.offset || 0}.`),
     onPage && h('div', { className: 'hc-report-toolbar' }, h('button', { disabled: disabled || !(result.offset > 0), onClick: () => onPage(Math.max(0, result.offset - (result.limit || 100))) }, 'Previous records'), h('button', { disabled: disabled || (result.offset || 0) + (result.items?.length || 0) >= result.total, onClick: () => onPage((result.offset || 0) + (result.limit || 100)) }, 'Next records')),
-    h('div', { className: 'hc-report-scroll' }, h('table', null, h('thead', null, h('tr', null, columns.map(column => h('th', { key: column, scope: 'col' }, `${result.field_labels?.[column] || column}${result.units?.[column] ? ` (${result.units[column]})` : ''}`)))),
+    !(result.items || []).length && h('p', { className: 'hc-report-empty', role: 'status' }, 'No matching records. Adjust the report conditions and preview again.'),
+    h('div', { className: 'hc-report-scroll', role: 'region', 'aria-label': 'Report records', tabIndex: 0 }, h('table', { 'aria-label': 'Report results' }, h('thead', null, h('tr', null, columns.map(column => h('th', { key: column, scope: 'col' }, `${result.field_labels?.[column] || column}${result.units?.[column] ? ` (${result.units[column]})` : ''}`)), onOpenRecord && h('th', { scope: 'col' }, 'Actions'))),
       h('tbody', null, (result.items || []).map((item, index) => h('tr', { key: item.id || index }, columns.map(column => h('td', { key: column }, reportDisplayValue(result, column, item[column]))), onOpenRecord && item.id && h('td', null, h('button', { disabled, onClick: () => onOpenRecord(result.definition.entity, item.id) }, 'Open record'))))))));
   let cursor = 0;
   const sectors = model.groups.map(group => { const start = cursor, fraction = group.value / model.total; cursor += fraction; return { group, start, fraction }; });
   const line = reportLineModel(model.groups);
-  return h('div', null, caption, h('p', null, `${result.total_groups ?? model.groups.length} groups • ${result.total ?? 0} matching records`),
+  return h('div', { className: 'hc-report-result' }, caption, h('p', null, `${result.total_groups ?? model.groups.length} groups • ${result.total ?? 0} matching records`),
     kind === 'metric' && h('button', { className: 'hc-report-metric', disabled: disabled || !result.detail_definition, onClick: () => onDrill(result.detail_definition, result.evaluated_at) }, reportText(result.metric)),
-    !model.groups.length && h('p', null, 'No matching groups.'),
-    kind === 'donut' && model.graphical && h('svg', { viewBox: '0 0 140 140', role: 'group', 'aria-label': 'Interactive distribution. Focus a sector or use the exact-value buttons below.', style: { width: 180, height: 180, overflow: 'visible' } }, sectors.filter(sector => sector.fraction > 0).map((sector, index) => {
+    !model.groups.length && h('p', { className: 'hc-report-empty', role: 'status' }, 'No matching groups.'),
+    kind === 'donut' && model.graphical && h('svg', { viewBox: '0 0 140 140', role: 'group', 'aria-label': 'Interactive distribution. Focus a sector or use the exact-value buttons below.', className: 'hc-report-donut' }, sectors.filter(sector => sector.fraction > 0).map((sector, index) => {
       const controls = reportChartControl(sector.group, result, onDrill, disabled);
-      return h('path', { key: index, d: reportSectorPath(sector.start, sector.fraction), fill: reportColors[index % reportColors.length], stroke: 'var(--ui-bg-editor,white)', strokeWidth: 1, ...controls }, h('title', null, controls['aria-label']));
+      return h('path', { key: index, d: reportSectorPath(sector.start, sector.fraction), fill: reportColors[index % reportColors.length], stroke: 'var(--hc-panel)', strokeWidth: 1, ...controls }, h('title', null, controls['aria-label']));
     })),
     kind === 'donut' && !model.graphical && h('p', null, 'Distribution chart unavailable for partial, negative, null, or all-zero values. Exact values below.'),
     kind === 'line' && !temporalLine && h('p', null, 'Line chart requires UTC day grouping. Exact categorical values below.'),
     kind === 'line' && temporalLine && h('div', null,
       h('p', { className: 'hc-report-muted' }, `Plotted ${line.points.length} of ${model.groups.length} returned buckets, ordered by UTC date with proportional day spacing. ${line.omitted.length} null/invalid-date or non-numeric buckets remain in the exact list below. Missing days are not treated as zero; connecting lines are guides, not observations.${result.truncated ? ' Truncated groups: chart covers only the returned dates.' : ''}`),
-      line.points.length > 0 && h('svg', { viewBox: '0 0 300 110', role: 'group', 'aria-label': 'Interactive UTC daily trend. Focus a point for its exact value and contributing records.', style: { width: '100%', maxHeight: 200, overflow: 'visible' } },
-        h('polyline', { fill: 'none', stroke: '#467fd4', strokeWidth: 2, 'aria-hidden': true, points: line.points.map(point => `${point.x},${point.y}`).join(' ') }),
-        line.points.map((point, index) => { const controls = reportChartControl(point.group, result, onDrill, disabled); return h('circle', { key: index, cx: point.x, cy: point.y, r: 5, fill: '#467fd4', ...controls }, h('title', null, controls['aria-label'])); }),
+      line.points.length > 0 && h('svg', { viewBox: '0 0 300 110', role: 'group', 'aria-label': 'Interactive UTC daily trend. Focus a point for its exact value and contributing records.', className: 'hc-report-line' },
+        h('polyline', { fill: 'none', stroke: 'var(--hc-link)', strokeWidth: 2, 'aria-hidden': true, points: line.points.map(point => `${point.x},${point.y}`).join(' ') }),
+        line.points.map((point, index) => { const controls = reportChartControl(point.group, result, onDrill, disabled); return h('circle', { key: index, cx: point.x, cy: point.y, r: 5, fill: 'var(--hc-link)', ...controls }, h('title', null, controls['aria-label'])); }),
         h('text', { x: 15, y: 104, fontSize: 9, fill: 'currentColor' }, line.points[0].group.key),
         line.points.length > 1 && h('text', { x: 285, y: 104, textAnchor: 'end', fontSize: 9, fill: 'currentColor' }, line.points.at(-1).group.key))),
     h('ul', { className: 'hc-report-chart-list' }, model.groups.map((group, index) => h('li', { key: index }, h('button', { type: 'button', disabled: disabled || !group.detail_definition, onClick: () => onDrill(group.detail_definition, group.evaluated_at || result.evaluated_at) }, `${reportDisplayValue(result, result.definition?.group_by?.field, group.key)}: ${reportText(group.value)} (${group.count} records)`, kind === 'bar' && model.graphical && h('span', { 'aria-hidden': true, className: 'hc-report-bar', style: { width: `${Math.max(0, group.value / model.max * 100)}%` } }))))));
@@ -2739,8 +2897,9 @@ function ReportEditor({ catalog, value, onChange, disabled }) {
   const options = fields.map(field => ({ value: field.key, label: field.label }));
   const patch = next => onChange({ ...value, ...next });
   return h('fieldset', { disabled, className: 'hc-report-form' }, h('legend', null, 'Report definition'),
+    h('p', { className: 'hc-report-muted' }, 'Choose the records, columns and conditions to include. Preview before saving a version.'),
     h(ReportSelect, { label: 'Records', value: value.entity, options: Object.entries(catalog.entities).map(([key, entry]) => ({ value: key, label: entry.label || key })), onChange: entity => onChange(reportDefault(entity, reportFields(catalog, entity))) }),
-    h('div', null, 'Columns', h('div', { className: 'hc-report-columns' }, fields.filter(field => field.selectable).map(field => h('label', { key: field.key }, h('input', { type: 'checkbox', checked: value.columns.includes(field.key), onChange: event => patch({ columns: event.target.checked ? [...value.columns, field.key] : value.columns.filter(key => key !== field.key) }) }), field.label)))),
+    h('fieldset', { className: 'hc-report-column-section' }, h('legend', null, 'Columns'), h('div', { className: 'hc-report-columns' }, fields.filter(field => field.selectable).map(field => h('label', { key: field.key }, h('input', { type: 'checkbox', checked: value.columns.includes(field.key), onChange: event => patch({ columns: event.target.checked ? [...value.columns, field.key] : value.columns.filter(key => key !== field.key) }) }), field.label)))),
     h(ReportFilter, { node: value.filter || { all: [] }, fields, disabled, onChange: filter => patch({ filter }) }),
     h('p', { className: 'hc-report-muted' }, 'Empty groups are omitted. No dashboard-wide filter is applied. Dates and day buckets use UTC.'),
     (value.sort || []).map((sort, index) => h('div', { className: 'hc-report-toolbar', key: index },
@@ -2822,41 +2981,43 @@ export function FlexibleReports({ client, workspaceToken, routeKey, disabled = f
       if (result) await refresh(own);
     });
   }
-  return h('section', { className: 'hc-reports', 'aria-label': 'Custom reports and dashboard' }, h('style', null, reportCSS),
-    h('div', { className: 'hc-report-toolbar' }, h('h2', null, 'Your dashboard'), h('button', { disabled: blocked, onClick: () => newReport('leads') }, 'Build a report'),
+  return h('section', { className: 'hc-reports', 'aria-label': 'Custom reports and dashboard', 'aria-busy': busy },
+    h('div', { className: 'hc-report-toolbar hc-report-header' }, h('h2', null, 'Your dashboard'), h('button', { className: 'hc-primary', disabled: blocked, onClick: () => newReport('leads') }, 'Build a report'),
       h('button', { disabled: disabled || busy || !client.current(), onClick: () => action(own => refresh(own)) }, 'Refresh saved definitions')),
     h('p', { className: 'hc-report-muted' }, 'Saved definitions are shared with agents. Cards pin a report version; results are live when you explicitly run them. No account access or email reads.'),
-    error && h('p', { role: 'alert' }, error), !visible && !error && h('p', { role: 'status' }, 'Loading reports…'),
-    visible && session.current?.pending() && h('div', { role: 'status' }, 'A write is unresolved. Inspect the refreshed saved list and dashboard before retrying.', h('button', { disabled: blocked || session.current.pending().state !== 'unknown', onClick: () => action(async own => { const result = await own.write('', {}, true); if (result) { setEditor(null); setPreview(null); await refresh(own); } }) }, 'Retry original write with same key')),
+    error && h('p', { role: 'alert', className: 'hc-report-notice hc-report-error' }, error), !visible && !error && h('p', { role: 'status', className: 'hc-report-empty' }, 'Loading reports…'),
+    visible && session.current?.pending() && h('div', { role: 'status', className: 'hc-report-notice' }, 'A write is unresolved. Inspect the refreshed saved list and dashboard before retrying.', h('button', { disabled: blocked || session.current.pending().state !== 'unknown', onClick: () => action(async own => { const result = await own.write('', {}, true); if (result) { setEditor(null); setPreview(null); await refresh(own); } }) }, 'Retry original write with same key')),
     visible && h('div', { className: 'hc-report-grid' }, visible.dashboard.cards.map((card, index) => h('article', { className: 'hc-report-card', key: card.id },
       h('h3', null, card.title || card.report?.title || 'Saved report'), h('p', { className: 'hc-report-muted' }, `Report version ${card.report_version} • ${card.reference_status || 'active'}`),
       h(ReportSelect, { label: 'Card visualization', value: card.visualization, options: reportVisualizations, disabled: blocked, onChange: visualization => saveDashboard(visible.dashboard.cards.map(item => item.id === card.id ? { ...item, visualization } : item)) }),
-      h('div', { className: 'hc-report-toolbar' }, h('button', { disabled: blocked || card.reference_status !== 'active', onClick: () => runCard(card) }, 'Run live'),
+      h('div', { className: 'hc-report-toolbar' }, h('button', { className: 'hc-report-run', disabled: blocked || card.reference_status !== 'active', onClick: () => runCard(card) }, 'Run live'),
         h('button', { disabled: blocked || index === 0, onClick: () => { const cards = [...visible.dashboard.cards]; [cards[index - 1], cards[index]] = [cards[index], cards[index - 1]]; saveDashboard(cards); } }, 'Move up'),
         h('button', { disabled: blocked || index === visible.dashboard.cards.length - 1, onClick: () => { const cards = [...visible.dashboard.cards]; [cards[index + 1], cards[index]] = [cards[index], cards[index + 1]]; saveDashboard(cards); } }, 'Move down'),
         h('button', { disabled: blocked, onClick: () => saveDashboard(visible.dashboard.cards.filter(item => item.id !== card.id)) }, 'Remove card')),
       card.reference_status === 'outdated' && h('button', { disabled: blocked, onClick: () => action(async own => { const record = await own.read(`/analytics/reports/${encodeURIComponent(card.report_id)}`); if (record) { setEditor({ id: record.id, version: record.version, savedDefinition: JSON.stringify(record.definition), title: record.title, definition: record.definition, visualization: card.visualization, adoptCard: card.id }); setPreview(null); } }) }, 'Review latest version'),
+      !runs[card.id] && h('p', { className: 'hc-report-empty' }, card.reference_status === 'active' ? 'Run this card to see current results.' : 'This saved version cannot run. Review its reference status above.'),
       h(ReportResult, { result: runs[card.id], kind: card.visualization, onDrill: drillDown, onPage: offset => runCard(card, offset, runs[card.id]?.evaluated_at), disabled: blocked, onOpenRecord: (entity, id) => { if (valid() && !lock.current) onOpenRecord?.(entity, id); } })))),
-    visible && !visible.dashboard.cards.length && h('p', null, 'No custom cards yet. Preview and save a report, then add it to your dashboard.'),
-    visible && h('details', null, h('summary', null, `Saved reports (${visible.reports.total})`),
+    visible && !visible.dashboard.cards.length && h('p', { className: 'hc-report-empty' }, 'No custom cards yet. Preview and save a report, then add it to your dashboard.'),
+    visible && h('details', { className: 'hc-report-library' }, h('summary', null, `Saved reports (${visible.reports.total})`),
       h('p', { className: 'hc-report-muted' }, 'Archiving preserves the report and its versions; referenced cards cannot run until restored and reviewed. Nothing is permanently deleted.'),
       h('label', { className: 'hc-report-toolbar' }, h('input', { type: 'checkbox', 'aria-label': 'Include archived reports', checked: visible.page.includeArchived, disabled: blocked, onChange: event => { const includeArchived = event.target.checked; action(own => refresh(own, { offset: 0, includeArchived })); } }), 'Include archived reports'),
-      h('ul', null, visible.reports.items.map(record => h('li', { key: record.id, className: 'hc-report-toolbar' }, h('button', { disabled: blocked || !!record.archived_at, onClick: () => openReport(record) }, `${record.title} · v${record.version}${record.archived_at ? ' · archived' : ''}`),
+      !visible.reports.items.length && h('p', { className: 'hc-report-empty' }, 'No saved reports match this view.'),
+      h('ul', { className: 'hc-report-saved-list' }, visible.reports.items.map(record => h('li', { key: record.id, className: 'hc-report-toolbar' }, h('button', { disabled: blocked || !!record.archived_at, onClick: () => openReport(record) }, `${record.title} · v${record.version}${record.archived_at ? ' · archived' : ''}`),
         h('button', { disabled: blocked || !!session.current?.pending(), 'aria-label': `${record.archived_at ? 'Restore' : 'Archive'} ${record.title}, version ${record.version}`, onClick: () => setArchived(record) }, record.archived_at ? 'Restore report' : 'Archive report')))),
       h('p', { className: 'hc-report-muted' }, `${visible.reports.items.length} reports shown from offset ${visible.page.offset}; ${visible.reports.total} matching reports.`),
       h('div', { className: 'hc-report-toolbar' }, h('button', { disabled: blocked || visible.page.offset === 0, onClick: () => action(own => refresh(own, { ...visible.page, offset: Math.max(0, visible.page.offset - 50) })) }, 'Previous saved reports'),
         h('button', { disabled: blocked || visible.page.offset + visible.reports.items.length >= visible.reports.total, onClick: () => action(own => refresh(own, { ...visible.page, offset: visible.page.offset + 50 })) }, 'Next saved reports'))),
-    visible && editor && h('section', { className: 'hc-report-card', 'aria-label': 'Report builder' }, h('h3', null, editor.id ? `Edit report · v${editor.version}` : 'Build a report'),
+    visible && editor && h('section', { className: 'hc-report-card hc-report-builder', 'aria-label': 'Report builder' }, h('h3', null, editor.id ? `Edit report · v${editor.version}` : 'Build a report'),
       h('div', { className: 'hc-report-toolbar' }, h('button', { disabled: blocked, onClick: () => newReport('leads') }, 'Preset: leads table'), h('button', { disabled: blocked, onClick: () => newReport('daily') }, 'Preset: leads per day'), h('button', { disabled: blocked, onClick: () => newReport('won') }, 'Preset: closed won'), h('button', { disabled: blocked, onClick: () => edit(null) }, 'Close builder')),
       h('div', { className: 'hc-report-form' }, h('label', null, 'Report title', h('input', { value: editor.title, disabled: blocked, onChange: event => change({ ...editor, title: event.target.value }) })),
         h(ReportSelect, { label: 'Visualization', value: editor.visualization, options: reportVisualizations, disabled: blocked, onChange: visualization => change({ ...editor, visualization }) }),
         h(ReportEditor, { catalog: visible.catalog, value: editor.definition, disabled: blocked, onChange: definition => change({ ...editor, definition, adoptCard: undefined }) })),
-      h('div', { className: 'hc-report-toolbar' }, h('button', { disabled: blocked || !editor.definition.columns.length, onClick: () => action(async own => { if (latestEditor.current !== editor) return; const definition = { ...editor.definition, filter: reportCleanFilter(editor.definition.filter) }; const result = await own.run(definition); if (result && latestEditor.current === editor) setPreview({ editor, result }); }) }, 'Preview live'),
+      h('div', { className: 'hc-report-toolbar' }, h('button', { className: 'hc-primary', disabled: blocked || !editor.definition.columns.length, onClick: () => action(async own => { if (latestEditor.current !== editor) return; const definition = { ...editor.definition, filter: reportCleanFilter(editor.definition.filter) }; const result = await own.run(definition); if (result && latestEditor.current === editor) setPreview({ editor, result }); }) }, 'Preview live'),
         h('button', { disabled: blocked || !preview || preview.editor !== editor || !editor.title.trim() || !!session.current?.pending(), onClick: () => action(async own => { if (latestEditor.current !== editor || preview.editor !== editor) return; const record = await own.write(editor.id ? `/analytics/reports/${encodeURIComponent(editor.id)}` : '/analytics/reports', { title: editor.title.trim(), definition: preview.result.definition, ...(editor.id ? { expected_version: editor.version } : {}) }, false, editor.id ? 'PATCH' : 'POST'); if (record) { setEditor({ ...editor, id: record.id, version: record.version, definition: record.definition, savedDefinition: JSON.stringify(record.definition) }); setPreview(null); await refresh(own); } }) }, editor.id ? 'Save new version' : 'Save report'),
         editor.id && h('button', { disabled: blocked || editor.savedDefinition !== JSON.stringify(editor.definition) || !preview || preview.editor !== editor || !!session.current?.pending(), onClick: () => { if (latestEditor.current !== editor) return; if (editor.adoptCard) saveDashboard(visible.dashboard.cards.map(card => card.id === editor.adoptCard ? { ...card, report_version: editor.version } : card)); else saveDashboard([...visible.dashboard.cards, { id: crypto.randomUUID(), report_id: editor.id, report_version: editor.version, visualization: editor.visualization, title: editor.title }]); } }, editor.adoptCard ? 'Adopt reviewed version for card' : 'Add saved version to dashboard')),
       editor.id && h('p', { className: 'hc-report-muted' }, 'Adding a card uses the saved version. Save any definition changes first. Preview again after saving.'),
       preview?.editor === editor && h(ReportResult, { result: preview.result, kind: editor.visualization, disabled: blocked, onDrill: drillDown, onPage: offset => action(async own => { const result = await own.run(preview.result.definition, preview.result.evaluated_at, offset); if (result && latestEditor.current === editor) setPreview({ editor, result }); }) })),
-    drill && h('section', { className: 'hc-report-card', 'aria-label': 'Contributing records' }, h('h3', null, 'Contributing records · LIVE rerun'), h('p', null, 'Same server-defined filters and evaluation instant; current records may have changed. This is not an immutable snapshot.'), h('button', { disabled: blocked, onClick: () => { if (valid()) setDrill(null); } }, 'Close contributing records'), h(ReportResult, { result: drill, kind: 'table', disabled: blocked, onDrill: drillDown, onPage: offset => action(async own => { const result = await own.run(drill.definition, drill.evaluated_at, offset); if (result) setDrill(result); }), onOpenRecord: (entity, id) => { if (valid() && !lock.current) onOpenRecord?.(entity, id); } })));
+    drill && h('section', { className: 'hc-report-card hc-report-drill', 'aria-label': 'Contributing records' }, h('h3', null, 'Contributing records · LIVE rerun'), h('p', null, 'Same server-defined filters and evaluation instant; current records may have changed. This is not an immutable snapshot.'), h('button', { disabled: blocked, onClick: () => { if (valid()) setDrill(null); } }, 'Close contributing records'), h(ReportResult, { result: drill, kind: 'table', disabled: blocked, onDrill: drillDown, onPage: offset => action(async own => { const result = await own.run(drill.definition, drill.evaluated_at, offset); if (result) setDrill(result); }), onOpenRecord: (entity, id) => { if (valid() && !lock.current) onOpenRecord?.(entity, id); } })));
 }
 // END GENERATED FLEXIBLE REPORTS PANEL
 
@@ -2969,30 +3130,30 @@ export function ContactLogPanel({ client, contact, workspaceToken, routeKey, dis
   }
   function field(name, value) { if (valid() && !locked) setForm({ ...form, [name]: value }); }
   return h('section', { className: 'hc-card hc-contact-log', 'aria-label': 'Logged contact' },
-    h('style', null, '.hermes-crm-native .hc-contact-log{margin-top:16px;overflow-wrap:anywhere}.hermes-crm-native .hc-contact-log form,.hermes-crm-native .hc-contact-log label{display:grid;gap:8px}.hermes-crm-native .hc-contact-log li{margin:12px 0}.hermes-crm-native .hc-contact-log textarea{min-height:70px;max-width:100%}.hermes-crm-native .hc-contact-log p{white-space:pre-wrap}.hermes-crm-native .hc-contact-log button{margin:4px}.hermes-crm-native .hc-contact-log button:focus-visible{outline:2px solid currentColor}'),
     h('h3', null, 'Logged contact'),
-    h('p', null, 'Records your claim only; does not send mail, make calls or prove delivery. Last logged contact in reports uses active self-reported entries.'),
-    h('p', { role: 'status', 'aria-live': 'polite' }, notice || (pending ? 'A claim is pending. New writes are blocked.' : '')),
-    pending?.state === 'unknown' && h('button', { type: 'button', disabled: disabled || busy || !current(), onClick: () => write(() => own.retry(), true) }, 'Retry original request'),
+    h('p', { className: 'hc-contact-log-help' }, 'Records your claim only; does not send mail, make calls or prove delivery. Last logged contact in reports uses active self-reported entries.'),
+    h('p', { role: 'status', 'aria-live': 'polite', className: notice || pending ? 'hc-contact-log-notice' : 'hc-contact-log-status' }, notice || (pending ? 'A claim is pending. New writes are blocked.' : '')),
+    !visible && !notice && h('p', { role: 'status', className: 'hc-contact-log-empty' }, 'Loading contact log…'),
+    h('div', { className: 'hc-contact-log-actions' }, pending?.state === 'unknown' && h('button', { type: 'button', disabled: disabled || busy || !current(), onClick: () => write(() => own.retry(), true) }, 'Retry original request'),
     h('button', { type: 'button', disabled: disabled || busy || !current(), onClick: () => load(offset) }, 'Refresh contact log'),
-    h('button', { type: 'button', disabled: locked || !!form || !!correction, onClick: () => { if (valid() && !locked) setForm(contactLogBlank()); } }, 'Log contact'),
-    form && h('form', { onSubmit: event => { event.preventDefault(); write(() => own.create(form)); } },
+    h('button', { type: 'button', className: 'hc-primary', disabled: locked || !!form || !!correction, onClick: () => { if (valid() && !locked) setForm(contactLogBlank()); } }, 'Log contact')),
+    form && h('form', { className: 'hc-contact-log-form', 'aria-label': 'Log contact', onSubmit: event => { event.preventDefault(); write(() => own.create(form)); } },
       h('label', null, 'Contact time (ISO, explicit timezone; Z means UTC)', h('input', { required: true, value: form.happened_at, disabled: locked, onChange: event => field('happened_at', event.target.value) })),
       h('label', null, 'Kind', h('select', { value: form.kind, disabled: locked, onChange: event => field('kind', event.target.value) }, ['meeting', 'call', 'email', 'chat', 'other'].map(value => h('option', { key: value }, value)))),
       h('label', null, 'Direction', h('select', { value: form.direction, disabled: locked, onChange: event => field('direction', event.target.value) }, ['inbound', 'outbound', 'other'].map(value => h('option', { key: value }, value)))),
-      h('label', null, 'Summary (your claim)', h('textarea', { required: true, maxLength: 2000, value: form.summary, disabled: locked, onChange: event => field('summary', event.target.value) })),
-      h('button', { type: 'submit', disabled: locked }, 'Save contact log'), h('button', { type: 'button', disabled: locked, onClick: () => { if (valid() && !locked) setForm(null); } }, 'Cancel')),
-    correction && h('form', { onSubmit: event => { event.preventDefault(); write(() => own.void(correction, reason)); } },
+      h('label', { className: 'hc-contact-log-summary' }, 'Summary (your claim)', h('textarea', { required: true, maxLength: 2000, value: form.summary, disabled: locked, onChange: event => field('summary', event.target.value) })),
+      h('button', { type: 'submit', className: 'hc-primary', disabled: locked }, busy ? 'Saving contact log…' : 'Save contact log'), h('button', { type: 'button', disabled: locked, onClick: () => { if (valid() && !locked) setForm(null); } }, 'Cancel')),
+    correction && h('form', { className: 'hc-contact-log-correction', 'aria-label': 'Correct contact log', onSubmit: event => { event.preventDefault(); write(() => own.void(correction, reason)); } },
       h('p', null, 'Void this claim as a correction. The original entry and reason remain visible.'),
       h('label', null, 'Correction reason', h('textarea', { required: true, maxLength: 500, disabled: locked, value: reason, onChange: event => { if (valid() && !locked) setReason(event.target.value); } })),
       h('button', { type: 'submit', disabled: locked }, 'Confirm void'), h('button', { type: 'button', disabled: locked, onClick: () => { if (valid() && !locked) { setCorrection(null); setReason(''); } } }, 'Cancel correction')),
-    visible && h('div', null,
-      h('p', null, visible.data.total ? `Showing ${visible.offset + 1}–${visible.offset + visible.data.items.length} of ${visible.data.total} entries (including voided).` : 'No logged contact.'),
-      h('ul', null, visible.data.items.map(item => h('li', { key: item.id },
+    visible && h('div', { className: 'hc-contact-log-history' },
+      h('p', { className: visible.data.total ? 'hc-contact-log-help' : 'hc-contact-log-empty' }, visible.data.total ? `Showing ${visible.offset + 1}–${visible.offset + visible.data.items.length} of ${visible.data.total} entries (including voided).` : 'No logged contact.'),
+      h('ul', { className: 'hc-contact-log-list', 'aria-label': 'Contact log entries' }, visible.data.items.map(item => h('li', { key: item.id, className: item.voided_at ? 'hc-contact-log-entry is-voided' : 'hc-contact-log-entry' },
         h('time', { dateTime: item.happened_at, title: item.happened_at }, item.happened_at),
-        h('span', null, ` · ${item.kind} · ${item.direction} · Self-reported · Author: ${typeof item.actor === 'string' ? item.actor : 'Unknown'}`),
+        h('span', { className: 'hc-contact-log-meta' }, ` · ${item.kind} · ${item.direction} · Self-reported · Author: ${typeof item.actor === 'string' ? item.actor : 'Unknown'}`),
         h('p', null, item.summary),
-        item.voided_at ? h('p', null, `Voided ${item.voided_at} by ${item.void_actor || 'Unknown'}: ${item.void_reason}`) : h('button', { type: 'button', disabled: locked || !!form || !!correction, onClick: () => { if (valid() && !locked) { setCorrection(item); setReason(''); } } }, 'Void entry')))),
+        item.voided_at ? h('p', { className: 'hc-contact-log-voided' }, `Voided ${item.voided_at} by ${item.void_actor || 'Unknown'}: ${item.void_reason}`) : h('button', { type: 'button', disabled: locked || !!form || !!correction, onClick: () => { if (valid() && !locked) { setCorrection(item); setReason(''); } } }, 'Void entry')))),
       h('button', { type: 'button', disabled: disabled || busy || visible.offset === 0, onClick: () => load(Math.max(0, visible.offset - 25)) }, 'Previous entries'),
       h('button', { type: 'button', disabled: disabled || busy || visible.offset + 25 >= visible.data.total, onClick: () => load(visible.offset + 25) }, 'Next entries')));
 }
@@ -3017,12 +3178,12 @@ export function CustomFieldInputs({ fields, values, update, disabled }) {
     const raw = values[field.key];
     const value = raw == null ? "" : field.type === "boolean" ? String(raw) : raw;
     const props = { name: `custom_${field.key}`, value, disabled, onChange: e => update(field.key, customFieldValue(field, e.target.value)) };
-    return h("label", { key: field.key }, h("span", null, field.label),
+    return h("label", { key: field.key, className: "hc-custom-field" }, h("span", null, field.label),
       field.type === "boolean" || field.type === "single-select" ? h("select", props,
         h("option", { value: "" }, "Not set"),
         (field.type === "boolean" ? [["true", "Yes"], ["false", "No"]] : (field.choices || []).map(choice => typeof choice === "string" ? [choice, choice] : [choice.key, choice.label])).map(([key, label]) => h("option", { key, value: key }, label)))
         : h("input", { ...props, type: field.type === "number" ? "number" : field.type === "date" ? "date" : "text", step: field.type === "number" ? "any" : undefined }),
-      field.description && h("small", null, field.description));
+      field.description && h("small", { className: "hc-field-hint" }, field.description));
   });
 }
 export function Customization({ catalog, client, workspaceToken, current, onSaved, cancel, returnFocus, Drawer }) {
@@ -3082,19 +3243,20 @@ export function Customization({ catalog, client, workspaceToken, current, onSave
     const path = `/customization/${tab === "stages" ? "stages" : `fields/${kind}`}${version ? `/${encodeURIComponent(key)}` : ""}`;
     perform({ path, options: { method: version ? "PATCH" : "POST", body: { workspace_token: workspaceToken, data, ...(!version ? { idempotency_key: crypto.randomUUID() } : {}) } } });
   }
-  const input = (key, title, type = "text", options) => h("label", { key }, h("span", null, title), options ? h("select", { value: draft[key], disabled: busy || !!attempt || (Boolean(draft.version) && ["type", "outcome"].includes(key)), onChange: e => change(key, e.target.value) }, options.map(value => h("option", { key: value, value }, value.replaceAll("_", " ")))) : h(key === "description" || key === "choices" ? "textarea" : "input", { value: draft[key] ?? "", type, required: ["key", "label", "order", "probability"].includes(key), disabled: busy || !!attempt || (key === "key" && !!draft.version) || (key === "probability" && draft.outcome !== "open"), min: type === "number" ? 0 : undefined, max: key === "probability" ? 100 : undefined, maxLength: key === "key" ? (tab === "stages" ? 20 : 64) : key === "label" ? 120 : key === "description" ? 2000 : undefined, pattern: key === "key" ? "[a-z][a-z0-9_]*" : undefined, onChange: e => change(key, e.target.value) }));
+  const input = (key, title, type = "text", options) => h("label", { key, className: ["description", "choices"].includes(key) ? "hc-wide" : undefined }, h("span", null, title), options ? h("select", { value: draft[key], disabled: busy || !!attempt || (Boolean(draft.version) && ["type", "outcome"].includes(key)), onChange: e => change(key, e.target.value) }, options.map(value => h("option", { key: value, value }, value.replaceAll("_", " ")))) : h(key === "description" || key === "choices" ? "textarea" : "input", { value: draft[key] ?? "", type, required: ["key", "label", "order", "probability"].includes(key), disabled: busy || !!attempt || (key === "key" && !!draft.version) || (key === "probability" && draft.outcome !== "open"), min: type === "number" ? 0 : undefined, max: key === "probability" ? 100 : undefined, maxLength: key === "key" ? (tab === "stages" ? 20 : 64) : key === "label" ? 120 : key === "description" ? 2000 : undefined, pattern: key === "key" ? "[a-z][a-z0-9_]*" : undefined, onChange: e => change(key, e.target.value) }));
   return h(Drawer, { title: "Customize CRM", subtitle: "One pipeline. Stable internal keys keep records linked when labels change.", busy: busy && valid(), cancel: () => { if (!busy || !valid()) { live.current = false; cancel(); } }, returnFocus },
-    h("div", { className: "hc-editor-body" },
+    h("div", { className: "hc-editor-body hc-customization-body" },
       h("nav", { className: "hc-tabs", "aria-label": "Customization sections" }, ["stages", "fields"].map(value => h("button", { type: "button", key: value, "aria-current": tab === value ? "page" : undefined, disabled: busy || !!attempt, onClick: () => { if (valid()) { setTab(value); setDraft(null); setError(""); } } }, value === "stages" ? "Deal stages" : "Custom fields"))),
       tab === "fields" && h("label", null, "Record type", h("select", { value: kind, disabled: busy || !!attempt, onChange: e => { if (valid()) { setKind(e.target.value); setDraft(null); } } }, ["contacts", "deals", "tasks"].map(value => h("option", { key: value, value }, value)))),
       h("p", { className: "hc-muted" }, tab === "stages" ? "Deal stage is separate from contact type. Outcome cannot change. Won is 100%; lost is 0%. Stages used by records cannot be archived." : "All custom fields are optional. Internal key and type cannot change. Archive hides a field from forms and preserves stored values. Existing select choices cannot be removed."),
-      !draft && h("div", { className: "hc-list" }, records.length ? records.map(item => h("button", { type: "button", key: item.key, className: "hc-list-item", onClick: () => choose({ ...item, choices: (item.choices || []).join("\n") }) }, `${item.label}${item.archived ? " · Archived" : ""}`, h("small", null, ` ${item.key} · ${item.outcome || item.type} · Version ${item.version}`))) : h("p", null, "No custom fields yet. Add an optional field for this record type.")),
+      !draft && h("h3", { className: "hc-settings-heading" }, tab === "stages" ? "Pipeline stages" : "Optional fields"),
+      !draft && h("div", { className: "hc-list hc-definition-list" }, records.length ? records.map(item => h("button", { type: "button", key: item.key, className: "hc-list-item hc-definition-item", disabled: busy || !!attempt, onClick: () => choose({ ...item, choices: (item.choices || []).join("\n") }) }, `${item.label}${item.archived ? " · Archived" : ""}`, h("small", { className: "hc-definition-meta" }, ` ${item.key} · ${item.outcome || item.type} · Version ${item.version}`))) : h("p", null, "No custom fields yet. Add an optional field for this record type.")),
       !draft && h("button", { type: "button", onClick: () => choose({ key: "", label: "", description: "", order: records.length, probability: 10, outcome: "open", color: "#4779ce", type: "text", choices: "", archived: false }) }, tab === "stages" ? "Add stage" : "Add field"),
-      draft && h("form", { onSubmit: submit, "aria-label": "Definition editor" }, h("div", { className: "hc-fields" }, input("label", "Label"), input("key", "Internal key"), input("description", "Description"), input("order", "Display order", "number"),
+      draft && h("form", { className: "hc-definition-editor", onSubmit: submit, "aria-label": "Definition editor" }, h("h3", { className: "hc-settings-heading" }, draft.version ? "Edit definition" : "New definition"), h("div", { className: "hc-fields" }, input("label", "Label"), input("key", "Internal key"), input("description", "Description"), input("order", "Display order", "number"),
         ...(tab === "stages" ? [input("outcome", "Outcome (permanent)", "text", ["open", "won", "lost"]), input("probability", "Probability (%)", "number"), input("color", "Stage color", "color")] : [input("type", "Field type (permanent)", "text", ["text", "number", "boolean", "date", "single-select"]), draft.type === "single-select" && input("choices", "Choices (one per line)")]),
         !!draft.version && h("label", null, h("span", null, "Archived"), h("input", { type: "checkbox", checked: draft.archived, disabled: busy || !!attempt, onChange: e => change("archived", e.target.checked) }))),
         h("p", { className: "hc-muted" }, "Internal keys use lowercase letters, numbers and underscores, beginning with a letter. Existing keys and field types are permanent."),
-        h("div", { className: "hc-actions" }, h("button", { type: "submit", disabled: busy || !!attempt, className: "hc-primary" }, busy ? "Saving…" : "Save definition"), h("button", { type: "button", disabled: busy || !!attempt, onClick: () => choose(null) }, "Cancel edit"))),
+        h("div", { className: "hc-actions hc-definition-actions" }, h("button", { type: "submit", disabled: busy || !!attempt, className: "hc-primary" }, busy ? "Saving…" : "Save definition"), h("button", { type: "button", disabled: busy || !!attempt, onClick: () => choose(null) }, "Cancel edit"))),
       error && h("p", { role: "alert", className: "hc-notice" }, error),
       savedPendingRefresh && !busy && h("button", { type: "button", onClick: retryRefresh }, "Refresh saved catalog"),
       !savedPendingRefresh && attempt?.options.method === "POST" && !busy && error && h("button", { type: "button", onClick: () => perform(attempt) }, "Retry exact save")));
@@ -3229,7 +3391,7 @@ export function createProtectionSession(client, workspaceToken, record, isCurren
 }
 
 export function ProtectionHelp() {
-  return h('details', null, h('summary', null, 'About protected notes and exports'),
+  return h('details', { className: 'hc-evidence-disclosure hc-protection-help' }, h('summary', null, 'About protected notes and exports'),
     h('p', null, 'Optional encryption covers protected notes and encrypted CRM content exports only. Ordinary Notes, record fields and existing files are not automatically encrypted or moved.'),
     h('p', null, 'Configure keys separately through the supported Hermes secret source. No keys are created here. A masked secret setting may use a plaintext .env file; masking is not encryption. Missing, unavailable or malformed keys disable the protected action.'),
     h('p', null, 'Revealed text exists temporarily in this drawer and is cleared on close, cancel or view/profile changes. This is not a promise of cryptographic memory erasure.'),
@@ -3272,21 +3434,21 @@ export function ProtectionDrawer({ Drawer, client, workspaceToken, record = null
     finally { lock.current = false; if (own.current()) setBusy(false); }
   }
   return h(Drawer, { title: record ? 'Protected note' : 'Encrypted CRM export', subtitle: record ? 'Separate from ordinary record Notes.' : 'Optional encrypted content snapshot.', busy: false, cancel: close, returnFocus, closeLabel: 'Close protection drawer' },
-    h('div', { className: 'hc-editor-body' },
+    h('div', { className: 'hc-editor-body hc-protection-body' },
       h(ProtectionHelp),
       stale && h('p', { role: 'alert' }, 'Stale view. Writes and downloads are disabled; you can still close this drawer.'),
       !view && !notice && h('p', { role: 'status' }, 'Checking protection configuration…'),
-      view && h('p', null, record ? `Protected notes: ${view.status.notes_enabled ? 'configured' : 'unavailable'}.` : `Encrypted exports: ${view.status.backup_enabled ? 'configured' : 'unavailable'}.`),
-      view?.metadata && h('p', null, `Record version ${view.metadata.record_version} · Protected note version ${view.metadata.note_version} · ${view.metadata.has_note ? 'A protected note exists' : 'No protected note yet'}`),
-      record && view?.status.notes_enabled && h('div', null,
+      view && h('p', { className: 'hc-protection-status' }, record ? `Protected notes: ${view.status.notes_enabled ? 'configured' : 'unavailable'}.` : `Encrypted exports: ${view.status.backup_enabled ? 'configured' : 'unavailable'}.`),
+      view?.metadata && h('p', { className: 'hc-protection-metadata' }, `Record version ${view.metadata.record_version} · Protected note version ${view.metadata.note_version} · ${view.metadata.has_note ? 'A protected note exists' : 'No protected note yet'}`),
+      record && view?.status.notes_enabled && h('div', { className: 'hc-protection-controls' },
         !revealed && h('button', { type: 'button', disabled: blocked, onClick: () => run(async own => {
           const result = await own.reveal();
           if (result && own.current()) { setView(old => ({ ...old, metadata: { record_version: result.record_version, note_version: result.note_version, has_note: result.has_note } })); setText(result.plaintext); setRevealed(true); }
         }) }, 'Reveal protected note'),
         revealed && !stale && !editing && h('div', null, h('p', { className: 'hc-details', 'aria-label': 'Revealed protected note' }, text || 'Empty protected note'),
           h('button', { type: 'button', disabled: blocked, onClick: () => setEditing(true) }, 'Edit protected note')),
-        editing && !stale && h('label', null, 'Protected note text', h('textarea', { value: text, maxLength: 16000, disabled: blocked, onChange: event => setText(event.target.value) })),
-        editing && !stale && h('button', { type: 'button', disabled: blocked, onClick: () => run(async own => {
+        editing && !stale && h('label', null, 'Protected note text', h('textarea', { rows: 8, autoComplete: 'off', spellCheck: false, value: text, maxLength: 16000, disabled: blocked, onChange: event => setText(event.target.value) })),
+        editing && !stale && h('button', { className: 'hc-primary', type: 'button', disabled: blocked, onClick: () => run(async own => {
           const result = await own.save(view.metadata, text);
           if (!result || !own.current()) return;
           clear(); setView(old => ({ ...old, metadata: result })); setNotice('Protected note saved.');
@@ -3294,12 +3456,12 @@ export function ProtectionDrawer({ Drawer, client, workspaceToken, record = null
           catch { if (own.current()) setNotice('Protected note saved, but metadata refresh failed. Close and reopen.'); }
         }) }, 'Save protected note'),
         revealed && h('button', { type: 'button', onClick: clear }, 'Cancel and hide')),
-      !record && h('div', null,
+      !record && h('div', { className: 'hc-protection-controls' },
         typeof captureDownload !== 'function' && h('p', null, 'Download unavailable. Update Hermes Desktop to a version with gateway file download support.'),
-        h('button', { type: 'button', disabled: blocked || !view?.status.backup_enabled || typeof captureDownload !== 'function' || Boolean(prepared), onClick: () => run(async own => {
+        h('button', { className: 'hc-primary', type: 'button', disabled: blocked || !view?.status.backup_enabled || typeof captureDownload !== 'function' || Boolean(prepared), onClick: () => run(async own => {
           const result = await own.prepareExport(); if (result && own.current()) { setPrepared(result); setNotice('Encrypted export prepared. A copy remains in the plugin export folder, including if the save dialog is cancelled.'); }
         }) }, 'Prepare encrypted export'),
-        prepared && h('div', null, h('p', null, prepared.name), h('p', null, 'The encrypted copy remains in the plugin export folder. No automatic deletion is performed.'),
+        prepared && h('div', { className: 'hc-prepared-export' }, h('p', null, prepared.name), h('p', null, 'The encrypted copy remains in the plugin export folder. No automatic deletion is performed.'),
           h('button', { type: 'button', disabled: blocked, onClick: () => run(async own => {
             setNotice('Save dialog requested. Hermes Desktop reports the outcome; cancellation does not remove the prepared export.');
             await prepared.download();
@@ -3323,7 +3485,7 @@ export function ProtectionDrawer({ Drawer, client, workspaceToken, record = null
         clear(); const fresh = await own.load(); if (fresh) { setView(fresh); setNotice('Protection metadata refreshed. Text remains hidden.'); }
       }, true) }, 'Refresh protection metadata'),
       session.current?.pending()?.state === 'unknown' && h('p', { role: 'alert' }, 'An earlier operation has an unknown outcome. New writes are locked in this view; no automatic retry is performed.'),
-      notice && h('p', { role: 'status' }, notice)));
+      notice && h('p', { role: 'status', className: 'hc-notice' }, notice)));
 }
 // END GENERATED PROTECTION PANEL
 
@@ -3393,10 +3555,10 @@ export function ContactTransferRowValues({ row, mapping, columns }) {
     value === '' ? 'Empty text' : value === false ? 'No (false)' : value === true ? 'Yes (true)' : String(value);
   const identity = ['name', 'email', 'company'].filter(key => values[key] !== undefined && values[key] !== null && values[key] !== '');
   const fields = Object.entries(mapping || {}).filter(([, target]) => target !== null);
-  return h('div', null,
+  return h('div', { className: 'hc-transfer-values' },
     h('p', null, identity.length ? identity.map(key => `${columns.find(column => column.key === key)?.label || key}: ${display(values[key])}`).join(' · ') : 'No contact identity supplied'),
-    h('details', null, h('summary', null, `Review ${fields.length} mapped fields for row ${row.row_number}`),
-      h('dl', null, ...fields.map(([header, target]) => h('div', { key: header },
+    h('details', { className: 'hc-evidence-disclosure' }, h('summary', null, `Review ${fields.length} mapped fields for row ${row.row_number}`),
+      h('dl', { className: 'hc-setting-properties' }, ...fields.map(([header, target]) => h('div', { key: header },
         h('dt', null, `${columns.find(column => column.key === target)?.label || target} · CSV column: ${header}`),
         h('dd', { style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } },
           display(target.startsWith('custom.') ? values.custom_fields?.[target.slice(7)] : values[target])))))));
@@ -3416,7 +3578,7 @@ export function ContactTransferDrawer({Drawer,client,workspaceToken,current,inva
   const close=()=>{clear();setArtifact(null);setResult(null);session.current?.close();cancel();};
   async function perform(fn){if(!valid()||lock.current||renderedRevision!==draftRevision.current)return;lock.current=true;setBusy(true);setNotice('');try{await fn(session.current);}catch{if(valid())setNotice(session.current.pending()?'Outcome unknown. Check the original receipt before doing anything else.':'Operation could not be completed. Review your settings or close and reopen.');}finally{lock.current=false;if(valid())setBusy(false);}}
   async function chooseFile(event){const file=event.target.files?.[0];event.target.value='';if(!valid()||lock.current||pending||!file)return;clear();const ticket=++readId.current;setNotice('');if(file.size>2*1024*1024){setNotice('Choose a CSV file no larger than 2 MB.');return;}try{const bytes=await file.arrayBuffer();const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(!valid()||ticket!==readId.current)return;setCsv(text);setFileName(file.name);}catch{if(valid()&&ticket===readId.current)setNotice('The selected file could not be read.');}}
-  const actButton=(text,fn,off=disabled)=>h('button',{type:'button',disabled:off,onClick:()=>perform(fn)},text);
+  const actButton=(text,fn,off=disabled)=>h('button',{type:'button',className:['Import valid rows','Prepare CSV export','Download CSV'].includes(text)?'hc-primary':undefined,disabled:off,onClick:()=>perform(fn)},text);
   const revokeApproval=()=>{draftRevision.current++;approvalRevision.current=null;setConfirmed(false);};
   const changeImport=fn=>{if(!valid()||disabled||lock.current)return;revokeApproval();setPreview(null);setSelected([]);fn();};
   const showPreview=async own=>{
@@ -3427,22 +3589,24 @@ export function ContactTransferDrawer({Drawer,client,workspaceToken,current,inva
     if(v.needs_mapping)setMapping(Object.fromEntries(v.headers.map(k=>[k,catalog.columns.some(column=>!column.archived&&column.key===v.suggested_mapping[k])?v.suggested_mapping[k]:null])));
   };
   return h(Drawer,{title:'Contact CSV transfer',subtitle:'Local, contact-first import and export',cancel:close,busy:false,returnFocus,closeLabel:'Close contact transfer'},
-    h('p',null,'Spreadsheet-safe exports escape formula-like text; review these values deliberately before reimporting. Import preserves apostrophes; existing contact validation and whitespace normalization apply. CSV is plaintext. Protected notes and keys are never included. File contents are sent to this Hermes workspace only when you choose Preview or Import.'),
+    h('div',{className:'hc-editor-body hc-transfer-body'},
+    h('p',{className:'hc-safety-note'},'Exports escape formula-like text to reduce spreadsheet risk; no CSV escaping strategy works in every spreadsheet. Review these values before reimporting. Import preserves apostrophes; existing contact validation and whitespace normalization apply. CSV is plaintext. Protected notes and keys are never included. File contents are sent to this Hermes workspace only when you choose Preview or Import.'),
     invalidated?h('p',{role:'status'},'Workspace or view changed. Close and reopen.'):h('div',null,
-      h('div',{className:'hc-actions'},...['import','export'].map(value=>h('button',{key:value,type:'button',disabled, 'aria-pressed':mode===value,onClick:()=>{if(!valid()||disabled)return;clear();setMode(value);setNotice('');setConsent(false);setArtifact(null);setResult(null);}},value==='import'?'Import contacts':'Export contacts'))),
+      h('div',{className:'hc-tabs hc-transfer-tabs','aria-label':'Contact transfer mode'},...['import','export'].map(value=>h('button',{key:value,type:'button',disabled, 'aria-pressed':mode===value,onClick:()=>{if(!valid()||disabled)return;clear();setMode(value);setNotice('');setConsent(false);setArtifact(null);setResult(null);}},value==='import'?'Import contacts':'Export contacts'))),
       pending&&h('p',{role:'status'},`${pending.kind} ${pending.state}. Original request: ${pending.id}. No new operation can run until its outcome is confirmed.`),
       pending?.state==='unknown'&&actButton('Check original receipt',async session=>{const recovered=await session.recover();if(recovered){if(recovered.kind==='export')setArtifact(recovered.result);else{setResult(recovered.result);onImported?.();}setNotice('Original operation confirmed.');}},busy),
-      mode==='import'?h('section',null,
+      mode==='import'?h('section',{className:'hc-settings-section','aria-label':'Import contacts'},
+        h('h3',null,'Import contacts'),h('p',{className:'hc-muted'},'Choose a CSV, map its columns, then review the rows before importing.'),
         h('label',null,'Choose contact CSV',h('input',{ref:input,type:'file',accept:'.csv,text/csv',disabled,onChange:chooseFile})),fileName&&h('p',null,`Selected: ${fileName}`),
-        mapping&&h('fieldset',{disabled},h('legend',null,'Map every column, or explicitly ignore it'),...Object.keys(mapping).map(header=>h('label',{key:header},header,h('select',{'aria-label':`Map column ${header}`,value:mapping[header]||'',onChange:e=>changeImport(()=>setMapping(old=>({...old,[header]:e.target.value||null})))},h('option',{value:''},'Ignore this column'),...catalog.columns.filter(column=>!column.archived).map(column=>h('option',{key:column.key,value:column.key},column.label)))))),
+        mapping&&h('fieldset',{disabled,className:'hc-transfer-mapping'},h('legend',null,'Map every column, or explicitly ignore it'),...Object.keys(mapping).map(header=>h('label',{key:header},header,h('select',{'aria-label':`Map column ${header}`,value:mapping[header]||'',onChange:e=>changeImport(()=>setMapping(old=>({...old,[header]:e.target.value||null})))},h('option',{value:''},'Ignore this column'),...catalog.columns.filter(column=>!column.archived).map(column=>h('option',{key:column.key,value:column.key},column.label)))))),
         actButton(mapping?'Preview mapped rows':'Preview CSV columns',showPreview,disabled||!csv),
         preview&&!preview.needs_mapping&&h('div',null,
           h('p',null,`${preview.counts.ready} ready; ${preview.counts.duplicate} duplicates; ${preview.counts.invalid} invalid. Existing contacts are never overwritten.`),
           h('p',{role:'status'},`${selected.length} ready rows selected; ${preview.counts.ready-selected.length+preview.counts.invalid} rows excluded; ${preview.counts.duplicate} duplicates will be skipped (or reject the import).`),
           h('p',null,`Ignored columns: ${(preview.ignored_columns||[]).join(', ')||'None'}`),
           h('label',null,'Duplicate handling',h('select',{value:duplicates,disabled,onChange:e=>{if(!valid()||disabled||lock.current)return;revokeApproval();setDuplicates(e.target.value);}},h('option',{value:'skip'},'Skip duplicates'),h('option',{value:'reject'},'Reject import if duplicates exist'))),
-          h('ol',null,...preview.rows.map(row=>h('li',{key:row.row_number},
-            h('p',null,`Row ${row.row_number} · ${row.status==='ready'?'Ready to import':row.status==='duplicate'?'Duplicate (will not be created)':'Invalid (excluded)'}`),
+          h('ol',{className:'hc-transfer-rows','aria-label':'CSV row preview'},...preview.rows.map(row=>h('li',{key:row.row_number,className:`hc-transfer-row hc-transfer-row-${row.status}`},
+            h('p',{className:'hc-transfer-row-heading'},`Row ${row.row_number} · ${row.status==='ready'?'Ready to import':row.status==='duplicate'?'Duplicate (will not be created)':'Invalid (excluded)'}`),
             row.status==='ready'&&h('label',null,h('input',{type:'checkbox','aria-label':`Select row ${row.row_number}`,checked:selected.includes(row.row_number),disabled,onChange:e=>{if(!valid()||disabled||lock.current)return;revokeApproval();setSelected(old=>e.target.checked?[...old.filter(n=>n!==row.row_number),row.row_number]:old.filter(n=>n!==row.row_number));}}),'Import this row'),
             row.errors.length>0&&h('ul',{'aria-label':`Validation errors for row ${row.row_number}`},...row.errors.map((error,index)=>h('li',{key:index},error))),
             row.duplicates.length>0&&h('ul',{'aria-label':`Duplicate matches for row ${row.row_number}`},...row.duplicates.map((duplicate,index)=>h('li',{key:index},`${duplicate.source==='workspace'?'Existing contact':'CSV row '+duplicate.row_number}: matching ${duplicate.reason==='name_company'?'name and company':duplicate.reason}${duplicate.id?' ('+duplicate.id+')':''}`))),
@@ -3450,14 +3614,18 @@ export function ContactTransferDrawer({Drawer,client,workspaceToken,current,inva
           h('label',null,h('input',{type:'checkbox','aria-label':'Confirm selected rows',checked:confirmed,disabled,onChange:e=>{if(!valid()||disabled||lock.current)return;if(renderedRevision!==draftRevision.current)return;approvalRevision.current=e.target.checked?draftRevision.current:null;setConfirmed(e.target.checked);}}),'I reviewed ignored columns and row results. Import only my selected valid, nonduplicate rows.'),
           actButton('Import valid rows',async session=>{if(approvalRevision.current!==draftRevision.current)return;const body={csv_text:csv,mapping,spreadsheet_safe:false,expected_fingerprint:preview.fingerprint,approved_rows:preview.rows.filter(r=>r.status==='duplicate'||(r.status==='ready'&&selected.includes(r.row_number))).map(r=>r.row_number),duplicate_policy:duplicates};clear();const done=await session.import(body);if(done){setResult(done);setNotice('Import completed.');onImported?.();}},disabled||!confirmed||!selected.length||(duplicates==='reject'&&preview.counts.duplicate>0))),
         result&&h('div',{role:'status'},h('p',null,`Batch ${result.batch_id}: ${result.counts.created} created; ${result.counts.skipped} skipped; ${result.counts.excluded} excluded.`),h('ul',null,...[...result.skipped.map(row=>({...row,outcome:'skipped'})),...result.excluded.map(row=>({...row,outcome:'excluded'}))].map((row,index)=>h('li',{key:index},`Row ${row.row_number}: ${row.outcome} (${row.reason})`)))))
-      :h('section',null,
+      :h('section',{className:'hc-settings-section','aria-label':'Export contacts'},
+        h('h3',null,'Export contacts'),
         h('p',null,`Export all contacts matching the current filters, not only the visible page: ${JSON.stringify(filters)}`),
-        h('fieldset',{disabled},h('legend',null,'Columns to include'),...(catalog?.columns||[]).map(column=>h('label',{key:column.key},h('input',{type:'checkbox',checked:columns.includes(column.key),onChange:e=>{setColumns(old=>e.target.checked?[...old,column.key]:old.filter(k=>k!==column.key));setConsent(false);setArtifact(null);}}),column.label+(column.archived?' (archived)':'')))),
+        h('fieldset',{disabled,className:'hc-transfer-columns'},h('legend',null,'Columns to include'),...(catalog?.columns||[]).map(column=>h('label',{key:column.key},h('input',{type:'checkbox',checked:columns.includes(column.key),onChange:e=>{setColumns(old=>e.target.checked?[...old,column.key]:old.filter(k=>k!==column.key));setConsent(false);setArtifact(null);}}),column.label+(column.archived?' (archived)':'')))),
         h('p',null,'Preparing creates a private plaintext CSV artifact on the Hermes host. It is retained until manually removed; closing this drawer does not delete it. Download creates another plaintext copy. Notes and custom fields require explicit column selection.'),
         h('label',null,h('input',{type:'checkbox',checked:consent,disabled,onChange:e=>{setConsent(e.target.checked);if(!e.target.checked)setArtifact(null);}}),'I approve these fields, filters and plaintext export retention.'),
         typeof captureDownload!=='function'&&h('p',null,'Update Hermes Desktop to enable supported CSV downloads.'),
         actButton('Prepare CSV export',async session=>{setArtifact(null);const prepared=await session.export({filters,columns,spreadsheet_safe:true});if(prepared)setArtifact(prepared);},disabled||!consent||!columns.length||typeof captureDownload!=='function'),
         artifact&&h('div',null,h('p',null,`${artifact.row_count} contacts. ${artifact.escaped_cells} cells escaped for spreadsheet safety.`),actButton('Download CSV',async()=>{if(await artifact.download())setNotice('Save dialog requested. This does not confirm the file was saved.');},busy||invalidated)))),
-    notice&&h('p',{role:'status'},notice));
+    ),
+    h('footer',{className:'hc-editor-footer hc-transfer-footer'},
+      notice&&h('p',{role:'status',className:'hc-notice'},notice),
+      h('button',{type:'button',onClick:close},'Close contact transfer')));
 }
 // END GENERATED CONTACT TRANSFER PANEL

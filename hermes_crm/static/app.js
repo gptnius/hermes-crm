@@ -111,14 +111,14 @@ function badge(value) {
   return `<span class="badge ${esc(value)}">${esc(label(value))}</span>`;
 }
 function head(title, subtitle, actions = "") {
-  return `<div class="page-head"><div><div class="eyebrow">YOUR RELATIONSHIP WORKSPACE</div><h1>${title}</h1><div class="subtitle">${subtitle}</div></div><div class="buttons">${actions}</div></div>`;
+  return `<div class="page-head"><div><h1>${title}</h1><div class="subtitle">${subtitle}</div></div><div class="buttons">${actions}</div></div>`;
 }
 function createButton(type) {
   return `<button class="button primary" data-action="new-${type}"><span aria-hidden="true">＋</span> Add ${type}</button>`;
 }
 function contactTable(rows) {
   return rows.length
-    ? `<div class="table-scroll"><table><thead><tr><th scope="col">Name</th><th scope="col">Company</th><th scope="col">Contact type</th><th scope="col">Linked deal stages</th><th scope="col">Added</th></tr></thead><tbody>${rows.map((c) => `<tr><td><div class="person"><span class="avatar" aria-hidden="true">${esc(initials(c.name))}</span><div><button class="name-button" data-action="contact" data-id="${esc(c.id)}">${esc(c.name)}</button><small>${esc(c.email || "No email added")}</small></div></div></td><td>${esc(c.company || "—")}</td><td>${badge(c.lifecycle)}</td><td>${Array.isArray(c.deal_stages) ? (c.deal_stages.map(stageBadge).join(" ") || "Unassigned") : "See contact details"}</td><td>${date(c.created_at)}</td></tr>`).join("")}</tbody></table></div>`
+    ? `<div class="table-scroll" role="region" aria-label="Contacts table" tabindex="0"><table><thead><tr><th scope="col">Name</th><th scope="col">Company</th><th scope="col">Contact type</th><th scope="col">Linked deal stages</th><th scope="col">Added</th></tr></thead><tbody>${rows.map((c) => `<tr><td><div class="person"><span class="avatar" aria-hidden="true">${esc(initials(c.name))}</span><div><button class="name-button" data-action="contact" data-id="${esc(c.id)}">${esc(c.name)}</button><small>${esc(c.email || "No email added")}</small></div></div></td><td>${esc(c.company || "—")}</td><td>${badge(c.lifecycle)}</td><td>${Array.isArray(c.deal_stages) ? (c.deal_stages.map(stageBadge).join(" ") || "Unassigned") : "See contact details"}</td><td>${date(c.created_at)}</td></tr>`).join("")}</tbody></table></div>`
     : empty("No matching contacts. Change filters or add a contact.");
 }
 function taskRows(rows) {
@@ -127,7 +127,7 @@ function taskRows(rows) {
         .map((t) => {
           const overdue =
             t.status !== "done" && t.due_at && new Date(t.due_at) < new Date();
-          return `<div class="task-row"><button class="check" data-action="toggle-task" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "done" ? "✓" : ""}</button><div class="task-copy"><button data-action="task" data-id="${esc(t.id)}">${esc(t.title)}</button><div class="task-meta">${esc(t.contact_name || "Workspace task")}${t.priority === "high" ? " · High priority" : ""}</div></div><span class="due ${overdue ? "overdue" : ""}">${t.status === "done" ? "Done" : date(t.due_at)}</span></div>`;
+          return `<div class="task-row"><button class="check" aria-pressed="${t.status === "done"}" data-action="toggle-task" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "done" ? "✓" : ""}</button><div class="task-copy"><button data-action="task" data-id="${esc(t.id)}">${esc(t.title)}</button><div class="task-meta">${esc(t.contact_name || "Workspace task")}${t.priority === "high" ? " · High priority" : ""}</div></div><span class="due ${overdue ? "overdue" : ""}">${t.status === "done" ? "Done" : (overdue ? "Overdue · " : "") + date(t.due_at)}</span></div>`;
         })
         .join("")
     : empty("All clear. No tasks to show.");
@@ -188,13 +188,13 @@ function stageChart(rows) {
     const circle = percent > 0 ? `<circle class="donut-segment" cx="60" cy="60" r="45" pathLength="100" fill="none" stroke="${stageColor(s.stage, i)}" stroke-width="22" stroke-dasharray="${percent} ${100-percent}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)" role="button" tabindex="0" aria-label="${esc(details(s))}" data-action="stage" data-stage="${esc(s.stage)}"><title>${esc(details(s))}</title></circle>` : "";
     offset += percent; return circle;
   }).join("");
-  return `<div class="stage-chart"><svg viewBox="0 0 120 120" aria-label="Deal value by stage, including Won and Lost"><circle cx="60" cy="60" r="45" fill="none" stroke="#e6e8e7" stroke-width="22"/>${segments}</svg><p><strong>${money(total)}</strong> total deal value</p>${total ? "" : '<p class="subtitle">No deal value to chart. Stage reports remain available below.</p>'}<div class="stage-summaries">${data.map((s,i) => `<button class="stage-summary" data-action="stage" data-stage="${esc(s.stage)}" title="${esc(details(s))}"><span class="stage-dot" style="background:${stageColor(s.stage, i)}" aria-hidden="true"></span>${esc(details(s))}</button>`).join("")}</div></div>`;
+  return `<div class="stage-chart"><svg viewBox="0 0 120 120" aria-label="Deal value by stage, including Won and Lost"><circle cx="60" cy="60" r="45" fill="none" class="donut-track" stroke-width="22"/>${segments}</svg><p><strong>${money(total)}</strong> total deal value</p>${total ? "" : '<p class="subtitle">No deal value to chart. Stage reports remain available below.</p>'}<div class="stage-summaries">${data.map((s,i) => `<button class="stage-summary" data-action="stage" data-stage="${esc(s.stage)}" title="${esc(details(s))}"><span class="stage-dot" style="background:${stageColor(s.stage, i)}" aria-hidden="true"></span>${esc(details(s))}</button>`).join("")}</div></div>`;
 }
 async function render() {
   // Only the latest render may publish markup or replace record caches.
   const token = ++state.render;
   const root = $("#content");
-  root.innerHTML = '<div class="loading">Loading your workspace…</div>';
+  root.innerHTML = '<div class="loading" role="status">Loading your workspace…</div>';
   $("#crumb").textContent = label(state.page);
   document.querySelectorAll("nav a").forEach((a) => {
     a.classList.toggle("active", a.dataset.page === state.page);
@@ -267,13 +267,13 @@ async function render() {
           "Turn promising conversations into lasting partnerships.",
           createButton("deal"),
         ) +
-        `<div class="toolbar" style="padding:0 0 20px;border:0"><input class="search" id="search" type="search" aria-label="Search deals" placeholder="Search opportunities…" value="${esc(state.query)}"><select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((s) => `<option value="${s}" ${state.stage === s ? "selected" : ""}>${esc(stageLabel(s))}</option>`).join("")}</select>${filterInput("company","Company")}${filterInput("min_value","Minimum value (USD)","number")}${filterInput("max_value","Maximum value (USD)","number")}</div><p class="subtitle">Showing up to 500 matching deals.</p><div class="board" ${state.stage ? 'style="grid-template-columns:minmax(240px,420px)"' : ""}>${(state.stage
+        `<div class="toolbar board-toolbar"><input class="search" id="search" type="search" aria-label="Search deals" placeholder="Search opportunities…" value="${esc(state.query)}"><select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((s) => `<option value="${esc(s)}" ${state.stage === s ? "selected" : ""}>${esc(stageLabel(s))}</option>`).join("")}</select>${filterInput("company","Company")}${filterInput("min_value","Minimum value (USD)","number")}${filterInput("max_value","Maximum value (USD)","number")}</div><p class="subtitle">Showing up to 500 matching deals.</p><div class="board${state.stage ? " filtered" : ""}" role="region" aria-label="Deal stages" tabindex="0">${(state.stage
           ? [state.stage]
           : stages
         )
           .map((s) => {
             const ds = state.deals.filter((d) => d.stage === s);
-            return `<section class="column"><div class="column-head"><span>${esc(stageLabel(s))}</span><span class="badge ${s}">${ds.length}</span></div><div class="column-total">${money(ds.reduce((n, d) => n + d.value, 0))} total value</div>${dealCards(ds) || empty("No deals at this stage.")}</section>`;
+            return `<section class="column"><div class="column-head"><span>${esc(stageLabel(s))}</span><span class="badge ${esc(s)}">${ds.length}</span></div><div class="column-total">${money(ds.reduce((n, d) => n + d.value, 0))} total value</div>${dealCards(ds) || empty("No deals at this stage.")}</section>`;
           })
           .join("")}</div>`;
     } else if (state.page === "tasks") {
@@ -309,7 +309,7 @@ async function render() {
     if (token === state.render) root.innerHTML = html;
   } catch (e) {
     if (token === state.render)
-      root.innerHTML = `<div class="error" role="alert">${esc(e.message)}</div><button class="button" data-action="retry">Try again</button><button class="button" data-action="reset-current-filters">Reset filters</button>`;
+      root.innerHTML = `<div class="error" role="alert">${esc(e.message)}</div><div class="error-actions"><button class="button" data-action="retry">Try again</button><button class="button" data-action="reset-current-filters">Reset filters</button></div>`;
   }
 }
 function route() {
@@ -465,6 +465,7 @@ async function openForm(type, record = {}) {
       if (record.id) data.version = record.version;
       f.dataset.saving = "true";
       submit.disabled = true;
+      submit.setAttribute("aria-busy", "true");
       submit.textContent = "Saving…";
       const error = f.querySelector("#form-error");
       error.hidden = true;
@@ -482,6 +483,7 @@ async function openForm(type, record = {}) {
         error.textContent = err.message;
         error.hidden = false;
         submit.disabled = false;
+        submit.removeAttribute("aria-busy");
         submit.textContent = record.id ? "Save changes" : "Create " + type;
         delete f.dataset.saving;
         error.scrollIntoView({ block: "nearest" });
@@ -611,13 +613,13 @@ async function initialize() {
     document
       .querySelectorAll(".workspace-name")
       .forEach(
-        (n) => (n.textContent = meta.demo ? "Demo workspace" : "CRM workspace"),
+        (n) => (n.textContent = "CRM workspace"),
       );
     document
       .querySelectorAll(".workspace-description")
       .forEach(
         (n) =>
-          (n.textContent = meta.demo ? "Sample data only" : "Local-first CRM"),
+          (n.textContent = "Local-first CRM"),
       );
     $(".demo-label").hidden = !meta.demo;
   } catch (e) {
