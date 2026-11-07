@@ -109,8 +109,22 @@ try:
     assert tool('crm_schema_stage_create', args) == stage
     field = tool('crm_schema_field_create', {'kind': 'contacts', 'data': {'key': 'tier', 'label': 'Tier', 'type': 'single-select', 'choices': ['A', 'B']}, 'idempotency_key': 'host-field'})
     contact = tool('crm_contact_create', {'name': 'Synthetic host', 'custom_fields': {'tier': 'A'}, 'idempotency_key': 'host-contact'})
-    assert contact['custom_fields'] == {'tier': 'A'}
-    assert tool('crm_contact_get', {'id': contact['id']})['custom_fields'] == {'tier': 'A'}
+    assert 'custom_fields' not in contact and 'notes' not in contact
+    assert 'custom_fields' not in tool('crm_contact_get', {'id': contact['id']})
+    detail = tool('crm_record_fields', {'kind': 'contacts', 'id': contact['id'], 'fields': ['custom.tier']})
+    assert detail == {'id': contact['id'], 'version': 1, 'fields': {'custom.tier': 'A'}}
+    assert registry.get_entry('crm_record_fields', scope=manager.scope_key).toolset == 'crm_detail_read'
+    # Real host resolution only: no job creation, gateway or agent execution.
+    from cron.scheduler import _resolve_cron_enabled_toolsets
+    from toolsets import resolve_toolset
+    for saved in [['crm_read', 'no_mcp'], ['crm_read', 'crm_work_read', 'crm_work_report', 'no_mcp']]:
+        effective = _resolve_cron_enabled_toolsets({'enabled_toolsets': saved}, {})
+        available = {name for group in effective for name in resolve_toolset(group)}
+        assert 'crm_task_get' in available and 'crm_record_fields' not in available
+    done = tool('crm_task_create', {'title': 'Completed reminder', 'due_at': '2099-01-01T00:00:00Z', 'status': 'done', 'notes': 'Private reminder notes'})
+    completed = tool('crm_task_get', {'id': done['id']})
+    assert completed['status'] == 'done' and 'notes' not in completed
+    assert not (Path(os.environ['HERMES_HOME']) / 'cron' / 'jobs.json').exists()
     deal = tool('crm_deal_create', {'title': 'Synthetic deal', 'stage': 'discovery', 'contact_id': contact['id']})
     assert tool('crm_deal_list', {'stage': 'discovery'})[0]['id'] == deal['id']
     updated = tool('crm_schema_stage_update', {'stage_key': 'discovery', 'data': {'version': 1, 'label': 'Discovery call'}})

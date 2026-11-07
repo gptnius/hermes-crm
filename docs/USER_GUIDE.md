@@ -23,6 +23,7 @@ with no live-account verification yet.
 - [Work with your Hermes agent](#work-with-your-hermes-agent)
 - [Save and schedule future internal work](#save-and-schedule-future-internal-work)
 - [Optional Gmail history](#optional-gmail-history)
+- [Optional protected notes and exports](#optional-protected-notes-and-exports)
 - [Storage, profiles and backups](#storage-profiles-and-backups)
 - [Troubleshooting](#troubleshooting)
 - [Limits and verification](#limits-and-verification)
@@ -53,7 +54,7 @@ with no live-account verification yet.
 contacts, pipeline, follow-ups, activity and preset dashboard views without
 Hermes Desktop. It does not provide the native report builder, contact-log
 panel, customization editor/custom-value controls, Gmail pilot, chat companion
-or native assignment/scheduler controls. It displays configured stages and
+protected-note/export controls or native assignment/scheduler controls. It displays configured stages and
 preserves retained custom values during ordinary edits.
 It is not a hosted web application or a substitute for native integration tests.
 
@@ -396,6 +397,29 @@ agent context or the self-reported contact log. **Disconnect locally** and
 **Forget local email history** do not revoke Google's grant; host/Google grant
 management is separate. Read the full guide's retention and cancellation limits.
 
+## Optional protected notes and exports
+
+Ordinary CRM use requires no encryption keys. The native **Protected note**
+record action and **Encrypted export** toolbar action are optional and disabled
+until dedicated user-managed keyrings are configured through a supported Hermes
+secret source. CRM does not generate, save or configure keys. A masked secret
+field can be backed by plaintext `.env`; it is not automatically a keychain.
+
+Protected notes are separate from ordinary Notes. Reveal explicitly, edit and
+save with version checks, then close to hide the text. Existing ordinary values
+and their copies are not migrated. Default agent responses now omit ordinary
+notes/custom values; `crm_record_fields` can still read exact ordinary paths
+when its separate toolset is allowed. Protected notes have no model tool.
+
+Encrypted export prepares a ciphertext-only CRM table snapshot, then offers an
+explicit native download. Cancellation does not delete the prepared artifact.
+The app does not infer that a file was saved merely because the dialog request
+finished. There is no restore workflow. Retain both notes and export keys plus
+the original workspace/profile identities; renaming a profile or copying rows
+to a fresh workspace can prevent normal reveal. The export key alone cannot
+decrypt protected-note rows. Read [protection setup, limits and recovery](PROTECTION.md)
+before using either feature with valuable data.
+
 ## Storage, profiles and backups
 
 SQLite needs no extra service. Native mode uses Hermes's profile-local plugin
@@ -486,8 +510,9 @@ before configuring one.
   unsuitable chart results are labelled rather than presented as complete.
 - No direct native prompt submission, hidden session, automatic provider setup,
   automatic retry of unknown scheduling, or enabled Run now bridge.
-- No migration system for deployed schemas. Advanced features fail closed on
-  incompatible stored schemas rather than silently repairing them.
+- No general downgrade/restore workflow or migration from another CRM. Specific
+  additive upgrades preserve existing rows; unsupported stored schemas fail
+  closed rather than being silently repaired.
 
 The repo's [verification report](VERIFICATION.md) records actual checks and
 remaining gaps. Synthetic tests, controlled scheduler runs and a limited real
@@ -503,6 +528,9 @@ python -m pip install -e '.[test]'
 python -m pytest -q
 python scripts/build_email_panel.py --check
 python scripts/build_report_panels.py --check
+python scripts/build_customization_panel.py --check
+python scripts/build_protection_panel.py --check
+node --experimental-vm-modules tests/desktop_protection.mjs
 export HERMES_CRM_REACT_TEST_ROOT="$(mktemp -d /tmp/hermes-crm-react-tests.XXXXXX)"
 npm install --prefix "$HERMES_CRM_REACT_TEST_ROOT" --ignore-scripts --no-audit --no-fund react@19.3.0 react-test-renderer@19.3.0
 node --experimental-vm-modules tests/desktop_reports.mjs

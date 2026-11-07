@@ -120,10 +120,14 @@ def test_api_and_tool_parity(crm,monkeypatch):
     expected=crm.contact_report(**filters)
     assert native.get('/reports/contacts',params=dict(filters,workspace_token=crm.workspace_token())).json()==expected
     assert standalone.get('/api/reports/contacts',params=filters).json()==expected
-    assert json.loads(ctx.tools['crm_contact_report']['handler'](filters))['data']==expected
+    agent_expected = dict(expected, items=[{key: value for key, value in item.items()
+        if key not in {'notes', 'custom_fields'}} for item in expected['items']])
+    assert json.loads(ctx.tools['crm_contact_report']['handler'](filters))['data']==agent_expected
     assert native.get('/reports/contacts',params={'workspace_token':'other'}).status_code==409
     assert native.get('/contacts',params={'stage':'qualified','workspace_token':'other'}).status_code==409
-    assert json.loads(ctx.tools['crm_contact_list']['handler']({'stage':'qualified'}))['data']==crm.list('contacts',stage='qualified')
+    assert json.loads(ctx.tools['crm_contact_list']['handler']({'stage':'qualified'}))['data'] == [
+        {key: value for key, value in item.items() if key not in {'notes', 'custom_fields'}}
+        for item in crm.list('contacts', stage='qualified')]
     for root,client in [('',native),('/api',standalone)]:
         assert client.get(root+'/reports/contacts',params={'limit':101}).status_code==422
         for query in ['unknown=x', 'limit=1.0', 'limit=1&limit=2', 'stage=']:
@@ -137,5 +141,5 @@ def test_api_and_tool_parity(crm,monkeypatch):
         assert client.get(root+'/tasks',params={'priority':'high','due':'overdue'}).json()==crm.list('tasks',priority='high',due='overdue')
     assert not json.loads(ctx.tools['crm_contact_report']['handler']({'limit':True}))['ok']
     assert not json.loads(ctx.tools['crm_contact_report']['handler']({'unknown':True}))['ok']
-    assert len(ctx.tools)==41 and sum(t['toolset']=='crm_read' for t in ctx.tools.values())==8
+    assert len(ctx.tools)==42 and sum(t['toolset']=='crm_read' for t in ctx.tools.values())==8
     assert ctx.tools['crm_contact_create']['schema']['parameters']['properties']['lifecycle']['title']=='Contact type'

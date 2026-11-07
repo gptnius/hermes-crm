@@ -184,7 +184,7 @@ def test_plugin_registers_and_uses_profile_data(monkeypatch,tmp_path):
     monkeypatch.setitem(sys.modules,'plugins',parent)
     monkeypatch.setitem(sys.modules,'plugins.plugin_storage',storage)
     ctx=Context(); register(ctx)
-    assert len(ctx.tools)==41
+    assert len(ctx.tools)==42
     assert ctx.tools['crm_task_get']['toolset']=='crm_read'
     create=ctx.tools['crm_contact_create']['handler']
     result=json.loads(create({'name':'Agent demo','idempotency_key':'agent-demo'}))
@@ -192,7 +192,7 @@ def test_plugin_registers_and_uses_profile_data(monkeypatch,tmp_path):
     assert not json.loads(create({'name':'Bad','extra':True}))['ok']
     overview=json.loads(ctx.tools['crm_overview']['handler']({}))
     assert overview['data']['contacts']==1
-    assert overview['data']['profile']=='test-profile'
+    assert 'profile' not in overview['data']
     task_create=ctx.tools['crm_task_create']['handler']
     opened=json.loads(task_create({'title':'Open agent task','due_at':future()}))['data']
     task_create({'title':'Completed agent task','due_at':'2020-01-01T00:00:00Z','status':'done'})

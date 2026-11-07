@@ -28,6 +28,7 @@ REPORT_READ = {'crm_report_catalog', 'crm_report_run', 'crm_report_list', 'crm_r
 REPORT_WRITE = {'crm_report_create', 'crm_report_update', 'crm_report_archive', 'crm_report_restore', 'crm_dashboard_save'}
 INTERACTION_READ = {'crm_contact_log_list'}
 INTERACTION_WRITE = {'crm_contact_log', 'crm_contact_log_void'}
+DETAIL_READ = {'crm_record_fields'}
 SCHEMA_READ = {'crm_schema_catalog'}
 SCHEMA_WRITE = {'crm_schema_stage_create', 'crm_schema_stage_update', 'crm_schema_field_create', 'crm_schema_field_update'}
 SECRET_ERROR = 'postgresql://secret-user:secret-password@private.example/db'
@@ -135,7 +136,7 @@ def schedule_intent(adapters):
 
 def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
     ctx = adapters.ctx
-    expected = LEGACY_READ | LEGACY_WRITE | WORK_READ | WORK_SCHEDULE | WORK_REPORT | REPORT_READ | REPORT_WRITE | INTERACTION_READ | INTERACTION_WRITE | SCHEMA_READ | SCHEMA_WRITE
+    expected = LEGACY_READ | LEGACY_WRITE | WORK_READ | WORK_SCHEDULE | WORK_REPORT | REPORT_READ | REPORT_WRITE | INTERACTION_READ | INTERACTION_WRITE | SCHEMA_READ | SCHEMA_WRITE | DETAIL_READ
     assert set(ctx.tools) == expected
     assert adapters.factory_calls == [] and ctx.calls == []
     for names, toolset in ((LEGACY_READ, 'crm_read'), (LEGACY_WRITE, 'crm_write'),
@@ -143,7 +144,7 @@ def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
                            (WORK_REPORT, 'crm_work_report'), (REPORT_READ, 'crm_reports'),
                            (REPORT_WRITE, 'crm_report_write'), (INTERACTION_READ, 'crm_interaction_read'),
                            (INTERACTION_WRITE, 'crm_interaction_write'), (SCHEMA_READ, 'crm_schema_read'),
-                           (SCHEMA_WRITE, 'crm_schema_write')):
+                           (SCHEMA_WRITE, 'crm_schema_write'), (DETAIL_READ, 'crm_detail_read')):
         assert all(ctx.tools[name]['toolset'] == toolset for name in names)
     for name in WORK_READ | WORK_SCHEDULE | WORK_REPORT:
         params = ctx.tools[name]['schema']['parameters']

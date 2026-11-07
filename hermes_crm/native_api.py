@@ -100,6 +100,12 @@ router.include_router(build_analytics_router(service, require_workspace))
 from .customization_api import build_router as build_customization_router
 router.include_router(build_customization_router(service, require_workspace))
 
+# Optional protected content is exposed only through authenticated native UI
+# routes. Ordinary record snapshots and model tools never reveal this store.
+from .protection_api import build_router as build_protection_router
+from .protection_runtime import resolve_keyring
+router.include_router(build_protection_router(service, require_workspace, resolve_keyring))
+
 
 @router.get('/snapshot')
 def snapshot():

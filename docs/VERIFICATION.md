@@ -2,6 +2,70 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Optional layered protection and agent data minimization
+
+This increment adds separate opt-in protected notes and encrypted CRM content
+exports, while reducing ordinary base-tool responses and adding exact
+ordinary-field selection. It does not configure any real keys or secret source,
+move/delete existing notes, modify the active review app, expand scheduled
+allowlists, or claim general record authorization. Existing ordinary data and
+copies remain plaintext. See [protection threat and recovery boundaries](PROTECTION.md).
+
+Verification on November 7, 2026:
+
+- A clean 145-file shipping-source export passed **1,111 Python tests**, with
+  **525 optional cases skipped** and two dependency deprecation warnings.
+  Dormant direct-chat experiments are not part of this source or count.
+- Twenty-nine focused synthetic protection tests cover authenticated encryption,
+  retained-key replay, altered envelopes and cross-record/workspace/profile
+  rejection, absence of protected plaintext in known table rows/database bytes,
+  metadata-only receipts, rollback, exact supported schema validation and
+  sanitized native request/error responses. Fifteen additional PostgreSQL
+  contracts passed on the separate disposable target below; the cloud suite
+  skips them without a configured disposable database.
+- Failure regressions cover a committed save followed by a 503, reservation
+  interruption, missing/deleted artifacts, post-file database rollback, same-ID
+  concurrent export capture, unsafe file permissions and FIFO rejection.
+  Encrypted artifacts decode to the original synthetic table snapshot, without
+  keys or plaintext temporary files. This is authenticated offline decoding,
+  **not a live restore or disaster-recovery drill**.
+- A separate disposable macOS PostgreSQL **17.11 ARM64** run passed **597
+  synthetic checks, zero failures and zero skips**, against the shipping source
+  plus a reviewed test-only SQL-hook correction. The focused 87 comprise 29
+  SQLite protection cases, 15 PostgreSQL protection cases, 22 projection cases
+  and 21 adapter cases. The other 510 existing regression cases include fifteen
+  SQLite report variants and one SQL-compilation case; not all 597 cases are
+  PostgreSQL-backed. The correction makes the rollback fault injection identify
+  the compiled insert table instead of matching a SQLite-only SQL prefix; no
+  runtime fix was needed. Cryptography 50.0.2, psycopg 3.3.8 and SQLAlchemy 2.1.8
+  were used. All four owned disposable containers were removed; no existing
+  volumes, real keys/accounts, providers or active app/profile were changed.
+- Three tests against exact official Hermes source
+  `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19` passed: both registration/isolation
+  modes and actual scheduled-tool resolution. Forty-two tools are registered;
+  `crm_record_fields` uses `crm_detail_read`, outside fixed scheduled allowlists.
+  These checks use no live model, account or real scheduling.
+- Thirteen native SDK/component suites passed, including actual React 19.3,
+  protected-note explicit reveal, plaintext cleanup at save dispatch and view
+  invalidation, lost-response receipt recovery, 5xx unknown locks, close/reopen
+  during pending operations and preservation of the original file-download
+  binding. Independent protection React recheck also passed under StrictMode.
+  The execution bridge passed all 25 tests with the real SQLite store adapter;
+  standalone VM/syntax and all four generated-panel checks passed. The cloud
+  environment lacked the optional real nanostores fixture.
+- Independent security and native UI reviews passed after fixes for malformed
+  storage refusal, native HTTP status preservation, post-commit uncertainty,
+  durable export reservations, unsafe special files and remounted recovery
+  controls. Cryptography 50.0.0 supplied encryption in the cloud test environment.
+
+Real key provisioning/external secret-source integration was not exercised.
+The tested host's masked configuration can use plaintext `.env`; neither masking
+nor a copied home directory is a verified key-custody boundary. Profile rename,
+rekeying and supported restore/rebinding remain unimplemented. Physical native
+Save-dialog/focus/Escape testing, wider accessibility and full recovery drills
+remain pending. No private profile, provider, mailbox or production datastore
+was used by these checks.
+
 ## Custom fields and deal stages
 
 The customization increment adds versioned optional typed fields, configurable

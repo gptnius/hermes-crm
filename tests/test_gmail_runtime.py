@@ -88,7 +88,9 @@ def test_optional_manifest_does_not_change_agent_tools():
                                'https://www.googleapis.com/auth/userinfo.email']
     assert set(oauth['hosts']) == {'gmail.googleapis.com', 'openidconnect.googleapis.com'}
     names = {entry['name'] for entry in manifest['optional_env']}
-    assert names == {oauth['client_id_env'], oauth['client_secret_env']}
+    assert names == {oauth['client_id_env'], oauth['client_secret_env'],
+                     'HERMES_CRM_NOTES_KEYS', 'HERMES_CRM_BACKUP_KEYS'}
+    assert all(entry.get('secret') is True for entry in manifest['optional_env'])
     for field in ('gmail_client_id', 'gmail_client_secret'):
         assert manifest['config_schema'][field]['type'] == 'secret'
         assert manifest['config_schema'][field]['env'] in names

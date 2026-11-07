@@ -44,7 +44,18 @@ provides_tools:
   - crm_schema_stage_update
   - crm_schema_field_create
   - crm_schema_field_update
+  - crm_record_fields
 config_schema:
+  protection_notes_keys:
+    type: secret
+    env: HERMES_CRM_NOTES_KEYS
+    label: Optional protected-notes keyring
+    description: User-managed dedicated keyring. Masked host fields may use plaintext .env; keep recovery keys separately. CRM does not create or configure keys.
+  protection_backup_keys:
+    type: secret
+    env: HERMES_CRM_BACKUP_KEYS
+    label: Optional encrypted-export keyring
+    description: Separate user-managed export keyring. Keep it outside exported data and retain old keys. CRM does not create or configure keys.
   backend:
     type: str
     choices: [sqlite, postgres]
@@ -73,6 +84,10 @@ config_schema:
     description: Your matching Google Desktop app client secret, stored by Hermes. Never paste credentials in CRM or chat.
 # Optional: missing client variables must not disable the ordinary CRM.
 optional_env:
+  - name: HERMES_CRM_NOTES_KEYS
+    secret: true
+  - name: HERMES_CRM_BACKUP_KEYS
+    secret: true
   - name: HERMES_CRM_GMAIL_CLIENT_ID
     secret: true
   - name: HERMES_CRM_GMAIL_CLIENT_SECRET

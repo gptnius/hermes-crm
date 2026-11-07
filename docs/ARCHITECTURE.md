@@ -39,6 +39,23 @@ authorization boundary. Dedicated schema toolsets do not expand scheduled agent
 permissions. See [customization limits](CUSTOMIZATION.md) and the
 [ordered roadmap](../README.md#development-roadmap).
 
+## Optional protection and minimized agent output
+
+`agent_read_policy.py` applies explicit output allowlists to base CRM tools,
+including mutation echoes. Ordinary notes/custom values require exact paths
+through the separate `crm_detail_read` toolset. This is data minimization, not
+record authorization; explicit reports/work tools and human UI still expose
+ordinary data. Fixed scheduled tool allowlists do not expand.
+
+`protection.py` stores separate authenticated-encrypted note envelopes and
+metadata-only receipts. Optional native routes require the existing authenticated
+transport and workspace checks. Dedicated keyrings resolve per operation through
+the supported host secret API; masked configuration may be plaintext `.env`.
+There are no protected-note tools, automatic key provisioning or ordinary-note
+migration. Encrypted exports include only known CRM tables through a consistent
+transaction, never host files or keys. Offline decoding is not a restore system.
+See [threat boundaries, duplication inventory and recovery limits](PROTECTION.md).
+
 ## Profile boundaries
 
 Native operations resolve Hermes' plugin_data_dir and plugin_db on every call. No global DB connection caches a previous profile. SQLite uses Hermes' connection policy. PostgreSQL uses a dedicated crm_ schema derived from the active profile's resolved data directory and reads the connection secret through the host profile scope.
@@ -96,4 +113,4 @@ SQLAlchemy owns dialect differences, bound parameters and schema mapping. SQLite
 
 ## Future work
 
-Expand versioned upgrade/rollback support, pagination beyond contact reports and scalable aggregate queries before large datasets. Layered protection is next, followed by import/export; external CRM linking is deferred. Add authentication, authorization, backup/restore and operational health before remote hosting. Expand the verified native Mac workflows to broader platform, responsive-layout and accessibility coverage. The README is the priority index for future work.
+Expand versioned upgrade/rollback support, pagination beyond contact reports and scalable aggregate queries before large datasets. Extend the first protection increment with scoped authorization, key lifecycle and tested restore before broader import/export; external CRM linking is deferred. Add authentication, authorization, backup/restore and operational health before remote hosting. Expand the verified native Mac workflows to broader platform, responsive-layout and accessibility coverage. The README is the priority index for future work.

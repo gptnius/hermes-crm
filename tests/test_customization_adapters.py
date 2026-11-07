@@ -21,7 +21,7 @@ def test_schema_catalog_route_tool_isolation_and_manifest(adapters):
     assert not {'crm_schema_read', 'crm_schema_write'} & set(TOOLSETS)
     for name in SCHEMA_WRITE:
         assert a.ctx.tools[name]['toolset'] == 'crm_schema_write'
-    assert len(a.ctx.tools) == 41
+    assert len(a.ctx.tools) == 42
     assert 'enum' not in a.ctx.tools['crm_deal_list']['schema']['parameters']['properties']['stage']
     assert 'enum' not in a.ctx.tools['crm_contact_report']['schema']['parameters']['properties']['stage']
     for name in ['crm_contact_create', 'crm_deal_create', 'crm_task_update']:
@@ -65,7 +65,8 @@ def test_custom_values_across_rest_tools_archive_and_clear(adapters):
     updated = a.client.patch('/contacts/'+record_id, json={'workspace_token': scope, 'data': {'version': 1, 'company': 'Retained'}})
     assert updated.status_code == 200 and updated.json()['custom_fields'] == {'tier': 'A'}
     cleared = a.ctx.invoke('crm_contact_update', {'id': record_id, 'version': 2, 'custom_fields': {'tier': None}})
-    assert cleared['ok'] and cleared['data']['custom_fields'] == {}
+    assert cleared['ok'] and 'custom_fields' not in cleared['data']
+    assert a.ctx.invoke('crm_record_fields', {'kind': 'contacts', 'id': record_id, 'fields': ['custom.tier']})['data']['fields'] == {'custom.tier': None}
     archive = a.client.patch('/customization/fields/contacts/tier', json={'workspace_token': scope, 'data': {'version': 1, 'archived': True}})
     assert archive.status_code == 200 and archive.json()['archived']
     assert not a.ctx.invoke('crm_contact_update', {'id': record_id, 'version': 3, 'custom_fields': {'tier': 'B'}})['ok']
