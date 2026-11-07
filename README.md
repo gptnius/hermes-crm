@@ -9,10 +9,11 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
 - Native conversation companion: open CRM beside an existing verified main Hermes chat; preview and copy a minimal record reference for manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
-- Main dashboard: six-stage value donut with keyboard/hover details, unique-contact drillthrough and preset missing/overdue follow-up reports.
+- Main dashboard: preset stage/attention views plus a typed report builder, shared saved definitions, version-pinned table/KPI/bar/line/donut cards and live contributing-record drilldowns. See [flexible reports](docs/FLEXIBLE_REPORTS.md).
+- Logged contact: explicit self-reported contact events with corrections, kept separate from CRM edits and optional Gmail observations.
 - Pipeline: six stages, integer-cent USD amounts, company/value filters and weighted forecast.
 - Follow-ups: timezone-aware due dates, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. A separate reviewed CRM confirmation can schedule, check or cancel that exact future assignment through the existing native conversation. Task-specific Preview/Copy remains available for manual native chat Send. See [assignment workflow](docs/ASSIGNMENT_UI.md).
-- Native Hermes: 22 tools across separate record, assigned-work and native-report permission sets, active-profile storage, optimistic version checks and idempotent creates.
+- Native Hermes: 36 tools across separate record, assigned-work and native-report permission sets, active-profile storage, optimistic version checks and idempotent creates.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
@@ -102,6 +103,9 @@ Supabase is supported as a PostgreSQL connection option, not via its REST SDK. A
 ```bash
 python -m pytest -q
 python scripts/build_email_panel.py --check
+python scripts/build_report_panels.py --check
+node --experimental-vm-modules tests/desktop_reports.mjs
+node --experimental-vm-modules tests/desktop_contact_log.mjs
 node --experimental-vm-modules tests/desktop_email_history.mjs
 node --check hermes_crm/static/app.js
 ```
@@ -110,7 +114,7 @@ Tests use temporary synthetic data. See docs/VERIFICATION.md for exact tested en
 
 ## Deliberate limits
 
-This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, imports, attachments, migrations from another CRM or background daemon. Contact reports use server pagination with filtered totals. Coverage and assignment history use server pages with exact evidence-item totals; their current implementation scans local history and is not optimized for large datasets. Legacy lists, deal/task list views and form choices are bounded at 500 records, and activity at 100; displayed deal-list totals cover returned records. This is a small-workspace prototype, not a large CRM data browser. Direct chat prompt submission remains disabled. CRM-confirmed future scheduling uses an authenticated user command, not model-tool approval hooks; it requires the matching existing main native chat and stable trusted host configuration. See [operation boundaries](docs/CRM_CONFIRMED_OPERATIONS.md). Native future assignments remain a bounded, separately tested path. Custom saved views and a report/dashboard builder are not implemented. A future migration system is needed before changing a deployed schema. No public repository, catalog PR, contest entry or production deployment is created by running the app.
+This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, imports, attachments, migrations from another CRM or background daemon. Contact reports use server pagination with filtered totals. Coverage and assignment history use server pages with exact evidence-item totals; their current implementation scans local history and is not optimized for large datasets. Legacy lists, deal/task list views and form choices are bounded at 500 records, and activity at 100; displayed deal-list totals cover returned records. This is a small-workspace prototype, not a large CRM data browser. Direct chat prompt submission remains disabled. CRM-confirmed future scheduling uses an authenticated user command, not model-tool approval hooks; it requires the matching existing main native chat and stable trusted host configuration. See [operation boundaries](docs/CRM_CONFIRMED_OPERATIONS.md). Native future assignments remain a bounded, separately tested path. Native saved report definitions and dashboard cards are implemented within the [documented report limits](docs/FLEXIBLE_REPORTS.md). Custom CRM stages, arbitrary joins/formulas, dashboard-global filters and historical funnel reports remain future work. A future migration system is needed before changing a deployed schema. No public repository, catalog PR, contest entry or production deployment is created by running the app.
 
 ## License
 

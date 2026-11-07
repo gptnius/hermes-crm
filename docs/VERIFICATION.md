@@ -2,6 +2,55 @@
 
 Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
 
+## Flexible reports, saved dashboard and contact log
+
+The next isolated source increment adds typed contacts/deals/tasks reports,
+shared saved definitions, pinned main-dashboard cards and explicit self-reported
+contact events. It changes no Gmail, scheduler, production or existing user
+profile configuration. New report/log capabilities use separate toolsets; the
+legacy eight CRM read tools and eleven scheduled-assignment read/report tools
+remain unchanged. The total registered plugin inventory is now thirty-six.
+
+Verification on November 7, 2026:
+
+- Default shipping-scope Python: **992 passed, 475 opt-in tests skipped**, with
+  two dependency deprecation warnings. This includes 86 new REST/tool adapter
+  cases; dormant direct-chat experiments are excluded from the release tree.
+- Actual disposable PostgreSQL 17.11: **38 new report/storage contracts passed**.
+  This covers SQL aggregation, null typing, fractional numeric measures, maximum
+  date buckets, snapshot consistency, cross-process lazy initialization,
+  same-key concurrent replay, profile scope and schema refusal. A deliberate
+  malformed-key schema fixture produces one SQLAlchemy warning. The loopback-only
+  disposable cluster was stopped after testing.
+- Actual pinned Hermes source, CPython 3.14: **two guarded host cases passed**,
+  one per plugin isolation mode. Registered tools and authenticated REST share
+  saved reports, dashboards and authored logs; stale workspace/version requests,
+  archived runs and secondary-profile leakage are rejected. No scheduler job,
+  model/provider call, mailbox access or network server runs in these cases.
+- Ten native SDK/component suites pass, including actual React 19.3 StrictMode,
+  typed builder/preview/save, version adoption, archive/restore and saved-list
+  paging, chart click/keyboard drilldowns, UTC date spacing and honest capped
+  distributions. Contact-log tests cover cancelled/stale form handlers, exact
+  timezone input, void provenance and known-rejection recovery. Both panels keep
+  frozen unknown requests across new route clients within the plugin lifetime,
+  isolated by connection and app profile even with copied workspace tokens.
+  Standalone UI smoke, JS syntax and both generated-panel sync checks also pass.
+- Independent backend and UI reviews passed after corrections to read snapshots,
+  maximum-date drilldowns, stale form callbacks, reconnect recovery and sibling
+  React keys. No unresolved findings from these reviews.
+
+Each report response uses one consistent database read snapshot; subsequent
+pages and drilldowns remain live and disclose that limitation. The report engine
+never substitutes current stage for historical stage, expected close for actual
+win time, generic activity for contact, or a stored follow-up for execution proof.
+
+Native physical visual/layout and broad accessibility testing of **this new
+reporting increment** remain unperformed. Earlier Mac screenshots and workflows
+below describe their earlier exact source, not this increment. No production
+readiness, custom stage support, historical conversion, automated dashboard
+monitoring or live Gmail connection is established by these checks. See
+[report behavior and limits](FLEXIBLE_REPORTS.md).
+
 ## Completed inactive schedule handling
 
 Cancellation previously always attempted Pause after finding a bound job, even

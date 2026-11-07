@@ -25,6 +25,20 @@ provides_tools:
   - crm_work_reconcile
   - crm_work_cancel
   - crm_work_report
+  - crm_report_catalog
+  - crm_report_run
+  - crm_report_list
+  - crm_report_get
+  - crm_saved_report_run
+  - crm_dashboard_get
+  - crm_report_create
+  - crm_report_update
+  - crm_report_archive
+  - crm_report_restore
+  - crm_dashboard_save
+  - crm_contact_log
+  - crm_contact_log_list
+  - crm_contact_log_void
 config_schema:
   backend:
     type: str

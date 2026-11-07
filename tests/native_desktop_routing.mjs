@@ -114,6 +114,19 @@ for (const store of Object.values(stores))
     1,
     "Observer is installed at register, before React mounting",
   );
+const recovery = kind => module.analyticsOperationStore(ctx, module.routeIdentity(ctx), kind);
+const originalReports = recovery('reports'), originalContacts = recovery('contacts');
+assert.notEqual(originalReports, originalContacts);
+originalReports.set('copied-workspace-token', { state: 'unknown', key: 'frozen' });
+stores.gateway.set('closed'); stores.gateway.set('open');
+assert.equal(recovery('reports'), originalReports, 'Reconnect preserves exact unknown requests');
+stores.connectionId.set('connection-B');
+assert.notEqual(recovery('reports'), originalReports, 'Copied tokens on another connection do not share retries');
+assert.equal(recovery('reports').has('copied-workspace-token'), false);
+stores.connectionId.set('connection-A'); stores.profile.set('B');
+assert.notEqual(recovery('reports'), originalReports, 'Other app-profile route has independent retries');
+stores.profile.set('A');
+assert.equal(recovery('reports'), originalReports, 'Returning to original route recovers original key');
 const client = () => module.createRouteClient(ctx, module.routeIdentity(ctx));
 function rootKey() {
   const wrapper = module.CRMRoot({ ctx });

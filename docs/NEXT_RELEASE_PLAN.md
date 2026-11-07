@@ -2,7 +2,7 @@
 
 ## Scope and product promise
 
-The entry will provide a preset basket of reports feeding the main dashboard, filters in the existing contact/pipeline/task views, and a staged path to genuine agent-assigned work. There is no separate chart tab or custom report/dashboard builder in this build. Calls, texts and other external outreach are excluded.
+The original entry scope provided preset reports feeding the main dashboard, filters in existing record views and a staged path to genuine agent-assigned work. A later explicit development request expanded reporting to typed saved definitions and customizable main-dashboard cards; see [the flexible-report plan](FLEXIBLE_REPORTS_PLAN.md) and [current behavior](FLEXIBLE_REPORTS.md). There is still no separate chart tab. Calls, texts and other external outreach are excluded.
 
 The goal is a visible next action for every active lead, with overdue, blocked, failed and uncertain work surfaced. “Never missed” is not a guarantee a CRM can make through outages, expired authorization or unknown execution outcomes. A saved task is not proof an agent will execute it.
 
@@ -15,7 +15,7 @@ HubSpot's task and saved-view workflows and Salesforce's sales work queue are re
 - Make upcoming, overdue, failed and uncertain work visible, together with explicit no-next-action exceptions.
 - Keep stage history before claiming historical funnel conversion; the current dashboard is a current-state snapshot.
 
-This prototype does not claim full HubSpot or Salesforce feature parity. Saved custom views, a report/dashboard builder, configurable funnels and advanced cadence authoring are future work.
+This prototype does not claim full HubSpot or Salesforce feature parity. Typed saved reports and dashboard cards are now included in a bounded native increment. Configurable funnels, arbitrary custom fields, historical conversion and advanced cadence authoring remain future work.
 
 References:
 - https://knowledge.hubspot.com/tasks/create-tasks

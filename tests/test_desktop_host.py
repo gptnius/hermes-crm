@@ -363,6 +363,53 @@ with patch.object(socket, 'create_connection', deny_network), \
     assert review['items'][0]['assignment']['id'] == work['id']
 
 
+    # Flexible reports and authored claims use the same real host admission,
+    # profile scope and registry as ordinary CRM, without scheduler authority.
+    import uuid
+    for path in ('/analytics/catalog', '/analytics/reports', '/analytics/dashboard', '/interactions'):
+        assert client.get(prefix + path, params={'workspace_token': token}).status_code == 401
+        request('GET', path, 409, params={'workspace_token': 'stale', **({'contact_id': contact_id} if path == '/interactions' else {})})
+    assert client.post(prefix + '/analytics/reports', json={}).status_code == 401
+    assert client.post(prefix + '/interactions', json={}).status_code == 401
+    assert request('GET', '/analytics/catalog', params={'workspace_token': token}) == tool('crm_report_catalog', {})
+    definition = {'entity': 'contacts', 'columns': ['id', 'name']}
+    save_report = {'title': 'Synthetic saved report', 'definition': definition, 'idempotency_key': 'host-report'}
+    saved = request('POST', '/analytics/reports', 201, json={**save_report, 'workspace_token': token})
+    assert tool('crm_report_create', save_report) == saved
+    report_path = '/analytics/reports/' + saved['id']
+    assert request('GET', report_path, params={'workspace_token': token}) == tool('crm_report_get', {'report_id': saved['id']})
+    run_args = {'report_id': saved['id'], 'expected_version': 1, 'evaluated_at': '2026-01-01T00:00:00Z'}
+    live = tool('crm_saved_report_run', run_args)
+    rest_live = request('POST', report_path + '/run', json={'workspace_token': token, 'expected_version': 1, 'evaluated_at': run_args['evaluated_at']})
+    assert {k: v for k, v in live.items() if k != 'observed_at'} == {k: v for k, v in rest_live.items() if k != 'observed_at'}
+    cards = [{'id': str(uuid.uuid4()), 'report_id': saved['id'], 'report_version': 1, 'visualization': 'table'}]
+    dash_args = {'cards': cards, 'expected_version': 0, 'idempotency_key': 'host-dashboard'}
+    dashboard = tool('crm_dashboard_save', dash_args)
+    assert request('PUT', '/analytics/dashboard', json={**dash_args, 'workspace_token': token}) == dashboard
+    assert request('GET', '/analytics/dashboard', params={'workspace_token': token}) == tool('crm_dashboard_get', {})
+    tool('crm_report_update', {**save_report, 'report_id': saved['id'], 'expected_version': 1, 'idempotency_key': 'host-edit', 'title': 'Changed'})
+    request('GET', report_path, 409, params={'workspace_token': token, 'version': 1})
+    assert raw_tool('crm_report_get', {'report_id': saved['id'], 'version': 1})['status'] == 409
+    request('POST', report_path + '/run', 409, json={'workspace_token': token, 'expected_version': 1})
+    assert raw_tool('crm_saved_report_run', run_args)['status'] == 409
+    assert tool('crm_dashboard_get', {})['cards'][0]['reference_status'] == 'outdated'
+    tool('crm_report_archive', {'report_id': saved['id'], 'expected_version': 2, 'idempotency_key': 'host-archive'})
+    request('POST', report_path + '/run', 409, json={'workspace_token': token, 'expected_version': 3})
+    assert raw_tool('crm_saved_report_run', {**run_args, 'expected_version': 3})['status'] == 409
+    log_data = {'contact_id': contact_id, 'happened_at': '2020-01-01T12:00:00Z', 'kind': 'call', 'summary': 'Synthetic self-reported discussion'}
+    log_body = {'workspace_token': token, 'data': log_data, 'expected_contact_version': updated['version'], 'idempotency_key': 'host-log'}
+    logged = request('POST', '/interactions', 201, json=log_body)
+    assert logged['actor'] == 'desktop' and logged['provenance'] == 'self_reported'
+    assert request('POST', '/interactions', 201, json=log_body) == logged
+    assert request('GET', '/interactions', params={'workspace_token': token, 'contact_id': contact_id}) == tool('crm_contact_log_list', {'contact_id': contact_id})
+    request('POST', '/interactions', 422, json={**log_body, 'data': {**log_data, 'actor': 'forged'}})
+    voided = tool('crm_contact_log_void', {'interaction_id': logged['id'], 'expected_version': 1, 'reason': 'Synthetic correction', 'idempotency_key': 'host-void'})
+    assert voided['actor'] == 'desktop' and voided['void_actor'] == 'hermes'
+    assert voided['summary'] == logged['summary']
+    assert request('GET', '/interactions', params={'workspace_token': token, 'contact_id': contact_id})['items'] == []
+    assert request('GET', '/interactions', params={'workspace_token': token, 'contact_id': contact_id, 'include_voided': True})['items'] == [voided]
+    assert not list(home.rglob('jobs.json'))
+
     # Official request middleware must apply consent again after routes are mounted.
     config_path = home / 'config.yaml'
     enabled_config = config_path.read_text()
@@ -377,6 +424,14 @@ with patch.object(socket, 'create_connection', deny_network), \
     request('POST', '/work?profile=crm-test-other', 409, json=save_body)
     request('POST', '/work', 409, json={**save_body, 'workspace_token': other_meta['workspace_token']})
     other_work_scope = {'workspace_token': other_meta['workspace_token'], 'profile': 'crm-test-other'}
+    for analytics_path in ('/analytics/catalog', '/analytics/reports', '/analytics/dashboard'):
+        request('GET', analytics_path, 409, params={**other_work_scope, 'workspace_token': token})
+        request('GET', analytics_path, 409, params={'workspace_token': other_meta['workspace_token']})
+    assert request('GET', '/analytics/reports', params=other_work_scope)['items'] == []
+    assert request('GET', '/analytics/dashboard', params=other_work_scope)['cards'] == []
+    request('GET', report_path, 404, params=other_work_scope)
+    request('POST', report_path + '/run?profile=crm-test-other', 404, json={'workspace_token': other_meta['workspace_token'], 'expected_version': 3})
+    request('GET', '/interactions', 404, params={**other_work_scope, 'contact_id': contact_id})
     assert request('GET', '/work', params=other_work_scope) == []
     for path in ('/reports/work', '/reports/coverage'):
         empty = request('GET', path, params=other_work_scope)

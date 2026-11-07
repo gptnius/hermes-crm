@@ -93,6 +93,9 @@ from .gmail_history_api import build_router as build_email_router
 from .gmail_runtime import gmail_runtime
 router.include_router(build_email_router(service, require_workspace, gmail_runtime))
 
+from .analytics_api import build_router as build_analytics_router
+router.include_router(build_analytics_router(service, require_workspace))
+
 
 @router.get('/snapshot')
 def snapshot():

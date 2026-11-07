@@ -24,6 +24,10 @@ LEGACY_WRITE = {
 WORK_READ = {'crm_work_get', 'crm_work_list'}
 WORK_SCHEDULE = {'crm_work_create', 'crm_work_schedule', 'crm_work_reconcile', 'crm_work_cancel'}
 WORK_REPORT = {'crm_work_report'}
+REPORT_READ = {'crm_report_catalog', 'crm_report_run', 'crm_report_list', 'crm_report_get', 'crm_saved_report_run', 'crm_dashboard_get'}
+REPORT_WRITE = {'crm_report_create', 'crm_report_update', 'crm_report_archive', 'crm_report_restore', 'crm_dashboard_save'}
+INTERACTION_READ = {'crm_contact_log_list'}
+INTERACTION_WRITE = {'crm_contact_log', 'crm_contact_log_void'}
 SECRET_ERROR = 'postgresql://secret-user:secret-password@private.example/db'
 
 
@@ -129,12 +133,14 @@ def schedule_intent(adapters):
 
 def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
     ctx = adapters.ctx
-    expected = LEGACY_READ | LEGACY_WRITE | WORK_READ | WORK_SCHEDULE | WORK_REPORT
+    expected = LEGACY_READ | LEGACY_WRITE | WORK_READ | WORK_SCHEDULE | WORK_REPORT | REPORT_READ | REPORT_WRITE | INTERACTION_READ | INTERACTION_WRITE
     assert set(ctx.tools) == expected
     assert adapters.factory_calls == [] and ctx.calls == []
     for names, toolset in ((LEGACY_READ, 'crm_read'), (LEGACY_WRITE, 'crm_write'),
                            (WORK_READ, 'crm_work_read'), (WORK_SCHEDULE, 'crm_work_schedule'),
-                           (WORK_REPORT, 'crm_work_report')):
+                           (WORK_REPORT, 'crm_work_report'), (REPORT_READ, 'crm_reports'),
+                           (REPORT_WRITE, 'crm_report_write'), (INTERACTION_READ, 'crm_interaction_read'),
+                           (INTERACTION_WRITE, 'crm_interaction_write')):
         assert all(ctx.tools[name]['toolset'] == toolset for name in names)
     for name in WORK_READ | WORK_SCHEDULE | WORK_REPORT:
         params = ctx.tools[name]['schema']['parameters']

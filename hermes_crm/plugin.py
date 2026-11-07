@@ -87,6 +87,9 @@ def register(ctx):
             finally:
                 if crm: crm.close()
         ctx.register_tool(name=name,toolset=toolset or ('crm_read' if read else 'crm_write'),schema=schema,handler=handler)
+    from .report_tools import register_report_tools
+    register_report_tools(register_tool)
+
     ident={'type':'string','description':'Exact CRM record ID'}
     contact_filters = {
         'q': {'type':'string','maxLength':200},

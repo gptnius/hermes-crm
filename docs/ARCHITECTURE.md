@@ -24,6 +24,31 @@ Native operations resolve Hermes' plugin_data_dir and plugin_db on every call. N
 
 The standalone web server is a different mode: one explicitly selected workspace per process. HERMES_CRM_DATA_DIR is an intentional local override. It does not switch when a user selects another Desktop chat profile. Users should not point two profiles at the same overridden SQLite directory unless they intentionally want the same workspace. PostgreSQL standalone mode requires explicit schema selection.
 
+## Flexible reporting and authored contact events
+
+`reports.py` validates catalog-based definitions and compiles SQLAlchemy bound
+queries over contacts/deals/tasks. Correlated relationships avoid join fanout.
+Each response uses a real database read snapshot, including optional contact-log
+schema/scope checks. Later pages and drilldowns are live reads, not a frozen
+historical cursor. Canonical contributing-record definitions preserve exact
+filters and UTC day boundaries. Expected close is never treated as actual win.
+
+`report_store.py` keeps workspace/profile-scoped definitions, immutable revision
+records, optimistic versions, idempotent operation receipts and ordered dashboard
+cards pinned to exact report versions. `report_interactions.py` keeps explicit
+self-reported contact claims and reasoned voids. These are separate lazy tables;
+reads do not create them, and partial/incompatible schemas fail closed. SQLite
+initialization/writes use explicit transactions; PostgreSQL advisory locks guard
+cross-process initialization and same-key replay. No existing table is migrated.
+
+Authenticated analytics routes and dedicated report/contact-log toolsets share
+these services. Legacy `crm_read` and fixed scheduled-job capabilities do not
+expand. Gmail, generic edit activity and authored contact events remain separate.
+The native components are deterministically inlined for the single-module SDK
+loader. Their frozen unknown-write requests persist across route-client changes
+within the plugin lifetime. No provider, scheduler or model is called by reporting.
+See [report contracts and limits](FLEXIBLE_REPORTS.md).
+
 ## Scheduling state
 
 Saving a task creates no timer. crm_followup_schedule performs a native cronjob_manage create for the task's explicit UTC due date, with local delivery and only the crm_read toolset enabled, plus the host no_mcp sentinel to prevent implicit MCP expansion. The prompt contains a record ID, not user-supplied notes. It reads the task again when fired and treats completed tasks as no action needed.
