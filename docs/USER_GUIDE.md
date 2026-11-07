@@ -1,6 +1,8 @@
-# Hermes CRM: setup and user guide
+# HermesCRM: setup and user guide
 
-Hermes CRM keeps contacts, deals, follow-ups and activity in one workspace that
+**Intelligent Relationship Management**
+
+HermesCRM keeps contacts, deals, follow-ups and activity in one workspace that
 you can use from Hermes Desktop and your existing Hermes agent. Start here to
 install it, try a small example and understand what the current prototype does.
 
@@ -98,7 +100,9 @@ GitHub identifier by the tested host. Follow Hermes's dependency and enablement
 prompts. In **Capabilities → Plugins**, enable both the **agent/backend** and
 **Desktop** components for the intended profile. Enabling just one is not enough.
 
-Open **CRM** in the sidebar, or **Open Hermes CRM** in the command palette.
+Open **HermesCRM** in the sidebar, or **Open HermesCRM** in the command palette.
+The display name is HermesCRM; package names, commands and paths remain
+`hermes-crm` for compatibility.
 Native mode needs no standalone server, localhost URL, iframe or separate API
 token. For a remote Hermes connection, the backend component belongs on that
 host and the Desktop component must also be installed on the Desktop computer.
@@ -106,10 +110,12 @@ host and the Desktop component must also be installed on the Desktop computer.
 ### 4. Choose empty or synthetic data
 
 Check the connection/profile shown in CRM. An empty workspace lets you create
-your first contact or choose **Explore demo data**, followed by a separate
-confirmation. The demo contains eight invented contacts, eight deals and five
-internal tasks, using reserved example-domain email addresses. It refuses to
-seed a workspace that already contains CRM records.
+your first contact. Optional test data is under the information button beside the
+page title: **Test workspace setup → Prepare test records → Add test records**.
+Review the named profile, connection and backend before confirming. It adds eight
+invented contacts, eight deals and five internal tasks with reserved example-domain
+email addresses, and refuses a workspace that already contains CRM records.
+Provenance remains visible in About; normal working views have no test-data banner.
 
 Use a disposable profile for exploration. Switching the active app connection
 or profile switches the CRM workspace and clears previous views and unfinished
@@ -278,9 +284,11 @@ Resolve ambiguous people, records and times before making changes. The example
 request key belongs to one create intent; use the same key only to recover that
 same request, not to create another record with different fields.
 
-For a record handoff, **Preview record reference** and **Copy record reference**
-prepare minimal identifiers for you to paste, review and send in the native
-composer. The plugin does not write the native draft or submit prompts for you.
+For a record handoff, **Copy record reference** checks the selected record and
+matching chat, then copies minimal identifiers in one click. **Preview record
+reference** is optional; **Hide preview** collapses it. Paste, review and send in
+the native composer yourself. The plugin does not write the native draft or
+submit prompts; safe automatic insertion is unavailable on the verified host.
 On a follow-up, **Prepare agent request** offers reviewed requests for immediate
 help or future work. Interactive chat uses the host's existing tools and
 permissions; CRM does not supply web research or an email-sending integration.
@@ -489,5 +497,5 @@ home alone does not prevent the host from discovering other CLI logins; follow
 the [isolated-testing guidance](NATIVE_DESKTOP.md#isolated-testing-and-provider-discovery).
 
 The project uses the MIT license. Dependencies retain their own licenses; see
-[Licensing](LICENSING.md). Hermes CRM is not affiliated with Nous Research,
+[Licensing](LICENSING.md). HermesCRM is not affiliated with Nous Research,
 HubSpot or Salesforce.

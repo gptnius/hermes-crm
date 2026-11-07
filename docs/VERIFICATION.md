@@ -44,12 +44,66 @@ pages and drilldowns remain live and disclose that limitation. The report engine
 never substitutes current stage for historical stage, expected close for actual
 win time, generic activity for contact, or a stored follow-up for execution proof.
 
-Native physical visual/layout and broad accessibility testing of **this new
-reporting increment** remain unperformed. Earlier Mac screenshots and workflows
-below describe their earlier exact source, not this increment. No production
-readiness, custom stage support, historical conversion, automated dashboard
-monitoring or live Gmail connection is established by these checks. See
-[report behavior and limits](FLEXIBLE_REPORTS.md).
+### Native reporting check on November 7, 2026
+
+A separately authorized isolated Mac review app was updated to published CRM
+`460c2b642b040cb4d4c5a3a0879f799e6833db22` (tree
+`58a5815b773b302a03342b791a08e8928227798a`) on unchanged host source
+`2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. A recoverable SQLite backup passed
+integrity verification first. Existing sample data remained nine contacts,
+$113,500 open pipeline and four open follow-ups; no existing records were edited.
+An older separately running test gateway initially served the previous API.
+Restarting that exact test gateway and app resolved the version mismatch.
+
+Actual native interaction and light-mode screen inspection passed:
+
+- Opening the builder, selecting columns and previewing the lead filter returned
+  five matching records.
+- Saving report version 1, adding it to the dashboard and running its table card.
+- Saving a UTC-day report, adding/running its bar card and clicking through to
+  the same five contributing lead records.
+- The app remained working, with native chat beside the CRM workspace.
+
+No layout defect was confirmed in the inspected builder/dashboard views. Testing
+paused when the user resumed navigation. The two clearly named synthetic QA
+reports/cards were retained; no existing records or other profiles were changed.
+
+This is a **partial native visual and functional check**, not a complete UI or
+accessibility pass. Line/donut/KPI cards, archive/restore, report-version edits,
+contact-log create/void, keyboard/hover interactions, larger-result pagination
+and narrow/dark layouts remain unrun in the physical native app. Their automated
+component/backend tests above are separate evidence. No production readiness,
+custom stage support, historical conversion, automated dashboard monitoring or
+live Gmail connection is established. See [report limits](FLEXIBLE_REPORTS.md).
+
+## Compact workspace and HermesCRM branding
+
+A subsequent screenshot-driven UI increment changes the visible branding to
+**HermesCRM: Intelligent Relationship Management**, while retaining package,
+route, tool and storage identifiers. Every tab has a compact title/action row
+with an accessible About dialog. Record discussion offers direct, scoped,
+version-checked Copy and an optional Hide preview control. Normal views no longer
+show persistent test-data banners or setup pitches; provenance and the guarded
+empty-workspace seed flow remain in About.
+
+Independent review and native React/SDK tests cover all five headings, modal
+focus/Tab/Escape/return focus, one-click Copy, preview collapse/reopen, stale
+record/chat/profile safeguards and hidden setup controls. The test setup’s first
+collapsed-disclosure focus issue was corrected before review passed. Existing
+alerts, execution uncertainty, permissions and data boundaries remain intact.
+
+The exact pinned SDK was inspected again. Its deferred insertion targets mutable
+main-composer state and appends from a draft mirror without atomic live-editor
+reconciliation. No safe automatic paste contract is established. This increment
+never calls composer write/submit or reads a draft; Copy does not mean attached,
+pasted or sent. The user retains paste/review/Send.
+
+The default Python regression suite passed **992 tests**, with **475 optional
+cases skipped** and two dependency warnings. Seven affected native suites passed,
+including actual React 19.3 and pinned SDK source checks; one optional nanostores
+fixture was unavailable. Generated panel sync and syntax checks pass. These are
+automated checks, not physical visual inspection of the compact layout. The
+user’s open review app was not changed while they were interacting with it.
 
 ## Completed inactive schedule handling
 

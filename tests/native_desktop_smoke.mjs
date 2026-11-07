@@ -312,9 +312,9 @@ const disposers = effects
   .filter(Boolean);
 await new Promise((resolve) => setImmediate(resolve));
 let tree = root();
-assert.match(text(tree), /Relationship intelligence/);
+assert.match(text(tree), /Overview/);
 assert.match(text(tree), /Weighted forecast/);
-assert.match(text(tree), /Active app profile: work/);
+assert.match(text(tree), /work ·/);
 all(
   tree,
   (n) => n.type === "button" && text(n) === "Contacts",

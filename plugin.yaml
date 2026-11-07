@@ -1,6 +1,6 @@
 name: hermes-crm
 version: "0.1.0"
-description: Profile-local CRM for contacts, deals and safe internal follow-ups.
+description: "HermesCRM: Intelligent Relationship Management for contacts, deals and safe internal follow-ups."
 requires_hermes: ">=0.23.0"
 provides_tools:
   - crm_contact_report

@@ -9,12 +9,12 @@ Start with an already loaded primary Hermes conversation in the same connection 
 1. Open the intended existing main conversation, then return to CRM.
 2. Save or cancel any open record form. Select a record if you want to discuss one.
 3. Choose **Chat with Hermes**. CRM opens on the right beside the same native conversation, retaining the section, search, filters, page and selected detail.
-4. Choose **Preview record reference**, then **Copy record reference**. The plugin re-reads the scoped record and checks its version before copying.
+4. Choose **Copy record reference**. The plugin verifies the matching chat, re-reads the scoped record and checks its version before copying. **Preview record reference** is optional; **Hide preview** collapses it.
 5. Paste into the native composer, add your request, review and use its normal Send action.
 
 The copied reference contains only connection, profile, record kind, ID and version. It excludes record text, contact details and the workspace token.
 
-The existing CRM view and selected record can move into the companion workspace. An unsaved record editor must be saved or dismissed first. Selected-record context is previewed as a bounded reference, then copied only after an explicit action. Copying is not attaching or sending: the user pastes, reviews and sends through the genuine native composer. No transcript, credential or draft is read by this feature.
+The existing CRM view and selected record can move into the companion workspace. An unsaved record editor must be saved or dismissed first. Selected-record context is a bounded reference, copied only after an explicit action, with an optional hideable preview. Copying is not attaching or sending: the user pastes, reviews and sends through the genuine native composer. No transcript, credential or draft is read by this feature.
 
 The plugin does not call the native composer write or submit helpers. On the tested source revision, their addressed insertion can defer through a mutable main-composer target and append from a draft reference. The copy-and-review flow avoids silently changing a different session or overwriting newer typing. It also works without pretending that an unmounted composer accepted text.
 

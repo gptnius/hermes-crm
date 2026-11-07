@@ -32,7 +32,7 @@ export function initializeLifetime(ctx) {
       registrationMissing.push(`SDK.${name}`);
   if (registrationMissing.length)
     throw new Error(
-      `Hermes CRM compatibility error: cannot safely register its Desktop surfaces. Missing capabilities: ${registrationMissing.join(", ")}. Update Hermes Desktop and reload the plugin.`,
+      `HermesCRM compatibility error: cannot safely register its Desktop surfaces. Missing capabilities: ${registrationMissing.join(", ")}. Update Hermes Desktop and reload the plugin.`,
     );
   const previous = lifetimes.get(ctx);
   if (previous?.alive) return previous;
@@ -162,7 +162,7 @@ export function openChatWorkspace(ctx, identity, render) {
     } };
     lifetime.chatWorkspace = entry;
     try {
-      dispose = host.openWorkspace(id, { title: "CRM · Agent workspace", minWidth: "24rem",
+      dispose = host.openWorkspace(id, { title: "HermesCRM · Agent workspace", minWidth: "24rem",
         dock: { pane: "workspace", pos: "right" }, render,
         onClose: () => { closed = true; if (lifetime.chatWorkspace === entry) lifetime.chatWorkspace = null; } });
       if (typeof dispose !== "function") throw new Error("Desktop did not provide workspace cleanup.");
@@ -279,13 +279,13 @@ export function createPayload(data, idempotencyKey) {
 
 const CSS = `
 .hermes-crm-native{height:100%;min-height:0;position:relative;overflow:hidden;container-type:inline-size;background:var(--ui-bg-editor);color:var(--ui-text-primary);font:13px/1.5 system-ui,sans-serif}
-.hermes-crm-native *{box-sizing:border-box}.hermes-crm-native .hc-wrap{height:100%;overflow:auto;max-width:1500px;margin:auto;padding:28px;scrollbar-gutter:stable}.hermes-crm-native .hc-wrap[inert]{overflow:hidden}
-.hermes-crm-native h1{font-size:29px;letter-spacing:-1px;line-height:1.2;margin:4px 0 9px}.hermes-crm-native h2{font-size:17px;margin:0 0 14px}.hermes-crm-native h3{font-size:14px;margin:0}
+.hermes-crm-native *{box-sizing:border-box}.hermes-crm-native .hc-wrap{height:100%;overflow:auto;max-width:1500px;margin:auto;padding:16px 20px;scrollbar-gutter:stable}.hermes-crm-native .hc-wrap[inert]{overflow:hidden}
+.hermes-crm-native h1{font-size:21px;letter-spacing:-.5px;line-height:1.2;margin:0}.hermes-crm-native h2{font-size:17px;margin:0 0 14px}.hermes-crm-native h3{font-size:14px;margin:0}
 .hermes-crm-native p{margin:6px 0 14px}.hermes-crm-native .hc-muted{color:var(--ui-text-secondary)}.hermes-crm-native .hc-eyebrow{font-size:10px;letter-spacing:2px;font-weight:700;color:var(--ui-text-tertiary)}
 .hermes-crm-native .hc-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hermes-crm-native .hc-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .hermes-crm-native button,.hermes-crm-native input,.hermes-crm-native select,.hermes-crm-native textarea{font:inherit;color:inherit;background:var(--ui-bg-elevated,var(--ui-bg-editor));border:1px solid var(--ui-stroke-primary);border-radius:8px;padding:9px 12px}
 .hermes-crm-native button{cursor:pointer;text-align:left}.hermes-crm-native button:hover{background:var(--ui-row-hover-background)}.hermes-crm-native button:disabled{opacity:.45;cursor:not-allowed}.hermes-crm-native :focus-visible{outline:2px solid var(--ui-accent);outline-offset:3px}
-.hermes-crm-native .hc-primary{background:var(--ui-accent);color:var(--ui-bg-editor);border-color:var(--ui-accent)}.hermes-crm-native .hc-tabs{display:flex;gap:6px;border-bottom:1px solid var(--ui-stroke-primary);padding:22px 0 14px;margin-bottom:24px;overflow:auto}
+.hermes-crm-native .hc-primary{background:var(--ui-accent);color:var(--ui-bg-editor);border-color:var(--ui-accent)}.hermes-crm-native .hc-tabs{display:flex;gap:6px;border-bottom:1px solid var(--ui-stroke-primary);padding:10px 0 8px;margin-bottom:12px;overflow:auto}
 .hermes-crm-native .hc-tabs button{border:0;white-space:nowrap}.hermes-crm-native button[aria-current=page]{background:var(--ui-row-hover-background);color:var(--ui-accent);font-weight:700}
 .hermes-crm-native .hc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}.hermes-crm-native .hc-card{border:1px solid var(--ui-stroke-primary);border-radius:12px;padding:20px;background:var(--ui-bg-elevated,var(--ui-bg-editor))}.hermes-crm-native .hc-card strong{display:block;font-size:28px;letter-spacing:-1px;margin:8px 0}
 .hermes-crm-native .hc-two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;margin:18px 0}.hermes-crm-native .hc-badge{display:inline-block;font-size:11px;border:1px solid var(--ui-stroke-primary);border-radius:20px;padding:2px 8px;color:var(--ui-text-secondary)}
@@ -294,6 +294,7 @@ const CSS = `
 .hermes-crm-native .hc-board{display:grid;grid-template-columns:repeat(6,minmax(210px,1fr));gap:12px;overflow:auto;padding:18px 0}.hermes-crm-native .hc-column{border-radius:12px;background:var(--ui-row-hover-background);padding:12px;min-height:250px}.hermes-crm-native .hc-column>header{margin-bottom:14px}.hermes-crm-native .hc-deal{display:block;width:100%;margin:9px 0;background:var(--ui-bg-elevated,var(--ui-bg-editor));padding:15px}.hermes-crm-native .hc-deal strong{display:block;margin:12px 0}
 .hermes-crm-native .hc-empty{text-align:center;padding:42px 18px;color:var(--ui-text-secondary);border:1px dashed var(--ui-stroke-primary);border-radius:12px}.hermes-crm-native .hc-notice{padding:14px;border:1px solid var(--ui-stroke-primary);border-left:3px solid var(--ui-accent);border-radius:8px;margin:14px 0;overflow-wrap:anywhere}
 .hermes-crm-native .hc-editor{border:1px solid var(--ui-accent);border-radius:12px;padding:22px;margin:18px 0}.hermes-crm-native .hc-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.hermes-crm-native label{display:flex;flex-direction:column;gap:5px}.hermes-crm-native textarea{min-height:90px;resize:vertical}.hermes-crm-native .hc-wide{grid-column:1/-1}.hermes-crm-native .hc-details{white-space:pre-wrap;overflow-wrap:anywhere}.hermes-crm-native .hc-footer{margin-top:26px;border-top:1px solid var(--ui-stroke-primary);padding-top:14px;font-size:11px;color:var(--ui-text-tertiary)}
+.hermes-crm-native .hc-workspace-header button{padding:6px 10px}.hermes-crm-native .hc-context{padding:8px 10px;margin:8px 0}.hermes-crm-native .hc-context p{margin:6px 0 0}.hermes-crm-native .hc-context textarea{width:100%;margin-top:6px}.hermes-crm-native .hc-context button{padding:5px 9px}.hermes-crm-native .hc-context-preview{margin-top:8px}.hermes-crm-native .hc-scope{font-size:11px;color:var(--ui-text-secondary);overflow-wrap:anywhere}
 /* Record workspaces and pane-scoped drawers share the host theme. */
 .hermes-crm-native [hidden]{display:none!important}.hermes-crm-native .hc-record{margin:18px 0;min-width:0}.hermes-crm-native .hc-record-header{padding:22px;border:1px solid var(--ui-stroke-primary);border-radius:12px;background:var(--ui-bg-elevated,var(--ui-bg-editor))}
 .hermes-crm-native .hc-identity{display:flex;align-items:center;gap:14px;min-width:0}.hermes-crm-native .hc-identity>div:last-child{min-width:0}.hermes-crm-native .hc-identity h2{font-size:24px;letter-spacing:-.5px;line-height:1.25;margin:4px 0;overflow-wrap:anywhere}.hermes-crm-native .hc-avatar{width:48px;height:48px;flex-shrink:0;display:grid;place-items:center;border-radius:12px;background:var(--ui-row-hover-background);color:var(--ui-accent);font-size:18px;font-weight:700}
@@ -306,13 +307,13 @@ const CSS = `
 @container(max-width:1050px){.hermes-crm-native .hc-record-layout{grid-template-columns:minmax(200px,.8fr) minmax(260px,1.4fr)}.hermes-crm-native .hc-record-related{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}}
 @container(max-width:640px){.hermes-crm-native .hc-record-layout{grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-record-related{grid-column:auto;grid-template-columns:minmax(0,1fr)}.hermes-crm-native .hc-inline-properties{grid-template-columns:minmax(0,1fr)!important}.hermes-crm-native .hc-record-header{padding:18px}.hermes-crm-native .hc-drawer-header,.hermes-crm-native .hc-editor-body{padding:18px}.hermes-crm-native .hc-editor-footer{padding:14px 18px}}
 @container(max-width:850px){.hermes-crm-native .hc-grid{grid-template-columns:1fr 1fr}.hermes-crm-native .hc-two{grid-template-columns:1fr}.hermes-crm-native .hc-wrap{padding:18px}}
-@container(max-width:480px){.hermes-crm-native .hc-grid,.hermes-crm-native .hc-fields{grid-template-columns:1fr}.hermes-crm-native .hc-bar-row{grid-template-columns:85px 1fr 70px}.hermes-crm-native h1{font-size:24px}}
+@container(max-width:480px){.hermes-crm-native .hc-grid,.hermes-crm-native .hc-fields{grid-template-columns:1fr}.hermes-crm-native .hc-bar-row{grid-template-columns:85px 1fr 70px}.hermes-crm-native h1{font-size:21px}}
 `;
 
 function Shell({ children, overlay, rootRef }) {
   return h(
     "section",
-    { className: "hermes-crm-native", "aria-label": "Hermes CRM", ref: rootRef },
+    { className: "hermes-crm-native", "aria-label": "HermesCRM", ref: rootRef },
     h("style", null, CSS),
     h("div", { className: "hc-wrap", inert: overlay ? true : undefined }, children),
     overlay,
@@ -324,7 +325,7 @@ export function CRMRoot({ ctx, boundIdentity }) {
     return h(
       Shell,
       null,
-      h("h1", null, "Hermes CRM needs a newer Desktop SDK"),
+      h("h1", null, "HermesCRM needs a newer Desktop SDK"),
       h(
         "p",
         { role: "status", className: "hc-notice" },
@@ -363,14 +364,14 @@ function SupportedRoot({ ctx, lifetime, boundIdentity }) {
       h(
         "p",
         { role: "status" },
-        "Hermes CRM has been unloaded. Re-enable the plugin to continue.",
+        "HermesCRM has been unloaded. Re-enable the plugin to continue.",
       ),
     );
   if (gateway !== "open")
     return h(
       Shell,
       null,
-      h("h1", null, "Hermes CRM"),
+      h("h1", null, "HermesCRM"),
       h(
         "div",
         { role: "status", className: "hc-notice" },
@@ -394,6 +395,7 @@ function AgentContext({ ctx, identity, client, data, detail, disabled, viewReque
   const lifetime = lifetimes.get(ctx);
   useValue(lifetime.chatGeneration);
   const [binding, setBinding] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [status, setStatus] = useState("");
   const [copying, setCopying] = useState(false);
   const lock = useRef(false), mounted = useRef(false), action = useRef(0);
@@ -403,14 +405,21 @@ function AgentContext({ ctx, identity, client, data, detail, disabled, viewReque
   const text = recordChatContext(detail, data, binding);
   function preview() {
     if (disabled || viewRevision !== viewRequest.current || !client.current()) return;
-    try { setBinding(captureChatBinding(ctx, identity)); setStatus(""); }
+    try { setBinding(captureChatBinding(ctx, identity)); setPreviewOpen(true); setStatus(""); }
     catch (error) { setBinding(null); setStatus(error.message); }
   }
   async function copy() {
-    if (lock.current || disabled || viewRevision !== viewRequest.current || !text || !client.current() || typeof ctx.os?.writeClipboard !== "function") return;
+    if (lock.current || disabled || viewRevision !== viewRequest.current || !client.current() || typeof ctx.os?.writeClipboard !== "function") return;
+    let activeBinding, copyText;
+    try {
+      activeBinding = binding || captureChatBinding(ctx, identity);
+      copyText = recordChatContext(detail, data, activeBinding);
+      if (!copyText) throw new Error("The chat or CRM scope changed. Preview the reference again for the current matching chat.");
+      setBinding(activeBinding);
+    } catch (error) { setStatus(error.message); return; }
     lock.current = true; setCopying(true); setStatus("");
     const ticket = ++action.current, selected = detail, snapshot = data;
-    const current = () => mounted.current && ticket === action.current && viewRevision === viewRequest.current && client.current() && binding.current() &&
+    const current = () => mounted.current && ticket === action.current && viewRevision === viewRequest.current && client.current() && activeBinding.current() &&
       latest.current.detail === selected && latest.current.data?.meta?.workspace_token === snapshot.meta.workspace_token && !latest.current.disabled;
     try {
       const row = selected.row.contact || selected.row;
@@ -420,23 +429,26 @@ function AgentContext({ ctx, identity, client, data, detail, disabled, viewReque
       if (freshRow.id !== row.id || freshRow.version !== row.version)
         throw new Error("This record changed. Reopen the record and preview its current reference before copying.");
       if (!current()) return;
-      const copied = await ctx.os.writeClipboard(text);
-      if (current()) setStatus(copied ? "Reference copied, not attached or sent. Paste it into the matching native chat, add your request, review the draft, then use Send." : "Desktop could not copy the reference. Select the preview text and copy it manually.");
+      const copied = await ctx.os.writeClipboard(copyText);
+      if (current()) { if (!copied) setPreviewOpen(true); setStatus(copied ? "Reference copied, not attached or sent. Paste it into the matching native chat, add your request, review the draft, then use Send." : "Desktop could not copy the reference. Select the preview text and copy it manually."); }
     } catch (error) { if (current()) setStatus(error.message); }
     finally { lock.current = false; if (mounted.current && ticket === action.current) setCopying(false); }
   }
   if (!detail || detail.workspaceToken !== data?.meta?.workspace_token) return null;
-  return h("section", { className: "hc-notice", "aria-label": "Agent record context" },
+  return h("section", { className: "hc-notice hc-context", "aria-label": "Agent record context" },
     h("div", { className: "hc-row" }, h("strong", null, "Discuss this record"),
-      button("Preview record reference", preview, { disabled: disabled || copying })),
-    h("p", { className: "hc-muted" }, "Share only this record’s ID and version with your matching native chat. The agent can read its current details through CRM tools."),
-    binding && (text ? h("div", null,
-      h("label", null, "Record reference to copy", h("textarea", { readOnly: true, value: text, rows: 10, "aria-label": "Record reference to copy", spellCheck: false })),
-      button(copying ? "Checking record…" : "Copy record reference", copy, { disabled: disabled || copying || typeof ctx.os?.writeClipboard !== "function" }),
-      typeof ctx.os?.writeClipboard !== "function" && h("p", null, "Clipboard access is unavailable in this Desktop build. Select and copy the preview manually."),
-      h("p", { className: "hc-muted" }, "Copying does not attach context or send a message. Paste and review in native chat before pressing Send. Hermes keeps its normal approval prompts."))
-      : h("p", { role: "status" }, "The chat or CRM scope changed. Preview the reference again for the current matching chat.")),
-    status && h("p", { role: "status" }, status));
+      h("div", { className: "hc-actions" },
+        button(copying ? "Checking record…" : "Copy record reference", copy, { disabled: disabled || copying || typeof ctx.os?.writeClipboard !== "function" }),
+        button(previewOpen ? "Hide preview" : "Preview record reference", () => previewOpen ? setPreviewOpen(false) : preview(), {
+          disabled: !previewOpen && (disabled || copying), "aria-expanded": previewOpen,
+        }))),
+    h("p", { className: "hc-muted" }, "Copy, then paste and review in native chat. Nothing is sent automatically."),
+    typeof ctx.os?.writeClipboard !== "function" && h("p", null, "Clipboard access is unavailable. Open Preview record reference, then select and copy the preview manually."),
+    previewOpen && text && h("div", { className: "hc-context-preview" },
+      h("label", null, "Record reference to copy", h("textarea", { readOnly: true, value: text, rows: 5, "aria-label": "Record reference to copy", spellCheck: false })),
+      h("p", { className: "hc-muted" }, "Only the record ID, version and matching profile/connection are included. The agent reads current details through CRM tools. Hermes keeps its normal approval prompts.")),
+    binding && !text && h("p", { role: "status" }, "The chat or CRM scope changed. Preview the reference again for the current matching chat."),
+    status && (!binding || text) && h("p", { role: "status" }, status));
 }
 
 const REQUEST_MODES = {
@@ -1166,6 +1178,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   const [demoConfirm, setDemoConfirm] = useState(null);
   const [searchResult, setSearchResult] = useState(null);
   const [chatNotice, setChatNotice] = useState("");
+  const [help, setHelp] = useState(null);
   const view = { page, data, snapshotGeneration, query, stage, status, filters, offset, detail };
   useEffect(() => {
     if (identity === routeIdentity(ctx)) lifetime.retainedView = { identity, value: view };
@@ -1269,6 +1282,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       setDetail(null);
       setDetailLoading(false);
       setDemoConfirm(false);
+      setHelp(null);
       await refresh();
       return true;
     } catch (e) {
@@ -1338,15 +1352,15 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   }
   const heading = {
     overview: [
-      "Relationship intelligence",
-      "A clear view of your next opportunity.",
+      "Overview",
+      "Pipeline totals, upcoming tasks and recent CRM activity.",
     ],
     contacts: [
       "Contacts",
-      "People, context, and the conversations that matter.",
+      "Search contacts, review their records and manage follow-ups.",
     ],
-    pipeline: ["Deal pipeline", "Move the right opportunities forward."],
-    tasks: ["Follow-ups", "Keep your promises. Make the next step clear."],
+    pipeline: ["Pipeline", "Review deals by stage, value and expected close date."],
+    tasks: ["Tasks", "Track follow-ups, due dates and agent assignments."],
     activity: ["Activity", "CRM record changes by people and agents. Mailbox history is not synced."],
   }[page];
   const overview = data?.overview;
@@ -1363,35 +1377,51 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
           workspace_token: editor.workspaceToken,
         } },
       ),
-    }) : null },
+    }) : help ? h(Drawer, {
+      title: `About ${heading[0]}`, subtitle: heading[1], busy,
+      cancel: () => { setHelp(null); setDemoConfirm(false); }, returnFocus: help.returnFocus, closeLabel: "Close information",
+    }, h("div", { className: "hc-editor-body" },
+      h("p", null, "HermesCRM · Intelligent Relationship Management"),
+      h("p", null, `Active app profile: ${profile} · Connection: ${connection || "local"}${data ? ` · ${label(data.meta.backend)} backend` : ""}`),
+      h("p", null, "Chat with Hermes opens your existing matching native chat beside CRM. Save or cancel an open record form first."),
+      h("p", null, "Discuss a record using Copy record reference, then paste it into native chat and review before sending. Copying does not attach context, edit your draft or send a message."),
+      h("p", null, "Preview record reference shows exactly what is copied. Use Hide preview to collapse it. Record details are read through CRM tools; normal approval prompts still apply."),
+      page === "tasks" && h("p", null, "To schedule a native reminder, ask the existing Hermes agent in this profile to use crm_followup_schedule with the task ID. Scheduling requires an active agent context; this pane does not create cron jobs. A scheduled badge confirms registration, not execution."),
+      data?.meta.demo && h("p", null, "Workspace provenance: these records were seeded as synthetic test data."),
+      error && h("p", { role: "alert", className: "hc-notice" }, error),
+      data && !overview.contacts && !overview.open_deals && !overview.open_tasks &&
+        h("section", null,
+          button("Test workspace setup", () => { setHelp({ ...help, setup: !help.setup }); setDemoConfirm(false); }, { "aria-expanded": Boolean(help.setup), disabled: busy }),
+          help.setup && h("div", null,
+          h("p", null, "Optional synthetic test records can only be added to an empty workspace. This action does not import customer data."),
+          button("Prepare test records", () => setDemoConfirm({ workspaceToken: data.meta.workspace_token, backend: data.meta.backend }), { disabled }),
+          demoConfirm && h("div", null,
+            h("p", null, `Add synthetic contacts, deals, and follow-ups to ${profile} on ${connection || "local"} (${label(demoConfirm.backend)} backend)?`),
+            button("Add test records", () => write("/demo", { method: "POST", body: { confirm: true, workspace_token: demoConfirm.workspaceToken } }), { disabled }),
+            button("Cancel", () => setDemoConfirm(false), { disabled: busy })))))) : null },
     h(
       "header",
-      { className: "hc-row" },
+      { className: "hc-row hc-workspace-header" },
       h(
         "div",
-        null,
-        h("div", { className: "hc-eyebrow" }, "HERMES / CRM"),
+        { className: "hc-actions" },
         h("h1", null, heading[0]),
-        h("p", { className: "hc-muted" }, heading[1]),
+        button("ⓘ", () => setHelp({ returnFocus: shellRef.current?.ownerDocument.activeElement }), {
+          "aria-label": `About ${heading[0]}`, "aria-haspopup": "dialog", disabled: Boolean(editor),
+        }),
       ),
       h(
         "div",
         { className: "hc-actions" },
-        badge(profile),
+        h("span", { className: "hc-scope" }, `${profile} · ${connection || "local"}`),
         button("Chat with Hermes", openNativeChat, { disabled: disabled || Boolean(editor) || detailLoading }),
         button(loading ? "Refreshing…" : "Refresh", refresh, {
           disabled: busy || loading,
         }),
       ),
     ),
-    h(
-      "div",
-      { className: "hc-muted" },
-      `Active app profile: ${profile} · Connection: ${connection || "local"}${data ? ` · ${label(data.meta.backend)} backend` : ""}`,
-    ),
-    h("p", { className: "hc-muted" }, "Work alongside your existing main chat. Save or cancel an open record form first."),
     chatNotice && h("p", { className: "hc-notice", role: "status" }, chatNotice),
-    h(AgentContext, { ctx, identity, client, data, detail, viewRequest, disabled: disabled || Boolean(editor) || detailLoading }),
+    h(AgentContext, { key: `${viewRevision}:${detail?.kind}:${(detail?.row?.contact || detail?.row)?.id}:${data?.meta?.workspace_token}`, ctx, identity, client, data, detail, viewRequest, disabled: disabled || Boolean(editor) || detailLoading }),
     h(
       "nav",
       { className: "hc-tabs", "aria-label": "CRM sections" },
@@ -1413,7 +1443,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
           h(
             "p",
             null,
-            "Enable both the Hermes CRM Desktop component and the agent/backend plugin for this profile in Capabilities → Plugins, then restart the gateway from Hermes and refresh. Remote hosts also need the backend installed there. No separate web server is needed.",
+            "Enable both the HermesCRM Desktop component and the agent/backend plugin for this profile in Capabilities → Plugins, then restart the gateway from Hermes and refresh. Remote hosts also need the backend installed there. No separate web server is needed.",
           ),
       ),
     notice && h("div", { role: "status", className: "hc-notice" }, notice),
@@ -1424,12 +1454,6 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       h(
         "div",
         null,
-        data.meta.demo &&
-          h(
-            "div",
-            { className: "hc-notice" },
-            "Demo workspace · These records are synthetic.",
-          ),
         detailLoading && h("div", { className: "hc-notice", role: "status" },
           h("div", { className: "hc-row" }, "Loading record…", button("Cancel loading", closeDetail))),
         detail && detail.workspaceToken === data.meta.workspace_token && h(Detail, {
@@ -1553,7 +1577,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                 h(
                   "p",
                   null,
-                  "Create real records or explore with synthetic demo data. Demo data can only be added to an empty workspace.",
+                  "Add your first contact to start tracking relationships and follow-ups.",
                 ),
                 h(
                   "div",
@@ -1561,41 +1585,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                   button("Create contact", () => edit("contacts"), {
                     disabled,
                   }),
-                  button(
-                    "Explore demo data",
-                    () =>
-                      setDemoConfirm({
-                        workspaceToken: data.meta.workspace_token,
-                        backend: data.meta.backend,
-                      }),
-                    {
-                      disabled,
-                    },
-                  ),
                 ),
-                demoConfirm &&
-                  h(
-                    "div",
-                    null,
-                    h(
-                      "p",
-                      null,
-                      `Add synthetic contacts, deals, and follow-ups to ${profile} on ${connection || "local"} (${label(demoConfirm.backend)} backend)?`,
-                    ),
-                    button(
-                      "Add synthetic records",
-                      () =>
-                        write("/demo", {
-                          method: "POST",
-                          body: {
-                            confirm: true,
-                            workspace_token: demoConfirm.workspaceToken,
-                          },
-                        }),
-                      { disabled },
-                    ),
-                    button("Cancel", () => setDemoConfirm(false)),
-                  ),
               ),
           ),
         ["contacts", "pipeline", "tasks"].includes(page) &&
@@ -1757,7 +1747,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
             h(
               "p",
               { className: "hc-notice" },
-              "Tasks are saved here. To schedule a native reminder, ask the existing Hermes agent in this profile to use crm_followup_schedule with the task ID. Scheduling requires an active agent context; this pane does not create cron jobs. A scheduled badge confirms registration, not execution.",
+              "Tasks are saved here. A scheduled reminder confirms registration, not execution.",
             ),
             h(
               "div",
@@ -2165,7 +2155,7 @@ function Detail({ detail, data, disabled, client, snapshotGeneration, close, edi
 
 // Use only elements in this pane. The host page's body, scroll, and global
 // listeners are untouched; inert isolates the underlying CRM workspace.
-function Drawer({ title, subtitle, busy, cancel, children, returnFocus }) {
+function Drawer({ title, subtitle, busy, cancel, children, returnFocus, closeLabel = "Close form" }) {
   const panel = useRef(null);
   useEffect(() => {
     const node = panel.current;
@@ -2192,8 +2182,8 @@ function Drawer({ title, subtitle, busy, cancel, children, returnFocus }) {
   return h("div", { className: "hc-overlay" },
     h("section", { className: "hc-drawer", role: "dialog", "aria-modal": true, "aria-label": title, tabIndex: -1, ref: panel, onKeyDown },
       h("header", { className: "hc-drawer-header" },
-        h("div", { className: "hc-row" }, h("div", null, h("div", { className: "hc-eyebrow" }, "HERMES / CRM"), h("h2", null, title)),
-          button("Close", cancel, { disabled: busy, "aria-label": "Close form" })),
+        h("div", { className: "hc-row" }, h("div", null, h("div", { className: "hc-eyebrow" }, "HermesCRM"), h("h2", null, title)),
+          button("Close", cancel, { disabled: busy, "aria-label": closeLabel })),
         h("p", { className: "hc-muted" }, subtitle)), children));
 }
 
@@ -2302,7 +2292,7 @@ function Editor({ editor, data, busy, error, save, cancel }) {
 
 export default {
   id: "hermes-crm",
-  name: "Hermes CRM",
+  name: "HermesCRM",
   defaultEnabled: false,
   register(ctx) {
     initializeLifetime(ctx);
@@ -2311,7 +2301,7 @@ export default {
       {
         id: "pane",
         area: PANES_AREA,
-        title: "CRM",
+        title: "HermesCRM",
         data: { placement: "main" },
         render,
       },
@@ -2319,14 +2309,14 @@ export default {
       {
         id: "navigation",
         area: SIDEBAR_NAV_AREA,
-        data: { path: "/hermes-crm", label: "CRM", codicon: "organization" },
+        data: { path: "/hermes-crm", label: "HermesCRM", codicon: "organization" },
       },
       {
         id: "open",
         area: PALETTE_AREA,
         data: {
           id: "hermes-crm.open",
-          label: "Open Hermes CRM",
+          label: "Open HermesCRM",
           keywords: ["contacts", "sales", "pipeline", "follow-ups"],
           run: () => host.navigate("/hermes-crm"),
         },

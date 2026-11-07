@@ -10,7 +10,7 @@ The unified package now contains the requested native Desktop surface. It does n
 - hermes_crm/runtime.py: one profile-aware storage factory for native tools and REST.
 - hermes_crm/domain.py: shared CRM validation, transactions, audit and scheduling semantics.
 
-Native contributions: a main-area CRM pane, /hermes-crm full page, CRM sidebar entry and Open Hermes CRM palette command. The pane contains dashboard cards, stage chart drillthrough, contacts and detail/history, six-stage opportunities, follow-ups and activity. Native settings expose explicit SQLite/PostgreSQL selection and the host-managed optional PostgreSQL secret.
+Native contributions: a main-area HermesCRM pane, /hermes-crm full page, HermesCRM sidebar entry and Open HermesCRM palette command. The display branding is HermesCRM, with the tagline Intelligent Relationship Management; route, package and storage identifiers remain unchanged. The pane contains dashboard cards, stage chart drillthrough, contacts and detail/history, six-stage opportunities, follow-ups and activity. Native settings expose explicit SQLite/PostgreSQL selection and the host-managed optional PostgreSQL secret.
 
 ## Installation and enablement
 
@@ -36,7 +36,7 @@ Saving a follow-up is not scheduling. The pane displays its scheduler state and 
 
 ## Synthetic demonstration
 
-An empty workspace offers Explore demo data. It requires a second explicit confirmation, checks the current workspace token and refuses existing records. Seeding is atomic and rolls back completely on failure. It uses only invented names and reserved example-domain emails. No user records are imported.
+An empty workspace offers ordinary contact creation. Optional test-data seeding is under the title’s About information dialog, inside Test workspace setup. Prepare test records opens an explicit profile/connection/backend confirmation; Add test records checks the captured workspace token and refuses existing records. Synthetic provenance is available in About rather than a persistent working-view banner. Seeding is atomic and rolls back completely on failure. It uses only invented names and reserved example-domain emails. No user records are imported.
 
 ## Verification scope
 

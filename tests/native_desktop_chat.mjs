@@ -70,14 +70,14 @@ async function fixture({ old = false, ignoreDock = false, noClipboard = false } 
     activeSessionId: atom('runtime-A'), focusedSessionId: atom('runtime-A'), focusedStoredSessionId: atom('stored-A'),
     focusedSessionOwner: atom({ connectionId: 'source-a', profile: 'work' }) };
   const epoch = atom(1), disposers = [], timers = new Set(), intervals = new Set(), copies = [], calls = [], navigation = [];
-  const panes = new Map(), closers = new Map(); let currentTab = 'workspace', opens = 0, removals = 0;
+  const panes = new Map(), closers = new Map(); let currentTab = 'workspace', opens = 0, removals = 0, movedToCenter = false;
   let tree = model?.group(['workspace']);
   const reveal = id => { currentTab = id; if (model && model.findGroupOfPane(tree, id)) tree = model.setActivePane(tree, model.findGroupOfPane(tree, id).id, id); };
-  const visible = id => model ? model.findGroupOfPane(tree, id)?.active === id : panes.has(id) ? (!ignoreDock || currentTab === id) : id === 'workspace' && (!ignoreDock || currentTab === id);
+  const visible = id => model ? model.findGroupOfPane(tree, id)?.active === id : panes.has(id) ? (!(ignoreDock || movedToCenter) || currentTab === id) : id === 'workspace' && (!(ignoreDock || movedToCenter) || currentTab === id);
   const env = { state, epoch, disposers, timers, intervals, copies, calls, navigation, panes, closers,
     get opens() { return opens; }, get removals() { return removals; }, get tree() { return tree; },
     copyGate: null, readGate: null, token: 'workspace-secret-not-for-chat', version: 3,
-    moveToCenter(id) { if (model) { tree = model.removePane(tree, id); tree = model.insertAtGroup(tree, model.findGroupOfPane(tree, 'workspace').id, id, 'center'); } else ignoreDock = true; },
+    moveToCenter(id) { if (model) { tree = model.removePane(tree, id); tree = model.insertAtGroup(tree, model.findGroupOfPane(tree, 'workspace').id, id, 'center'); } else movedToCenter = true; },
   };
   const host = { state, navigate(path) { navigation.push(path); }, revealPane: reveal, paneVisibility: id => ({ get: () => visible(id) }),
     composer: new Proxy({}, { get() { throw Error('No composer reads or writes are allowed'); } }),
@@ -95,7 +95,7 @@ async function fixture({ old = false, ignoreDock = false, noClipboard = false } 
     }));
     host.openWorkspace = actual.host.openWorkspace;
   } else host.openWorkspace = (id, options) => {
-    opens++; const paneId = `plugin-workspace:${id}`; panes.set(paneId, options); reveal(paneId);
+    opens++; movedToCenter = false; const paneId = `plugin-workspace:${id}`; panes.set(paneId, options); reveal(paneId);
     const close = () => { panes.delete(paneId); closers.delete(paneId); removals++; options.onClose(); }; closers.set(paneId, close); return close;
   };
   if (old) delete host.openWorkspace;
@@ -236,6 +236,29 @@ for (const options of [{ old: true }, { ignoreDock: true }]) {
   assert.equal(e.copies.length, copiesBefore); assert.match(e.text(), /scope changed/);
   await e.finish();
 }
+// Compact context is useful without expanding the preview; nothing copies on
+// selection, hiding, or reopening. Copy always revalidates the selected version.
+{
+  const e = await fixture(); await e.mount(); await e.openRecord();
+  assert.equal(e.root().root.findAllByType('textarea').length, 0);
+  assert.equal(e.button('Preview record reference').props['aria-expanded'], false);
+  assert.equal(e.copies.length, 0);
+  await e.click('Copy record reference');
+  assert.equal(e.copies.length, 1);
+  assert.equal(e.root().root.findAllByType('textarea').length, 0);
+  assert.match(e.calls.at(-1), /\/contacts\/c1\?workspace_token=/);
+  assert.match(e.text(), /not attached or sent/);
+  await e.click('Preview record reference');
+  assert.equal(e.button('Hide preview').props['aria-expanded'], true);
+  assert.equal(e.root().root.findByProps({ 'aria-label': 'Record reference to copy' }).props.rows, 5);
+  await e.click('Hide preview');
+  assert.equal(e.root().root.findAllByType('textarea').length, 0);
+  assert.equal(e.copies.length, 1);
+  await e.click('Preview record reference'); await e.click('Close'); await e.openRecord();
+  assert.equal(e.root().root.findAllByType('textarea').length, 0);
+  assert.equal(e.copies.length, 1);
+  await e.finish();
+}
 // Stale rendered callbacks cannot act after synchronous Close/Edit even when
 // React has not committed a render yet. Closing/reopening preserves selection.
 {
@@ -270,6 +293,6 @@ for (const change of ['record', 'profile', 'source', 'reconnect', 'unmount', 'to
 }
 {
   const e = await fixture({ noClipboard: true }); await e.mount(); await e.openRecord(); await e.click('Preview record reference');
-  assert.equal(e.button('Copy record reference').props.disabled, true); assert.match(e.text(), /Select and copy the preview manually/); await e.finish();
+  assert.equal(e.button('Copy record reference').props.disabled, true); assert.match(e.text(), /select and copy the preview manually/); await e.finish();
 }
 console.log('PASS native chat split lifecycle, primary-only routing, unsupported SDK/docking fallback, retained CRM record/form protection, minimum explicit context, live version/token/source checks, ABA/reconnect/disposal, duplicate clicks, no draft access or submission. SDK transport is a fixture; pinned SDK method/model executed when HERMES_SOURCE is set.');

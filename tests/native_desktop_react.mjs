@@ -157,6 +157,7 @@ const ctx = {
     const routes = {
       "/meta": {
         backend: backendKind,
+        demo: true,
         profile: profile.get(),
         workspace_token: `token-${profile.get()}${backendTokenSuffix}`,
       },
@@ -267,9 +268,38 @@ const click = async (title) => {
   });
   await flush();
 };
-assert.match(text(), /Relationship intelligence/);
+assert.match(text(), /Overview/);
 assert.match(text(), /Weighted forecast/);
 assert.equal(intervals.size, 1, "Strict Mode replay leaves one live interval");
+// Every section uses a compact title; descriptions and routine help live in
+// an accessible information drawer instead of taking record viewport space.
+for (const title of ['Overview', 'Contacts', 'Pipeline', 'Tasks', 'Activity']) {
+  await click(title);
+  assert.equal(flatten(root.root.findByType('h1').children), title);
+  const header = root.root.findByProps({ className: 'hc-row hc-workspace-header' });
+  assert.equal(header.findAllByType('p').length, 0);
+  assert.doesNotMatch(text(), /synthetic|demo data|sample data/);
+  assert.equal(header.findAllByProps({ className: 'hc-eyebrow' }).length, 0);
+  await click('ⓘ');
+  const dialog = root.root.findByProps({ role: 'dialog' });
+  assert.equal(dialog.props['aria-label'], `About ${title}`);
+  assert.equal(dialog.props['aria-modal'], true);
+  assert.equal(root.root.findByProps({ className: 'hc-wrap' }).props.inert, true);
+  assert.match(text(), /Active app profile: work/);
+  assert.match(text(), /HermesCRM · Intelligent Relationship Management/);
+  assert.match(text(), /Workspace provenance: these records were seeded as synthetic test data/);
+  assert.equal(root.root.findAllByProps({ 'aria-label': 'Close information' }).length, 1);
+  mockDocument.activeElement = drawerNode.controls[2];
+  let trapped = false;
+  await act(async () => dialog.props.onKeyDown({ key: 'Tab', preventDefault() { trapped = true; } }));
+  assert.equal(trapped, true); assert.equal(mockDocument.activeElement, drawerNode.controls[0]);
+  await act(async () => dialog.props.onKeyDown({ key: 'Escape', preventDefault() {}, stopPropagation() {} }));
+  assert.equal(root.root.findAllByProps({ role: 'dialog' }).length, 0);
+  assert.equal(mockDocument.activeElement, opener);
+  await click('ⓘ'); await click('Close');
+  assert.equal(root.root.findAllByProps({ role: 'dialog' }).length, 0);
+}
+await click('Overview');
 // Chart geometry, distinct counts, accessible focus/hover, zero and single-stage cases.
 assert.match(text(), /No deal value to chart/);
 const chartRows = module.namespace.stageChartRows([{ stage: "lead", value: 30000, count: 3, contact_count: 1 }, { stage: "won", value: 10000, count: 1, contact_count: 1 }]);
@@ -853,7 +883,17 @@ assert.match(text(), /source-b/);
 overview.contacts = 0;
 overview.open_tasks = 0;
 await click("Refresh");
-await click("Explore demo data");
+assert.doesNotMatch(text(), /Explore demo|synthetic|sample data/);
+await click("ⓘ");
+assert.equal(button("Test workspace setup").props['aria-expanded'], false);
+assert.equal(button("Prepare test records"), undefined, "Collapsed setup adds no hidden focus targets");
+await click("Test workspace setup");
+assert.equal(button("Test workspace setup").props['aria-expanded'], true);
+assert.ok(button("Prepare test records"));
+await click("Test workspace setup");
+assert.equal(button("Prepare test records"), undefined);
+await click("Test workspace setup");
+await click("Prepare test records");
 assert.match(text(), /Sqlite backend/);
 backendTokenSuffix = "-changed";
 backendKind = "postgres";
@@ -864,7 +904,7 @@ assert.match(
   "Confirmation preserves the backend named when opened",
 );
 const demoWriteIndex = writes.length;
-await click("Add synthetic records");
+await click("Add test records");
 assert.equal(writes[demoWriteIndex].path, "/demo");
 assert.equal(
   writes[demoWriteIndex].options.body.workspace_token,

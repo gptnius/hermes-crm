@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hermes-crm"
 version = "0.1.0"
-description = "A profile-local, agent-native CRM for Hermes"
+description = "HermesCRM: Intelligent Relationship Management for Hermes"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "sqlalchemy>=2.0,<3", "pydantic>=2.10,<3"]
