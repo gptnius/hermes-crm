@@ -147,7 +147,7 @@ const ctx = {
       writes.push({ path, options, profile: profile.get() });
       if (writeError) throw new Error(writeError);
       if (delayWrite) return new Promise(resolve => { releaseWrite = resolve; });
-      return {};
+      return options.method === "POST" && ["/contacts", "/tasks", "/deals"].includes(path) ? { id: path === "/contacts" ? "c1" : path === "/tasks" ? "t1" : "d1" } : {};
     }
     if (path.startsWith("/reports/work?")) {
       if (workError) throw new Error(workError);
@@ -175,6 +175,8 @@ const ctx = {
       "/deals/d1": deal,
       "/tasks": [task],
       "/activity": activityRows,
+      "/contacts/c1/company": { contact_id: "c1", contact_version: contact.version, company_id: "co1", company_name: "Exact Company" },
+      "/companies/co1": { id: "co1", name: "Exact Company", version: 1 },
       "/contacts/c1": { contact, deals: relatedDeals, tasks: [task], activity: activityRows },
       "/contacts/outside": { contact: {...contact, id: "outside", name: "Fresh outside contact"}, deals: [], tasks: [], activity: activityRows },
       "/tasks/t1": task,
@@ -698,6 +700,12 @@ assert.equal(mockDocument.activeElement.name, "drawer-close");
 assert.equal((await press("Tab", true)).prevented, true);
 assert.equal(mockDocument.activeElement.name, "save");
 assert.deepEqual(await press("Escape"), { prevented: true, stopped: true });
+assert.equal(root.root.findAllByType("form").length, 1);
+assert.match(text(), /Discard unsaved changes/);
+await click("Keep editing");
+assert.equal(input("title").props.value, "Draft follow-up");
+await press("Escape");
+await click("Discard changes");
 assert.equal(root.root.findAllByType("form").length, 0);
 assert.equal(mockDocument.activeElement, opener, "Dismissal restores focus to the captured opener");
 assert.equal(root.root.findAll(node => node.props.className === "hc-wrap")[0].props.inert, undefined);
@@ -720,6 +728,7 @@ await change(input("probability"), "101");
 await submitForm();
 assert.match(text(), /whole number from 0 to 100/);
 await click("Cancel");
+await click("Discard changes");
 await openRecord("Example opportunity");
 assert.match(text(), /Linked contact/);
 assert.equal(root.root.findAll(node => node.props["aria-current"] === "step")[0].children[0], "Proposal");
@@ -728,6 +737,46 @@ assert.equal(select("contact_id").props.value, "c1");
 assert.equal(select("deal_id").props.value, "d1");
 await click("Cancel");
 await click("Close");
+assert.match(flatten(recordDetails()[0].children), /Ada Example/);
+await click("Back to Contacts");
+assert.equal(recordDetails().length, 0);
+// Cycles are bounded to 20 identities; repeated current-record opens do not add entries.
+await openRecord("Ada Example");
+await openRecord("Ada Example");
+await click("Close");
+assert.equal(recordDetails().length, 0);
+await openRecord("Ada Example");
+for (let index = 0; index < 22; index++) {
+  await openRecord("Example opportunity");
+  await openRecord("Ada Example");
+}
+for (let index = 0; index < 20; index++) await click("Close");
+assert.equal(recordDetails().length, 0, "Record navigation history is bounded");
+// Crossing into Company records preserves the contact trail and original list.
+await openRecord("Ada Example");
+await click("Exact Company · co1");
+assert.match(text(), /Exact Company/);
+await click("Back to Contacts");
+assert.match(flatten(recordDetails()[0].children), /Ada Example/);
+await click("Close");
+assert.equal(recordDetails().length, 0);
+// Child creation opens its confirmed exact ID, preserving parent and list context.
+await openRecord("Ada Example");
+await click("Create follow-up");
+await change(input("title"), "Child follow-up");
+await change(input("due_at"), "2027-04-03T10:00");
+const beforeChildCreate = writes.length;
+await submitForm();
+assert.equal(writes.length, beforeChildCreate + 1);
+assert.equal(writes.at(-1).options.body.data.contact_id, "c1");
+assert.match(flatten(recordDetails()[0].children), /Follow up/);
+const beforeBackReads = calls.filter(call => call.path.startsWith("/contacts/c1?")).length;
+await click("Back to Contacts");
+assert.equal(calls.filter(call => call.path.startsWith("/contacts/c1?")).length, beforeBackReads + 1, "Back re-reads the exact parent, never uses a cached version");
+assert.match(flatten(recordDetails()[0].children), /Ada Example/);
+await click("Close");
+assert.equal(recordDetails().length, 0);
+const afterChildCreate = writes.length;
 // Repeated opens create independent drafts, preserve the page/filter state, and
 // never retain a cancelled value or create a write as a side effect.
 for (let i = 0; i < 3; i++) {
@@ -735,12 +784,13 @@ for (let i = 0; i < 3; i++) {
   assert.equal(input("name").props.value, "");
   await change(input("name"), `Cancelled ${i}`);
   await click("Cancel");
+  await click("Discard changes");
 }
-assert.equal(writes.length, beforeStaleDraft);
+assert.equal(writes.length, afterChildCreate);
 await click("+ Contact");
 await submitForm();
 assert.match(text(), /Enter the contact’s full name/);
-assert.equal(writes.length, beforeStaleDraft);
+assert.equal(writes.length, afterChildCreate);
 await change(input("name"), "Retained contact");
 await change(input("email"), "not-an-email");
 await submitForm();
@@ -769,10 +819,15 @@ await press("Escape");
 assert.equal(root.root.findAllByType("form").length, 1, "Pending mutations cannot be dismissed");
 delayWrite = false;
 await act(async () => { releaseWrite({}); await savePromise; });
+assert.equal(root.root.findAllByType("form").length, 1, "Missing confirmed ID retains the original form");
+assert.match(text(), /created record ID was not confirmed/);
+await submitForm();
+assert.equal(writes.at(-1).options.body.idempotency_key, retryKey);
+const afterConfirmedRetry = writes.length;
 await flush();
 assert.equal(root.root.findAllByType("form").length, 0);
 await act(async () => pendingSubmit({ preventDefault() {} }));
-assert.equal(writes.length, beforeDoubleSave + 1, "A saved/unmounted callback cannot create again");
+assert.equal(writes.length, afterConfirmedRetry, "A saved/unmounted callback cannot create again");
 // Native type=email and the backend permit local domains. An unchanged
 // owner@intranet address must not block an unrelated edit to an existing record.
 contact.email = "owner@intranet";
@@ -800,6 +855,7 @@ for (const email of ["not-an-email", "owner@", "@intranet", "owner@@intranet", "
   assert.match(text(), /Enter a valid email address/);
 }
 await click("Cancel");
+await click("Discard changes");
 // Successful deal and task writes still use existing endpoint payloads. A
 // missing selector choice is visible and retained, never silently unlinked.
 await click("Pipeline");
@@ -852,6 +908,28 @@ assert.equal(writes.at(-1).options.body.data.deal_id, "outside-deal");
 assert.equal(writes.at(-1).options.body.data.due_at, task.due_at);
 task.contact_id = "c1"; task.deal_id = null;
 await flush();
+await openRecord("Follow up");
+let detailComplete = recordDetails()[0].findAllByType("button").find(node => flatten(node.children) === "Complete");
+await act(async () => detailComplete.props.onClick());
+assert.equal(writes.at(-1).options.body.data.version, task.version);
+assert.equal(writes.at(-1).options.body.data.status, "done");
+assert.equal(recordDetails().length, 1);
+const staleComplete = detailComplete.props.onClick;
+await click("Contacts");
+const afterDetailComplete = writes.length;
+await act(async () => staleComplete());
+assert.equal(writes.length, afterDetailComplete, "Dismissed detail callback cannot write");
+await click("Tasks");
+await openRecord("Follow up");
+task.status = "done";
+await click("Edit");
+await click("Cancel");
+await openRecord("Follow up");
+const detailReopen = recordDetails()[0].findAllByType("button").find(node => flatten(node.children) === "Reopen");
+await act(async () => detailReopen.props.onClick());
+assert.equal(writes.at(-1).options.body.data.status, "open");
+assert.equal(recordDetails().length, 1);
+task.status = "open";
 const beforeHistoryWrites = writes.length;
 // Optional native-work capability must distinguish missing/failed from empty.
 await click("Tasks");
@@ -1077,7 +1155,7 @@ for (const dispose of pluginDisposers) dispose();
 assert.equal(profile.listeners.size, 0);
 assert.equal(epoch.listeners.size, 0);
 console.log(
-  "PASS actual React 19.3.0 Strict Mode: zero/single/multiple charts, focus/hover/keyboard/drillthrough, server filter pagination/races and current-ID preservation, cohesive record workspace/related prefills, accessible drawer ref focus and keyboard boundaries, repeated cancel/save and mutation lock, retained client/backend validation input, honest read-only assignment history/manual+interval refresh/retained panel expansion/stale-error signals/latest-response guards, local-domain email edits/malformed input validation, name-only create, versioned edit/complete, exact scheduled timestamp, captured demo target, workspace token, stale detail navigation/cancellation, valid-input profile/source ABA remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
+  "PASS actual React 19.3.0 Strict Mode: zero/single/multiple charts, focus/hover/keyboard/drillthrough, server filter pagination/races and current-ID preservation, cohesive record workspace/related prefills, bounded parent Back/Close and Company return, confirmed child-ID navigation/unknown-ID retry retention, explicit dirty discard/keep, detail Complete/Reopen/stale callback rejection, accessible drawer ref focus and keyboard boundaries, repeated cancel/save and mutation lock, retained client/backend validation input, honest read-only assignment history/manual+interval refresh/retained panel expansion/stale-error signals/latest-response guards, local-domain email edits/malformed input validation, name-only create, versioned edit/complete, exact scheduled timestamp, captured demo target, workspace token, stale detail navigation/cancellation, valid-input profile/source ABA remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
 );
 
 // A relationship save must not reopen a detail after navigation wins the refresh race.

@@ -12,7 +12,7 @@ import secrets
 import uuid
 from contextlib import nullcontext
 from dataclasses import dataclass
-from sqlalchemy import Column, Integer, MetaData, String, Table, Text, inspect, select, update
+from sqlalchemy import Column, Integer, MetaData, String, Table, Text, UniqueConstraint, inspect, select, update
 from .domain import CRMError, TABLES, activity, now
 
 metadata = MetaData()
@@ -121,6 +121,57 @@ def owned_tables():
         native_work, native_work_operations, report_interactions, report_store)
         for t in module.metadata.tables.values()} | {t.name:t for t in metadata.tables.values()} | {
             t.name:t for t in OWNED_TABLES}  # Never export the private registry's legacy FK clones.
+
+
+def _native_export_predicates(crm, conn, workspace, exported_tables):
+    """Scope native history within this export snapshot, without creating stores.
+
+    Profile-specific datastore selection is the normal boundary. Copied/mixed datastores
+    must still honor the same row ownership as native-work reads. FK metadata
+    clones do not make shared CRM tables native-owned.
+    """
+    from .native_work import NativeWorkStore, assignments, events, reports
+    from .native_work_operations import operations as work_operations
+    work = NativeWorkStore(crm, initialize=False, connection=conn, workspace=workspace)
+    schema = crm.engine.get_execution_options().get('schema_translate_map', {}).get(None)
+    inspector = inspect(conn)
+    if inspector.has_table(work_operations.name, schema=schema):
+        if not work.available:
+            raise CRMError('Native operation storage has no native-work schema', 503)
+        # WorkOperationStore's constructor uses another connection. Validate its
+        # exact table contract here so export keeps one read-only snapshot.
+        table = work_operations
+        columns = {c['name']: c for c in inspector.get_columns(table.name, schema=schema)}
+        compatible = set(columns) == set(table.c.keys())
+        if compatible:
+            compatible = all(columns[c.name]['nullable'] == c.nullable and
+                columns[c.name]['type']._type_affinity is c.type._type_affinity and
+                getattr(columns[c.name]['type'], 'length', None) == getattr(c.type, 'length', None)
+                for c in table.c)
+        unique = {tuple(c['column_names']) for c in inspector.get_unique_constraints(table.name, schema=schema)}
+        expected_unique = {tuple(c.columns.keys()) for c in table.constraints if isinstance(c, UniqueConstraint)}
+        foreign = {(tuple(c['constrained_columns']), c['referred_table'], tuple(c['referred_columns']))
+                   for c in inspector.get_foreign_keys(table.name, schema=schema)}
+        expected_foreign = {(tuple(c.parent.name for c in constraint.elements), constraint.referred_table.name,
+            tuple(c.column.name for c in constraint.elements)) for constraint in table.foreign_key_constraints}
+        compatible = compatible and unique == expected_unique and foreign == expected_foreign
+        compatible = compatible and inspector.get_pk_constraint(table.name, schema=schema).get('constrained_columns') == ['id']
+        if not compatible:
+            raise CRMError('Native operation schema is incompatible; explicit migration required', 503)
+    # The legacy registry can contain FK clones from another module. Predicates
+    # must use the exact selected Table object, not introduce a duplicate FROM.
+    assignments, events, reports, work_operations = (exported_tables[t.name]
+        for t in (assignments, events, reports, work_operations))
+    scope = (assignments.c.workspace == workspace, assignments.c.profile == crm.profile)
+    scoped_ids = select(assignments.c.id).where(*scope)
+    return {
+        assignments.name: scope,
+        events.name: (events.c.assignment_id.in_(scoped_ids),),
+        reports.name: (reports.c.workspace == workspace, reports.c.profile == crm.profile,
+                       reports.c.assignment_id.in_(scoped_ids)),
+        work_operations.name: (work_operations.c.workspace == workspace, work_operations.c.profile == crm.profile,
+                               work_operations.c.assignment_id.in_(scoped_ids)),
+    }
 
 
 class ProtectionStore:
@@ -242,12 +293,15 @@ class ProtectionStore:
             relationship_names = {table.name for table in OWNED_TABLES}
             check_schema(self.crm, conn)  # Reject partial/incompatible additive stores.
             relationship_scope = scope_for(self.crm, connection=conn)
+            native_predicates = _native_export_predicates(self.crm, conn, self.workspace, tables)
             for name, table in sorted(tables.items()):
                 if not inspector.has_table(name, schema=schema): continue
                 rows = []
                 query = select(table)
                 if name in relationship_names and 'scope' in table.c:
                     query = query.where(table.c.scope == relationship_scope)
+                elif name in native_predicates:
+                    query = query.where(*native_predicates[name])
                 elif name == 'crm_activity':
                     query = query.where(audit_scope_predicate(self.crm, conn))
                 for row in conn.execute(query).mappings():

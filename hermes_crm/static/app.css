@@ -240,3 +240,10 @@ footer .demo-label { white-space: normal; overflow-wrap: anywhere; }
 /* Separate Event record links at narrow widths without changing other record buttons. */
 .event-related-links { display:flex; flex-wrap:wrap; gap:8px 16px; margin-block:12px; }
 .event-related-links > .name-button { min-height:44px; min-width:44px; padding:8px; }
+.relationship-time{min-width:0;display:grid;gap:8px;align-content:start}
+.relationship-time small{color:var(--muted);overflow-wrap:anywhere}
+#relationship-form summary,.detail-body>details>summary{min-height:44px;padding:12px 0;cursor:pointer}
+#relationship-discard{border:1px solid var(--border);padding:16px}
+#relationship-discard:not([hidden]){display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+#relationship-discard>p{flex-basis:100%;margin:0}
+#relationship-form :is(input,select,button){min-height:44px}

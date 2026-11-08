@@ -47,11 +47,14 @@ IANA timezone (for example `America/New_York`), ordinary notes and any explicitl
 selected Contact, opportunity or Company context. Associations are related
 records, not verified attendees.
 
-Timestamp inputs require an explicit offset, for example
-`2026-11-09T14:00:00-05:00`. This avoids guessing through daylight-saving gaps or
-repeated wall times. The service stores UTC instants and retains the named
-zone. End must follow start. Unchanged timestamp precision is preserved when
-editing another field. Recurring/all-day Events and invitations are not supported.
+The interface provides date/time controls interpreted in the displayed timezone
+and shows the resolved instant before saving. Nonexistent daylight-saving times
+are rejected; repeated times require an explicit occurrence choice. New or changed
+wall times are supported from 1900 through 2100. Unchanged saved originals outside
+that range remain readable and keep their exact instant during unrelated edits.
+The service and agent tools still require offset-aware timestamps, for example
+`2026-11-09T14:00:00-05:00`. They store UTC instants and retain the named zone.
+End must follow start. Recurring/all-day Events and invitations are not supported.
 
 Statuses are explicit:
 
@@ -85,12 +88,26 @@ Desktop for assignment actions. The business task does not gain a fictional assi
 profile. A saved assignment, a registered job, a reported result and a reviewed
 business outcome remain different states.
 
+If you clear both the task's direct Contact and opportunity links, it retains
+only its Event context. Related Contact/Company views can still show that task,
+but current contact follow-up coverage counts direct/contact-through-opportunity
+tasks, not Event-only context. Review the prefilled links deliberately; the app
+does not silently change a saved report's coverage definition.
+
 Creating/completing an Event does not create a scheduler job or complete its
 tasks. Rescheduling or cancelling an Event also leaves associated tasks and
 existing agent-work schedules unchanged; review those separately. Linking or
 unlinking changes the task version, so a previously prepared
 assignment may require fresh review. [Assignment instructions](ASSIGNMENT_UI.md)
 describe the separate native scheduling confirmation.
+
+In Hermes Desktop, **Back** returns through recently opened linked records with
+fresh reads, while retaining the originating list context. Creating a follow-up
+opens the confirmed new task with its parent reachable. Task details provide
+**Complete** or **Reopen** separately from agent-work controls. Dirty native record
+forms and Event forms offer **Keep editing** / **Discard changes** for in-app
+cancellation; this is not durable draft storage across reload, host closure or
+profile changes.
 
 ## Activities versus Record history
 

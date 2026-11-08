@@ -1,6 +1,73 @@
 # Verification report
 
-Updated November 8, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
+Updated November 8, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
+
+## Workflow continuity and validation fixes
+
+This increment adds native linked-record Back navigation, confirmed child-record
+continuity after saving, direct task Complete/Reopen, in-app dirty-form guards,
+and less technical Company/Event details. Relationship list filters and bounded
+page offsets survive child navigation and native chat relocation. Records are
+read again by exact identity; retained navigation state is not write authority.
+The final navigation review also verified that retained Chat callbacks cannot
+relocate CRM while a Company/Event form is dirty.
+
+Native and standalone Event forms use wall-time controls with an explicit IANA
+zone and resolved-instant preview. They reject DST gaps and require a choice for
+folds. New/changed wall times are limited to 1900–2100; unchanged saved originals
+outside that range keep exact precision during unrelated edits. In-app
+Keep editing/Discard changes is not persistent draft recovery after reload,
+host closure or profile changes.
+
+Backend fixes reject new Event associations to archived Companies while retaining
+existing context and historical retry receipts, and convert bounded UTC overflow
+into validation errors. Native encrypted-export queries now filter assignments,
+events, reports and command operations consistently by current scope/parent.
+The export reproduction used mixed/copied rows in one datastore; it did not access
+another profile's database or selected PostgreSQL schema. Shared tables and encryption format are
+unchanged; this is not a new general access-control or restore claim.
+
+Cloud Python verification: **1,269 passed, 628 optional cases skipped**, with two
+known dependency warnings. Independent reviews cleared the backend fixes,
+time controls and navigation. Native React/VM suites, standalone/time fixtures,
+design contracts, **25 bridge checks** and all **nine generator checks** passed.
+Exact pinned-host source assertions were unavailable in the cloud.
+
+Disposable PostgreSQL 17.11 ARM64 verification passed **728 mixed checks with
+zero failures or skips** on the same 200-file source snapshot. The new 44 cases
+comprise 3 PostgreSQL/9 local integrity checks and 16 PostgreSQL/16 SQLite export
+scope checks; all 684 earlier mixed portability cases also passed. These totals
+are not exclusively PostgreSQL-backed. Both fresh memory-backed, loopback-only
+containers were removed and independently confirmed absent. Dependency and
+intentional malformed-primary-key fixture warnings were recorded, not hidden.
+
+An isolated Mac Electron fixture rendered the actual CRMRoot and standalone
+components with synthetic endpoints/SDK at 1280, 640 and 390 pixels in both
+themes. **60 native + 36 standalone workflow assertions**, plus **3 additional
+Company-parent chains**, passed. Dirty Company/Event Chat controls and retained
+callbacks blocked mock navigation; a positive control worked after discard.
+All **138 DOM layout states** had no page overflow. Of 210 captured final-matrix
+screenshots, **20 were actually inspected**; this was sampled pixel review,
+not inspection of every capture. Two small cosmetic issues were found and
+corrected: native Kind selector stretching and touching standalone discard
+buttons. The scoped CSS and layout-contract delta passed independent review.
+Targeted rerenders covered all 12 renderer/theme/width combinations and **48 DOM
+states**: Kind controls measured 44px high, discard buttons had a 12px gap, and
+hidden controls stayed hidden. Of 24 new captures, **8 were pixel-inspected**,
+with no observed clipping, overlap or page overflow. No console errors or network
+attempts occurred, and the owned Electron process exited successfully. The full
+base workflow matrix was not repeated for this CSS-only delta.
+
+This is isolated component/DOM-event verification, not an installed-host or
+OS keyboard/mouse test. Every owned launch exited; global process listing was
+unavailable. The active app, real profiles, credentials, providers and real chat
+were untouched. The final backend difference from the PostgreSQL snapshot is
+one wording-only export docstring correction; executable Python AST is unchanged.
+
+The result-review acknowledgement remains a design, not an implemented action.
+No mailbox grant, live research task, external communication, active-profile
+change or production migration was performed. See the
+[workflow findings and remaining decisions](WORKFLOW_REVIEW.md).
 
 ## Companies, Events and linked tasks
 
@@ -916,7 +983,7 @@ The run used no real provider credentials, account login, external service or ex
 ## Not completed
 
 - Broader native accessibility, keyboard/focus, responsive-layout and cross-platform QA beyond the Mac workflows above. Standalone desktop/mobile browser QA also remains incomplete; the earlier cloud browser restrictions were not bypassed.
-- Real-model scheduled reasoning, a configured-MCP live run, visible Desktop reminder presentation, external delivery, restart recovery and live failure reconciliation. Default deferred discovery passed the newer bounded assigned-work fixture, not a real-model conversation. External outreach remains outside this plugin's scope.
+- Broader real-model scheduled reasoning beyond the one bounded internal-analysis check, a configured-MCP live run, visible Desktop reminder presentation, external delivery, restart recovery and live failure reconciliation. Default deferred discovery passed a bounded synthetic assigned-work fixture; the real-model check explicitly disabled it. External outreach remains outside this plugin's scope.
 - Hosted Supabase connectivity, network latency/failure behavior and deployment security.
 - Catalog PR, social post, contest form or production deployment.
 
@@ -927,7 +994,7 @@ The source prototype is public at https://github.com/gptnius/hermes-crm. Its ini
 ## Release gates still open
 
 1. Visually verify the new chart/filter/report workflows in the native window. Expand accessibility, keyboard/focus and responsive/cross-platform coverage beyond the earlier verified Mac workflows; complete standalone desktop/mobile QA.
-2. Extend scheduler coverage to an authorized real model, restart/failure recovery and any intended human-visible reminder surface. The bounded assigned-work fixture covers default tool discovery; a configured-MCP live run remains separate. Keep external outreach excluded.
+2. Extend scheduler coverage beyond the single authorized real-model internal-analysis check to broader tasks, restart/failure recovery and any intended human-visible reminder surface. The bounded synthetic assigned-work fixture covers default tool discovery; a configured-MCP live run remains separate. Keep external outreach excluded.
 3. Complete source-distribution review and pin the reviewed commit before publishing each update.
 4. Complete the runtime gates before calling this a fully validated release or preparing any authorized contest submission. A clearly labeled source prototype can remain public while those gates are open.
 

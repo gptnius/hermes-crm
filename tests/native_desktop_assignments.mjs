@@ -48,6 +48,12 @@ async function fixture(options = {}) {
         }
         return e.saveGate ? e.saveGate.promise : e.saveReply ? e.saveReply(clone(saved)) : clone(saved);
       }
+      if (options.allowTaskPatch && path === '/tasks/t1' && requestOptions?.method === 'PATCH') {
+        assert.equal(requestOptions.body.workspace_token, e.token);
+        assert.equal(requestOptions.body.data.version, e.task.version);
+        e.task = { ...e.task, ...clone(requestOptions.body.data), version: e.task.version + 1 };
+        return clone(e.task);
+      }
       assert.equal(requestOptions, undefined, 'Only explicit local assignment Save may write');
       const params = new URLSearchParams(path.split('?')[1]);
       if (path !== '/snapshot') assert.equal(params.get('workspace_token'), e.token);
@@ -210,7 +216,7 @@ for (const change of [s => s.focusedSessionId.set('secondary'), s => s.focusedSe
   await e.click('Edit'); const title = e.root().root.findAllByType('input').find(n => n.props.name === 'title');
   await e.change(() => title.props.onChange({ target: { value: 'Unsaved task change' } }));
   const prepare = e.button('Prepare agent request'); assert.equal(prepare.props.disabled, true); await e.change(() => prepare.props.onClick()); assert.equal(e.opened.length, 0); assert.equal(title.props.value, 'Unsaved task change');
-  await e.click('Cancel'); await e.click('Prepare agent request'); assert.equal(e.opened.length, 1); assert.equal(e.navigation.at(-1), '/stored-A'); assert.equal(e.root().root.findAllByProps({ 'aria-label': 'Reviewed instructions' }).length, 0);
+  await e.click('Cancel'); assert.ok(e.button('Discard changes')); await e.click('Discard changes'); await e.click('Prepare agent request'); assert.equal(e.opened.length, 1); assert.equal(e.navigation.at(-1), '/stored-A'); assert.equal(e.root().root.findAllByProps({ 'aria-label': 'Reviewed instructions' }).length, 0);
   const pane = e.opened[0]; await e.unmount(); await act(async () => { /* The companion is independently mounted by the real host. */ });
   await e.mount('CRMRoot', { ctx: e.ctx, boundIdentity: e.identity }); await e.click('Prepare agent request'); await e.fill(); await e.click('Open native chat');
   assert.equal(e.opened.length, 1, 'Existing split is reused'); assert.equal(e.field('Reviewed instructions').props.value, 'Summarize known CRM facts');
@@ -366,11 +372,27 @@ for (const field of ['Coverage filter', 'Search coverage']) {
 }
 // An assignment outside the first 100 history rows has an exact, fresh drillthrough.
 {
-  const e = await fixture(); e.work.id = 'a1'; e.work.version = 91; e.work.state = 'unknown'; e.work.reason = 'resume_outcome_unknown';
+  const e = await fixture({ allowTaskPatch: true }); e.work.id = 'a1'; e.work.version = 91; e.work.state = 'unknown'; e.work.reason = 'resume_outcome_unknown';
   e.coveragePages = params => ({ items: [{ id: 'assignment:a1', row_kind: 'assignment', kind: 'assignment', task: clone(e.task), contacts: [], risk_flags: ['needs_scheduling_review'], next_action: 'check_assignment', assignment: { ...clone(e.work), task_version: 3, human_owner: 'Reviewer', run_at: e.work.payload.run_at } }], total: 900, limit: 50, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00+00:00', workspace_token: e.token });
   e.historyPages = params => ({ items: [], total: 700, limit: 25, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00+00:00' });
   await e.mount('CRMRoot', { ctx: e.ctx, boundIdentity: e.identity }); await e.click('Tasks'); await e.click('Open exact assignment');
   assert.ok(e.calls.some(path => path.startsWith('/work/a1?'))); assert.match(e.text(), /Selected assignment from coverage/); assert.match(e.text(), /Version 91/);
+  const initialAssignmentReads = e.calls.filter(path => path.startsWith('/work/a1?')).length;
+  for (const action of ['Complete', 'Reopen']) {
+    const detail = e.root().root.findByProps({ 'aria-label': 'Record details' });
+    const control = detail.findAllByType('button').find(node => flatten(node.children) === action);
+    await act(async () => { await control.props.onClick(); }); await e.flush();
+    assert.match(e.text(), /Selected assignment from coverage/);
+  }
+  await e.click('Edit');
+  const titleInput = e.root().root.findAllByType('input').find(node => node.props.name === 'title');
+  await e.change(() => titleInput.props.onChange({ target: { value: 'Updated selected task' } }));
+  await act(async () => { await e.root().root.findByType('form').props.onSubmit({ preventDefault() {} }); }); await e.flush();
+  assert.match(e.text(), /Selected assignment from coverage/);
+  assert.equal(e.calls.filter(path => path.startsWith('/work/a1?')).length, initialAssignmentReads + 3, 'Every task write re-reads its selected assignment');
+  await e.click('Close');
+  assert.equal(e.root().root.findAllByProps({ 'aria-label': 'Record details' }).length, 0, 'Saving did not add duplicate task history');
+  await e.click('Open exact assignment');
   await e.click('Prepare check for selected assignment'); await e.click('Preview request'); assert.match(e.preview(), /"assignment_id": "a1"/); assert.match(e.preview(), /"assignment_version": 91/); await e.finish();
 }
 

@@ -1,4 +1,12 @@
-# Next release: useful reports and trustworthy agent work
+# Reports and trustworthy agent work: phased development plan
+
+This document retains the reasoning and acceptance gates for several implemented
+phases. It is not a list of entirely unavailable features. Typed reports, custom
+fields/stages, future internal assignments through CRM confirmation, Company/Event
+records and associated tasks are implemented in bounded increments. Immediate
+execution, broader research, result attachments and provider-backed sending remain
+separate work. Use the [README](../README.md), [workflow review](WORKFLOW_REVIEW.md)
+and [verification report](VERIFICATION.md) for current behavior and test scope.
 
 ## Scope and product promise
 
@@ -15,7 +23,7 @@ HubSpot's task and saved-view workflows and Salesforce's sales work queue are re
 - Make upcoming, overdue, failed and uncertain work visible, together with explicit no-next-action exceptions.
 - Keep stage history before claiming historical funnel conversion; the current dashboard is a current-state snapshot.
 
-This prototype does not claim full HubSpot or Salesforce feature parity. Typed saved reports, dashboard cards, optional typed custom fields and a configurable single deal pipeline are now included in bounded native increments. Multiple pipelines, required/unique/calculated fields, historical conversion and advanced cadence authoring remain future work. The [README roadmap](../README.md#development-roadmap) is the current priority index: layered protection follows customization, then import/export; external CRM linking is deferred.
+This prototype does not claim full HubSpot or Salesforce feature parity. Typed saved reports, dashboard cards, optional typed custom fields and a configurable single deal pipeline are now included in bounded native increments. Multiple pipelines, required/unique/calculated fields, historical conversion and advanced cadence authoring remain future work. The [README roadmap](../README.md#development-roadmap) is the current priority index. First customization, protection and contact-transfer increments are implemented; external CRM linking remains deferred.
 
 References:
 - https://knowledge.hubspot.com/tasks/create-tasks
@@ -84,13 +92,13 @@ The result means **identified native run reported a result, awaiting review**. I
 
 Persist uncertainty before every host mutation. Lost create responses cannot be safely auto-adopted from job-list summaries, which truncate prompts and schedules; keep the assignment unknown and do not create a replacement. A known bound job can be inspected after an uncertain resume. Revalidate task version, cancellation and approved time before resume; if the time elapsed while paused, surface a missed/blocked action instead of silently executing late. Explicit cancellation pauses the exact future job but does not claim to stop a running agent.
 
-Test deterministic synthetic success/failure paths, concurrent requests, rollback, stale/cancelled tasks, paused orphan recovery limits, forged execution identity, profile/generation/instant mismatches, duplicate/conflicting reports, and actual host/plugin-isolation behavior before enabling the feature. End-to-end execution is not established by the current scheduling design or by the earlier reminder test.
+Test deterministic synthetic success/failure paths, concurrent requests, rollback, stale/cancelled tasks, paused orphan recovery limits, forged execution identity, profile/generation/instant mismatches, duplicate/conflicting reports, and actual host/plugin-isolation behavior before enabling the feature. This was the original verification gate. The implemented future-assignment lane has since passed bounded scheduler/agent/report tests described in [verification](VERIFICATION.md); neither a design nor an unrelated reminder test alone establishes that result.
 
 ### Public-interface gate
 
 The pinned SDK exposes route-bound gateway RPC and visible composer handoff. However, its `cron.manage` RPC cannot forward the required restricted toolset or provide the full trigger/history lifecycle. The separate Desktop/dashboard cron REST API accepts paused creation and explicit toolsets, but is not wired to the CRM assignment ledger or interactive tool-policy workflow and is not used as a direct scheduling shortcut. Direct `cron.submit` is an admission component, not a replacement for the scheduler's durable fire claim and bookkeeping.
 
-The real interactive plugin tool context can dispatch `cronjob_manage`. Scheduled assignments from the UI remain blocked until a complete supported, restricted scheduler path is verified. A composer handoff, if offered, must be labeled honestly as **Ask Hermes to run**; composer acceptance is not durable admission. Do not borrow a registration context inside REST, read private job files, create a hidden runner or bypass canonical scheduling.
+The real interactive plugin tool context can dispatch `cronjob_manage`. The original direct-RPC UI route remains unsuitable; the implemented alternative is [CRM-confirmed scheduling](CRM_CONFIRMED_OPERATIONS.md) through an authenticated native user command, with exact identity and scope checks. Manual task-request copy/paste remains a fallback; composer acceptance is not durable admission. Do not borrow a registration context inside REST, read private job files, create a hidden runner or bypass canonical scheduling.
 
 A conditional immediate path exists through captured-profile public gateway RPC: `session.create` with a stable request ID, `prompt.submit` with a stable submission ID, `prompt.receipt` for result evidence and `prompt.cancel` for cancellation. Persist intent and IDs before calling the host. Reconnect through the supported session-resume protocol. Do not use unattended mode or override the profile’s provider/model.
 
@@ -121,11 +129,11 @@ References are workflow/layout guidance rather than assets to copy:
 
 A bounded first handoff is implemented: **Chat with Hermes** opens a right-docked CRM view beside the already loaded, verified primary native conversation. It preserves the current CRM view, blocks relocation while a form is open and checks session/source/profile ownership. Selected-record reference preview/copy includes only connection, profile, kind, ID and version. The user pastes, reviews and sends through the native composer. There are no composer reads/writes, automatic submissions, new sessions or fabricated transcript. Source-contract and React checks are separate from the remaining live native-window/model tests; see NATIVE_CHAT.md.
 
-The next source increment adds a task-specific Preview/Copy request builder, atomic `expected_task_version` intent binding, and server-paged coverage/history reports. It uses the same genuine native conversation and explicit user Send. Requests are not dispatched by the UI, evidence totals are not unique lead counts, and stored observations do not establish live execution coverage. See [the assignment workflow](ASSIGNMENT_UI.md) for current behavior and [verification](VERIFICATION.md) for tested scope.
+The implemented task-specific Preview/Copy request builder uses atomic `expected_task_version` intent binding and server-paged coverage/history reports. Its manual path uses the same genuine native conversation and explicit user Send. The separate CRM-confirmed command path can schedule a reviewed future assignment. A copied request alone is not dispatched, evidence totals are not unique lead counts, and stored observations do not establish live execution coverage. See [the assignment workflow](ASSIGNMENT_UI.md) for current behavior and [verification](VERIFICATION.md) for tested scope.
 
 The tested SDK does not export the full native ChatPane, and its composer insertion helper does not provide the race-free draft/target contract needed for automatic context insertion in this build. A future custom transcript would own streaming/replay, queues, cancellation and approval/question handling. Do not present a text box that only submits prompts as a complete agent chat. Future attachment or broader session support must preserve the user's drafts, exact session ownership and host permissions.
 
-Current activity is a record-change audit, not email history. Sent/received email needs a deliberate provider adapter and evidence: account/provider identity, provider message and thread IDs, direction, timestamps, linked contacts and deduplication. Drafts, attempted actions, agent claims and confirmed sent messages must be separate states. Received-message capture also needs an authorized source and sync/recovery policy. Do not assume an existing mail connection or show inert Send controls. No email sending, new credentials or account connection is part of the present implementation authorization.
+Record history is the administrative audit. Relationship Activities separately contains completed local Events and self-reported contact logs. The optional Gmail metadata pilot is separate and has no sending or live-account verification. Verified sent/received email needs a deliberate provider adapter and evidence: account/provider identity, provider message and thread IDs, direction, timestamps, linked contacts and deduplication. Drafts, attempted actions, agent claims and confirmed sent messages must be separate states. Received-message capture also needs an authorized source and sync/recovery policy. Do not assume an existing mail connection or show inert Send controls. No email sending, new credentials or account connection is part of the present implementation authorization.
 
 The proposed demo can progress from lead research and contact creation to reviewing a personalized draft and the corresponding CRM activity. Actual sending requires separately authorized recipients/content and a working provider integration, not a simulated sent event.
 

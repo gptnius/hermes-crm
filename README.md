@@ -74,6 +74,14 @@ explicit in [verification](docs/VERIFICATION.md). See the
 [implementation plan](docs/COMPANIES_EVENTS_PLAN.md) and
 [usage guide](docs/COMPANIES_EVENTS.md).
 
+**Workflow improvements:** native record-to-record Back navigation and creation
+continuity, practical Event date/time entry, clearer relationship pages and
+in-app dirty-form controls are implemented with integrity fixes. Exact test scope
+and remaining checks are in [verification](docs/VERIFICATION.md). A usable
+agent-result review step, canonical Company creation shortcuts and integration
+gaps remain in the [workflow plan](docs/WORKFLOW_REVIEW.md), with unsettled metric,
+review and permission decisions explicitly parked.
+
 Other planned work remains explicitly separate:
 
 - **Agent work:** a supported safe immediate-execution path, stronger recovery

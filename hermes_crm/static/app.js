@@ -1,4 +1,69 @@
 "use strict";
+// BEGIN GENERATED RELATIONSHIP TIME
+// Shared, dependency-free wall-time conversion. Never use the host's implicit zone.
+function relZone(zone) {
+  if (typeof zone !== 'string' || !zone.trim() || /^[+-]/.test(zone)) throw new Error('Choose a valid IANA timezone, such as America/New_York or UTC.');
+  try { return new Intl.DateTimeFormat('en-US', {timeZone: zone}).resolvedOptions().timeZone; }
+  catch { throw new Error('Choose a valid IANA timezone, such as America/New_York or UTC.'); }
+}
+function relWall(instant, zone) {
+  relZone(zone);
+  const parts = new Intl.DateTimeFormat('en-CA', {timeZone: zone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'}).formatToParts(new Date(instant));
+  const p = Object.fromEntries(parts.map(p => [p.type,p.value]));
+  return `${p.year.padStart(4,'0')}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+}
+function relInstant(value) {
+  const text = String(value || '').trim();
+  const m = /^(\d{4}-\d\d-\d\d)T(\d\d):(\d\d)(?::(\d\d)(?:\.(\d{1,6}))?)?(Z|[+-](\d\d):(\d\d))$/.exec(text);
+  if (!m || +m[2]>23 || +m[3]>59 || +(m[4]||0)>59 || +(m[7]||0)>23 || +(m[8]||0)>59 || !Number.isFinite(Date.parse(text))) throw new Error('Enter a valid date and time with an explicit offset.');
+  const date = new Date(m[1]+'T00:00:00Z');
+  if (date.toISOString().slice(0,10)!==m[1]) throw new Error('Enter a valid calendar date.');
+  return text;
+}
+function relMicros(value) {
+  relInstant(value);
+  return BigInt(Math.floor(Date.parse(value)/1000))*1000000n + BigInt((value.match(/\.(\d+)/)?.[1] || '').padEnd(6,'0'));
+}
+function relCandidates(wall, zone) {
+  relZone(zone);
+  if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d)?$/.test(wall)) throw new Error('Enter both a date and a time.');
+  const normalized = wall.length === 16 ? wall+':00' : wall;
+  relInstant(normalized+'Z');
+  // Restrict interactive editing to a tested modern timezone-data range.
+  const year = +wall.slice(0,4);
+  if (year < 1900 || year > 2100) throw new Error('Choose a year from 1900 through 2100.');
+  const base = Date.parse(normalized+'Z'), offsets = new Set();
+  // Obtain offsets around the target day, including both sides of DST and date-line shifts.
+  for (let hour=-48; hour<=48; hour+=3) {
+    const time = base+hour*3600000;
+    offsets.add(Date.parse(relWall(time,zone)+'Z')-time);
+  }
+  return [...offsets].map(offset=>base-offset).filter(time=>relWall(time,zone)===normalized).sort((a,b)=>a-b).map(time=>new Date(time).toISOString());
+}
+function relUnchanged(wall, zone, original, originalZone, choice = '') {
+  return !choice && !!original && zone===originalZone && relWall(original,zone)===(wall.length===16 ? wall+':00' : wall);
+}
+function relEditorCandidates(wall, zone, original = '', originalZone = zone, choice = '') {
+  // Existing precise instants may predate or exceed the interactive editing range.
+  // They are already unambiguous and must not block unrelated record edits.
+  if ((+wall.slice(0,4)<1900 || +wall.slice(0,4)>2100) && relUnchanged(wall,zone,original,originalZone,choice)) return [];
+  return relCandidates(wall,zone);
+}
+function relResolve(wall, zone, original = '', originalZone = zone, choice = '') {
+  relZone(zone);
+  // Preserve exact offset, seconds and microseconds even if the control normalized :00.
+  if (relUnchanged(wall,zone,original,originalZone,choice)) return relInstant(original);
+  const candidates=relCandidates(wall,zone);
+  if (!candidates.length) throw new Error('This local time does not exist in this timezone. Choose another time.');
+  if (candidates.length>1 && !candidates.includes(choice)) throw new Error('This local time occurs twice. Choose the intended occurrence.');
+  return candidates.length===1 ? candidates[0] : choice;
+}
+function relReadable(value, zone = 'UTC') {
+  if (!value) return 'Not recorded';
+  try { relInstant(value); relZone(zone); return new Intl.DateTimeFormat('en', {timeZone:zone, year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'}).format(new Date(value)); }
+  catch { return String(value); }
+}
+// END GENERATED RELATIONSHIP TIME
 const $ = (s) => document.querySelector(s),
   esc = (v) =>
     String(v ?? "").replace(
@@ -357,8 +422,11 @@ async function render() {
   }
 }
 function route() {
-  // Navigation invalidates both visible dialogs and pending modal fetches.
-  closeModal(false);
+  // A dirty relationship editor must be explicitly dismissed before navigation.
+  if (closeModal(false) === false) {
+    window.history?.replaceState(null, '', '#'+state.page);
+    return;
+  }
   clearTimeout(searchTimer);
   const raw = location.hash.slice(1) || "overview";
   state.page = ["overview", "contacts", "deals", "tasks", "activity", "record-history", "companies", "events", "activities"].includes(
@@ -385,6 +453,13 @@ function modalHead(title) {
   return `<div class="modal-head"><h2 id="dialog-title">${esc(title)}</h2><button class="close" data-action="close" aria-label="Close dialog">×</button></div>`;
 }
 function closeModal(restoreFocus = true) {
+  const form = $('#relationship-form');
+  if (form?.dataset.saving) return false;
+  if (form?.dataset.dirty && !form.dataset.discard) {
+    $('#relationship-discard').hidden = false;
+    $('#relationship-keep').focus();
+    return false;
+  }
   const wasOpen = $("#modal").open;
   $("#modal").close();
   modalEpoch++;
@@ -660,8 +735,9 @@ document.addEventListener("change", (e) => {
     render();
   }
 });
-$("#modal").addEventListener("cancel", () => {
-  modalEpoch++;
+$("#modal").addEventListener("cancel", event => {
+  if ($('#relationship-form')) { event.preventDefault(); closeModal(); }
+  else modalEpoch++;
 });
 // Escape also cancels a dialog request before its modal has opened.
 document.addEventListener("keydown", (e) => {
@@ -752,13 +828,13 @@ function relationshipRecordButton(kind, row) {
 function taskRelationshipContext(task) {
   if (!task.company_id && !task.event_id && !task.event_company_id) return '';
   const company = (id,name) => id ? relationshipRecordButton('companies',{id,name:(name || 'Company')+' · ID '+id}) : 'Not linked';
-  return `<div class="task-relationship-context"><small>Current-contact Company: ${company(task.company_id,task.company_name)} · Basis: ${esc(task.company_link_basis || 'unlinked')}</small><small>Explicit Event Company: ${company(task.event_company_id,task.event_company_name)} · Basis: ${esc(task.event_link_basis || 'unlinked')}</small>${task.event_id ? `<small>Linked Event: ${relationshipRecordButton('events',{id:task.event_id,title:(task.event_title || 'Event')+' · ID '+task.event_id})}</small>` : ''}</div>`;
+  return `<div class="task-relationship-context"><small>Current-contact Company: ${company(task.company_id,task.company_name)} · Basis: ${esc(label(task.company_link_basis || 'unlinked'))}</small><small>Explicit Event Company: ${company(task.event_company_id,task.event_company_name)} · Basis: ${esc(label(task.event_link_basis || 'unlinked'))}</small>${task.event_id ? `<small>Linked Event: ${relationshipRecordButton('events',{id:task.event_id,title:(task.event_title || 'Event')+' · ID '+task.event_id})}</small>` : ''}</div>`;
 }
 function eventRelatedLinks(row) {
   return `<div class="event-related-links" role="group" aria-label="Related Event records">${['contact','deal','company'].map(kind=>row[kind+'_id'] ? relationshipRecordButton(kind === 'company' ? 'companies' : kind+'s',{id:row[kind+'_id'],name:'Open '+kind}) : '').join('')}</div>`;
 }
 function relationshipRows(page, kind) {
-  return page.items.length ? `<ul class="relationship-list">${page.items.map(row => `<li>${relationshipRecordButton(kind,row)}<small>${esc(row.domain || row.email || row.status || '')} · ID ${esc(row.id)}${row.archived_at ? ' · Archived' : ''}${(row.relationship_basis || row.event_link_basis || row.company_link_basis) ? ' · '+esc(row.relationship_basis || row.event_link_basis || row.company_link_basis) : ''}</small>${kind === 'tasks' ? taskRelationshipContext(row) : ''}${row.starts_at ? `<small>${esc(row.starts_at)} → ${esc(row.ends_at)} · ${esc(row.timezone)}</small>` : ''}</li>`).join('')}</ul>` : empty('No matching records.');
+  return page.items.length ? `<ul class="relationship-list">${page.items.map(row => `<li>${relationshipRecordButton(kind,row)}<small>${esc(row.domain || row.email || label(row.status || ''))}${row.archived_at ? ' · Archived' : ''}${(row.relationship_basis || row.event_link_basis || row.company_link_basis) ? ' · '+esc(label(row.relationship_basis || row.event_link_basis || row.company_link_basis)) : ''}</small><details><summary>Record details</summary><small>ID ${esc(row.id)}</small>${['starts_at','ends_at'].filter(key=>row[key]).map(key=>`<small>${esc(label(key))}: ${esc(row[key])}</small>`).join('')}</details>${kind === 'tasks' ? taskRelationshipContext(row) : ''}${row.starts_at ? `<small>${esc(relReadable(row.starts_at,row.timezone))} → ${esc(relReadable(row.ends_at,row.timezone))} · ${esc(row.timezone)}</small>` : ''}</li>`).join('')}</ul>` : empty('No matching records.');
 }
 async function relationshipPage() {
   const kind = state.page;
@@ -767,14 +843,19 @@ async function relationshipPage() {
   if (kind === 'events') for (const filter of ['status','kind']) if (state.filters[filter]) params[filter] = state.filters[filter];
   const page = await relationshipRead(kind === 'activities' ? 'relationship-activities' : kind, kind === 'activities' ? {limit:25,offset:state.offset} : params);
   let body;
-  if (kind === 'activities') body = page.items.map(row => `<li>${row.record_type === 'event' ? relationshipRecordButton('events',{id:row.record_id,title:row.title}) : esc(row.title || row.summary || label(row.kind))}<small>${esc(row.happened_at)} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)} · ${esc(row.id)}</small>${row.contact_id ? relationshipRecordButton('contacts',{id:row.contact_id,name:'Open contact'}) : ''}</li>`).join('');
+  if (kind === 'activities') body = page.items.map(row => `<li>${row.record_type === 'event' ? relationshipRecordButton('events',{id:row.record_id,title:row.title}) : esc(row.title || row.summary || label(row.kind))}<small>${esc(relReadable(row.happened_at))} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)} · ${esc(row.id)}</small>${row.contact_id ? relationshipRecordButton('contacts',{id:row.contact_id,name:'Open contact'}) : ''}</li>`).join('');
   return head(label(kind),kind === 'activities' ? 'Completed local Events and self-reported contact logs. Not verified communications.' : kind === 'companies' ? 'Explicit organizations and their associated records.' : 'Local appointments and calls.',kind === 'activities' ? '' : `<button class="button primary" data-action="relationship-create" data-kind="${kind}">Add ${kind === 'companies' ? 'Company' : 'Event'}</button>`) + `<section class="card">${kind !== 'activities' ? `<input class="search" id="search" type="search" aria-label="Search ${kind}" placeholder="Search ${kind}" value="${esc(state.query)}">` : ''}${kind === 'events' ? filterSelect("status","Event status",[["","All statuses"],["scheduled","Scheduled"],["needs_rescheduling","Needs rescheduling"],["completed","Completed"],["cancelled","Cancelled"]])+filterSelect("kind","Event type",[["","All types"],["appointment","Appointment"],["call","Call"]]) : ""}${kind === 'activities' ? `<ul class="relationship-list">${body || '<li>No recorded interactions.</li>'}</ul>` : relationshipRows(page,kind)}${relationshipPager(page,'relationship-page')}</section>`;
 }
 const eventLocalHelp = 'Local record only. Saving does not invite attendees, place calls, send reminders, schedule agent work or sync a calendar. Related records are context, not verified attendees. Notes and outcomes are ordinary plaintext.';
 function relationshipForm(title, fields, submit, done) {
-  showModal(modalHead(title) + `<form id="relationship-form" class="detail-body"><div class="relationship-form-grid">${fields}</div><p role="alert" id="relationship-error" hidden></p><div class="form-actions"><button class="button" type="button" data-action="close">Cancel</button><button class="button primary" type="submit">Save</button></div></form>`);
+  showModal(modalHead(title) + `<form id="relationship-form" class="detail-body"><div class="relationship-form-grid">${fields}</div><p role="alert" id="relationship-error" hidden></p><div id="relationship-discard" class="relationship-wide" role="alert" hidden><p>Discard unsaved changes?</p><button class="button" type="button" id="relationship-keep">Keep editing</button><button class="button" type="button" id="relationship-discard-confirm">Discard changes</button></div><div class="form-actions"><button class="button" type="button" data-action="close">Cancel</button><button class="button primary" type="submit">Save</button></div></form>`);
   const epoch = modalEpoch, scope = relationshipWorkspace;
   const form = $('#relationship-form');
+  $('#relationship-keep').onclick=()=>{ $('#relationship-discard').hidden=true; form.querySelector('input,textarea,select')?.focus(); };
+  $('#relationship-discard-confirm').onclick=()=>{form.dataset.discard='true';closeModal();};
+  form.addEventListener('input',()=>{form.dataset.dirty='true'; updateRelationshipTimes(form);});
+  form.addEventListener('change',()=>{form.dataset.dirty='true'; updateRelationshipTimes(form);});
+  updateRelationshipTimes(form);
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (form.dataset.saving || !form.reportValidity()) return;
     if (scope !== relationshipWorkspace || epoch !== modalEpoch) return;
@@ -782,9 +863,10 @@ function relationshipForm(title, fields, submit, done) {
     const controls = [...form.querySelectorAll('input,select,textarea,button')];
     form.dataset.saving = 'true'; controls.forEach(control => control.disabled = true);
     try {
+      resolveRelationshipTimes(form,values);
       const result = await submit(values);
       if (scope !== relationshipWorkspace || modalEpoch !== epoch) return;
-      closeModal(); await render(); if (done) await done(result);
+      delete form.dataset.saving; form.dataset.discard='true'; closeModal(); await render(); if (done) await done(result);
     } catch(error) {
       if (scope === relationshipWorkspace && modalEpoch === epoch) { $('#relationship-error').hidden = false; $('#relationship-error').textContent = error.message; }
     } finally { delete form.dataset.saving; controls.forEach(control => control.disabled = false); }
@@ -794,16 +876,51 @@ function relationshipNotes(value = '') { return `<label class="field relationshi
 function exactSelector(name, kind, value = '') {
   return `<div class="exact-selector"><label class="field">${label(kind)} exact ID (optional)<input name="${name}" value="${esc(value || '')}" maxlength="36"></label><label class="field">Find ${label(kind)}<input type="search" data-exact-search="${kind}" data-exact-name="${name}" placeholder="Search, then choose an exact record"></label><div data-exact-results="${name}" aria-live="polite"></div></div>`;
 }
+function relationshipTimeField(name, title, value = '', zone = 'UTC') {
+  return `<div class="relationship-time" data-time-field="${name}" data-original="${esc(value)}" data-zone="${esc(zone)}">${field(name,title,value ? relWall(value,zone) : '', 'datetime-local','required step="1"')}<label class="field" data-occurrence-label hidden>Repeated time: choose an occurrence<select data-occurrence><option value="">Choose occurrence</option></select></label><small data-time-preview role="status"></small>${value ? `<details><summary>Original precise time</summary><small>${esc(value)}</small></details>` : ''}</div>`;
+}
+function relationshipZone(zone = 'UTC', name = '_time_zone') {
+  return field(name,'Timezone for entered times',zone,'text','required placeholder="America/New_York" data-time-zone')+'<p class="subtitle">Changing the zone reinterprets the entered wall times. New or changed times must use years 1900–2100; unchanged original times are preserved. Review each preview before saving.</p>';
+}
+function updateRelationshipTimes(form) {
+  const zone=form.querySelector('[data-time-zone]')?.value || 'UTC';
+  form.querySelectorAll('[data-time-field]').forEach(container=>{
+    const input=container.querySelector('input'), choice=container.querySelector('[data-occurrence]'), preview=container.querySelector('[data-time-preview]');
+    let validCandidates=false;
+    try {
+      const candidates=relEditorCandidates(input.value,zone,container.dataset.original,container.dataset.zone,choice.value), signature=JSON.stringify([input.value,zone,candidates]);
+      validCandidates=true;
+      if (choice.dataset.signature!==signature) { choice.value=''; choice.innerHTML='<option value="">Choose occurrence</option>'+candidates.map((instant,index)=>`<option value="${esc(instant)}">${index ? 'Second' : 'First'} · ${esc(relReadable(instant,zone))} · ${esc(instant)}</option>`).join(''); choice.dataset.signature=signature; }
+      container.querySelector('[data-occurrence-label]').hidden=candidates.length<2;
+      preview.textContent=relReadable(relResolve(input.value,zone,container.dataset.original,container.dataset.zone,choice.value),zone);
+    } catch(error) {
+      // Invalid or cleared wall times invalidate any earlier repeated-time choice.
+      if (!validCandidates) {
+        choice.value=''; delete choice.dataset.signature;
+        choice.innerHTML='<option value="">Choose occurrence</option>';
+        container.querySelector('[data-occurrence-label]').hidden=true;
+      }
+      preview.textContent=error.message;
+    }
+  });
+}
+function resolveRelationshipTimes(form, values) {
+  const zone=form.querySelector('[data-time-zone]')?.value || 'UTC';
+  form.querySelectorAll('[data-time-field]').forEach(container=>{
+    const name=container.dataset.timeField;
+    values[name]=relResolve(values[name],zone,container.dataset.original,container.dataset.zone,container.querySelector('[data-occurrence]').value);
+  });
+  delete values._time_zone;
+  if (values.outcome_happened_at && relMicros(values.outcome_happened_at)>BigInt(Date.now())*1000n) throw new Error('Claimed occurrence cannot be in the future.');
+}
 function eventFields(row = {}) {
-  return `<p class="subtitle relationship-wide">${eventLocalHelp}</p>${field('title','Title',row.title || '', 'text','required maxlength="200"')}${select('kind','Type',['appointment','call'],row.kind || 'appointment',true)}${field('starts_at','Start (ISO date with Z or ±HH:MM)',row.starts_at || '', 'text','required placeholder="2026-11-12T10:00:00-05:00"')}${field('ends_at','End (ISO date with Z or ±HH:MM)',row.ends_at || '', 'text','required')}${field('timezone','IANA display timezone',row.timezone || 'Etc/UTC','text','required placeholder="America/New_York"')}<p class="subtitle">Times are preserved exactly until edited. The timezone names the display zone; it does not silently reinterpret the entered offset.</p>${exactSelector('contact_id','contacts',row.contact_id)}${exactSelector('deal_id','deals',row.deal_id)}${exactSelector('company_id','companies',row.company_id)}${relationshipNotes(row.notes)}`;
+  const zone=row.timezone || 'UTC';
+  return `<p class="subtitle relationship-wide">${eventLocalHelp}</p>${field('title','Title',row.title || '', 'text','required maxlength="200"')}${select('kind','Type',['appointment','call'],row.kind || 'appointment',true)}${relationshipZone(zone,'timezone')}${relationshipTimeField('starts_at','Start',row.starts_at,zone)}${relationshipTimeField('ends_at','End',row.ends_at,zone)}${exactSelector('contact_id','contacts',row.contact_id)}${exactSelector('deal_id','deals',row.deal_id)}${exactSelector('company_id','companies',row.company_id)}${relationshipNotes(row.notes)}`;
 }
 function eventPayload(values) {
-  for (const name of ['starts_at','ends_at']) if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?(Z|[+-]\d\d:\d\d)$/.test(values[name]) || !Number.isFinite(Date.parse(values[name]))) throw new Error('Enter valid start and end instants with an explicit offset.');
-  // Compare the backend's microsecond precision, without changing the submitted strings.
-  // Date.parse alone would round distinct instants in the same millisecond together.
-  const micros = value => BigInt(Math.floor(Date.parse(value) / 1000)) * 1000000n + BigInt((value.match(/\.(\d+)/)?.[1] || '').padEnd(6,'0').slice(0,6));
-  if (micros(values.ends_at) <= micros(values.starts_at)) throw new Error('End must follow start.');
-  try { new Intl.DateTimeFormat('en',{timeZone:values.timezone}).format(); } catch { throw new Error('Enter a valid IANA timezone.'); }
+  for (const name of ['starts_at','ends_at']) relInstant(values[name]);
+  if (relMicros(values.ends_at) <= relMicros(values.starts_at)) throw new Error('End must follow start.');
+  relZone(values.timezone);
   for (const name of ['contact_id','deal_id','company_id']) values[name] = values[name] || null;
   return values;
 }
@@ -819,8 +936,8 @@ async function relationshipDetail(kind,id,tab = 'contacts',offset = 0) {
     const path = kind === 'companies' ? `companies/${encodeURIComponent(id)}/records/${tab}` : `events/${encodeURIComponent(id)}/tasks`;
     const page = await relationshipRead(path,{limit:25,offset});
     if (requestEpoch !== modalEpoch || scope !== relationshipWorkspace) return;
-    const buttons = kind === 'companies' ? `<button class="button" data-rel-op="${row.archived_at ? 'restore' : 'archive'}">${row.archived_at ? 'Restore' : 'Archive'}</button>` : ['scheduled','needs_rescheduling'].includes(row.status) ? `${row.status === 'scheduled' ? '<button class="button" data-rel-op="needs-rescheduling">Needs rescheduling</button>' : ''}<button class="button" data-rel-op="reschedule">Reschedule</button><button class="button" data-rel-op="complete">Complete (self-reported)</button><button class="button" data-rel-op="cancel">Cancel Event</button>` : '<button class="button" data-rel-op="reopen">Reopen</button>';
-    showModal(modalHead(row.name || row.title)+`<div class="detail-body"><p>${esc(row.domain || row.status || '')} · ID ${esc(row.id)} · Version ${row.version}</p>${kind === 'events' ? `<p>${esc(row.starts_at)} → ${esc(row.ends_at)} · ${esc(row.timezone)}</p><p class="subtitle">Source: local${row.status === 'completed' ? ' · Self-reported completion, not verified attendance or a verified call' : ''}</p>${row.outcome_summary ? `<p>${esc(row.outcome_summary)}<small>Claimed: ${esc(row.outcome_happened_at)} · Recorded: ${esc(row.recorded_at)}</small></p>` : ''}<details><summary>About local Events</summary><p>${eventLocalHelp}</p></details>${eventRelatedLinks(row)}` : '<p class="subtitle">Current relationship rollup. Contacts use explicit Company links; deals follow their contact. Tasks can belong through their contact or linked Event. Events use their own Company link. A rename never overwrites legacy contact text.</p>'}${row.notes ? `<p class="notes">${esc(row.notes)}</p>` : ''}<div class="form-actions">${kind === 'companies' || ['scheduled','needs_rescheduling'].includes(row.status) ? '<button class="button" id="relationship-edit">Edit</button>' : ''}${buttons}</div>${kind === 'companies' ? `<div class="form-actions"><button class="button" id="company-activities">Relationship Activities</button>${['contacts','deals','tasks','events'].map(k=>`<button class="button" data-rel-tab="${k}" aria-pressed="${tab === k}">${label(k)} (${Number(result.counts[k] || 0)})</button>`).join('')}</div>` : '<h3>Associated tasks</h3><p class="subtitle">Task assignees are not recorded. Open the task and use the genuine assignment workflow in Hermes Desktop.</p><div class="form-actions"><button class="button" id="event-create-task">Create task</button><button class="button" id="event-link-task">Link existing task</button></div>'}${relationshipRows(page,kind === 'companies' ? tab : 'tasks')}${relationshipPager(page,'relationship-detail-page',`data-kind="${kind}" data-id="${esc(id)}" data-tab="${tab}"`)}</div>`);
+    const buttons = kind === 'companies' ? `<button class="button" data-rel-op="${row.archived_at ? 'restore' : 'archive'}">${row.archived_at ? 'Restore' : 'Archive'}</button>` : ['scheduled','needs_rescheduling'].includes(row.status) ? `<button class="button" data-rel-op="reschedule">Reschedule</button><button class="button" data-rel-op="complete">Complete (self-reported)</button><details><summary>More Event actions</summary><div class="form-actions"><button class="button" data-rel-op="cancel">Cancel Event</button>${row.status === 'scheduled' ? '<button class="button" data-rel-op="needs-rescheduling">Needs rescheduling</button>' : ''}</div></details>` : '<button class="button" data-rel-op="reopen">Reopen</button>';
+    showModal(modalHead(row.name || row.title)+`<div class="detail-body"><p>${esc(row.domain || label(row.status || ''))}</p><details><summary>Record details</summary><p>ID ${esc(row.id)} · Version ${row.version}</p>${['starts_at','ends_at','outcome_happened_at','recorded_at'].filter(key=>row[key]).map(key=>`<p>${esc(label(key))}: ${esc(row[key])}</p>`).join('')}</details>${kind === 'events' ? `<p>${esc(relReadable(row.starts_at,row.timezone))} → ${esc(relReadable(row.ends_at,row.timezone))} · ${esc(row.timezone)}</p><p class="subtitle">Source: local${row.status === 'completed' ? ' · Self-reported completion, not verified attendance or a verified call' : ''}</p>${row.outcome_summary ? `<p>${esc(row.outcome_summary)}<small>Claimed: ${esc(relReadable(row.outcome_happened_at,row.timezone))} · Recorded: ${esc(relReadable(row.recorded_at,row.timezone))}</small></p>` : ''}<details><summary>About local Events</summary><p>${eventLocalHelp}</p></details>${eventRelatedLinks(row)}` : '<p class="subtitle">Current relationship rollup. Contacts use explicit Company links; deals follow their contact. Tasks can belong through their contact or linked Event. Events use their own Company link. A rename never overwrites legacy contact text.</p>'}${row.notes ? `<p class="notes">${esc(row.notes)}</p>` : ''}<div class="form-actions">${kind === 'companies' || ['scheduled','needs_rescheduling'].includes(row.status) ? '<button class="button primary" id="relationship-edit">Edit</button>' : ''}${buttons}</div>${kind === 'companies' ? `<div class="form-actions"><button class="button" id="company-activities">Relationship Activities</button>${['contacts','deals','tasks','events'].map(k=>`<button class="button" data-rel-tab="${k}" aria-pressed="${tab === k}">${label(k)} (${Number(result.counts[k] || 0)})</button>`).join('')}</div>` : '<h3>Associated tasks</h3><p class="subtitle">Task assignees are not recorded. Open the task and use the genuine assignment workflow in Hermes Desktop.</p><div class="form-actions"><button class="button" id="event-create-task">Create task</button><button class="button" id="event-link-task">Link existing task</button></div>'}${relationshipRows(page,kind === 'companies' ? tab : 'tasks')}${relationshipPager(page,'relationship-detail-page',`data-kind="${kind}" data-id="${esc(id)}" data-tab="${tab}"`)}</div>`);
     $('#company-activities')?.addEventListener('click',()=>companyActivities(row));
     $('#relationship-edit')?.addEventListener('click',()=>relationshipEditor(kind,row));
     document.querySelectorAll('[data-rel-tab]').forEach(button=>button.addEventListener('click',()=>relationshipDetail(kind,id,button.dataset.relTab)));
@@ -832,11 +949,11 @@ async function relationshipDetail(kind,id,tab = 'contacts',offset = 0) {
 function relationshipOperation(kind,row,operation) {
   if (operation === 'reschedule') return relationshipEditor(kind,row,operation);
   const complete = operation === 'complete';
-  const fields = complete ? '<p class="subtitle">You are recording your claim that this Event happened, not verified attendance.</p>'+field('outcome_happened_at','Claimed occurrence (explicit-offset instant)',new Date().toISOString(),'text','required')+field('outcome_summary','Outcome summary','','text','required maxlength="10000"') : ['archive','restore'].includes(operation) ? `<p>${label(operation)} this Company? Its existing links and history remain available.</p>` : field('reason','Reason','','text','required maxlength="2000"');
+  const fields = complete ? '<p class="subtitle">You are recording your claim that this Event happened, not verified attendance.</p>'+relationshipZone(row.timezone || 'UTC')+relationshipTimeField('outcome_happened_at','Claimed occurrence',new Date().toISOString(),row.timezone || 'UTC')+field('outcome_summary','Outcome summary','','text','required maxlength="10000"') : ['archive','restore'].includes(operation) ? `<p>${label(operation)} this Company? Its existing links and history remain available.</p>` : field('reason','Reason','','text','required maxlength="2000"');
   relationshipForm(label(operation),fields, values=>relationshipWrite(`${kind}/${encodeURIComponent(row.id)}/${operation}`,'POST',{expected_version:row.version,...(complete ? {data:values} : values)}),()=>relationshipDetail(kind,row.id));
 }
 function eventTaskForm(event) {
-  relationshipForm('Create Event task',field('title','Task title','','text','required')+field('due_at','Due (explicit-offset instant)','','text','required')+select('priority','Priority',['normal','high'],'normal')+exactSelector('contact_id','contacts',event.contact_id)+exactSelector('deal_id','deals',event.deal_id)+relationshipNotes()+`<p class="subtitle">Review the exact contact and deal IDs above, prefilled from this Event. Clear either ID for no direct context. Creates and links one task atomically. No agent is assigned and no research runs when you save. The explicit Event link remains independent of the selected contact and deal.</p>`,data=>relationshipWrite(`events/${encodeURIComponent(event.id)}/tasks`,'POST',{expected_version:event.version,data:{...data,status:'open',contact_id:data.contact_id || null,deal_id:data.deal_id || null}}),()=>relationshipDetail('events',event.id));
+  relationshipForm('Create Event task',field('title','Task title','','text','required')+relationshipZone(event.timezone || 'UTC')+relationshipTimeField('due_at','Due','',event.timezone || 'UTC')+select('priority','Priority',['normal','high'],'normal')+exactSelector('contact_id','contacts',event.contact_id)+exactSelector('deal_id','deals',event.deal_id)+relationshipNotes()+`<p class="subtitle">Review the exact contact and deal IDs above, prefilled from this Event. Clear either ID for no direct context. An Event-only task with no direct contact or deal does not count as a contact follow-up. Creates and links one task atomically. No agent is assigned and no research runs when you save. The explicit Event link remains independent of the selected contact and deal.</p>`,data=>relationshipWrite(`events/${encodeURIComponent(event.id)}/tasks`,'POST',{expected_version:event.version,data:{...data,status:'open',contact_id:data.contact_id || null,deal_id:data.deal_id || null}}),()=>relationshipDetail('events',event.id));
 }
 async function prepareEventUnlink(task) {
   const epoch=++modalEpoch, scope=relationshipWorkspace;
@@ -867,7 +984,7 @@ async function exactSearch(input,offset = 0) {
     if (seq !== exactSearchSequence || epoch !== modalEpoch) return;
     const rows = Array.isArray(page) ? page : page.items;
     container.innerHTML = rows.map(row=>`<button type="button" class="button" data-exact-id="${esc(row.id)}">${esc(row.name || row.title)} · ${esc(row.email || row.domain || row.status || '')} · ${esc(row.id)}</button>`).join('') || 'No matches';
-    container.querySelectorAll('[data-exact-id]').forEach(button=>button.addEventListener('click',()=>{ document.querySelector(`[name="${name}"]`).value = button.dataset.exactId; container.textContent = 'Selected exact ID: '+button.dataset.exactId; }));
+    container.querySelectorAll('[data-exact-id]').forEach(button=>button.addEventListener('click',()=>{ document.querySelector(`[name="${name}"]`).value = button.dataset.exactId; const form=$('#relationship-form'); if(form) form.dataset.dirty='true'; container.textContent = 'Selected exact ID: '+button.dataset.exactId; }));
     if (!Array.isArray(page)) { const pager = document.createElement('div'); pager.innerHTML = `<button class="button" type="button" ${offset ? '' : 'disabled'}>Previous matches</button><button class="button" type="button" ${offset+rows.length>=page.total ? 'disabled' : ''}>Next matches</button>`; container.append(pager); const buttons = pager.querySelectorAll('button'); buttons[0].onclick=()=>exactSearch(input,Math.max(0,offset-25));buttons[1].onclick=()=>exactSearch(input,offset+25); }
     else container.insertAdjacentHTML('beforeend','<small>Returned matches only; enter an exact ID if not listed.</small>');
   } catch(error) { if(seq === exactSearchSequence && epoch === modalEpoch) container.textContent = error.message; }
@@ -888,7 +1005,7 @@ async function companyActivities(company,offset=0) {
   try {
     const page=await relationshipRead('relationship-activities',{company_id:company.id,limit:25,offset});
     if(epoch!==modalEpoch) return;
-    showModal(modalHead(company.name+' · Activities')+`<div class="detail-body"><p class="subtitle">Completed Events use their explicit Company. Contact logs use the currently linked contact, not historical ownership. All are self-reported.</p><ul class="relationship-list">${page.items.map(row=>`<li>${esc(row.title)}<small>${esc(row.happened_at)} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)}</small>${row.record_type==='event' ? relationshipRecordButton('events',{id:row.record_id,title:'Open Event'}) : relationshipRecordButton('contacts',{id:row.contact_id,name:'Open contact'})}</li>`).join('') || '<li>No recorded interactions.</li>'}</ul><div class="form-actions"><button class="button" id="company-activities-prev" ${offset ? '' : 'disabled'}>Previous</button><span>${page.total} total</span><button class="button" id="company-activities-next" ${offset+page.items.length>=page.total ? 'disabled' : ''}>Next</button><button class="button" id="company-activities-back">Back to Company</button></div></div>`);
+    showModal(modalHead(company.name+' · Activities')+`<div class="detail-body"><p class="subtitle">Completed Events use their explicit Company. Contact logs use the currently linked contact, not historical ownership. All are self-reported.</p><ul class="relationship-list">${page.items.map(row=>`<li>${esc(row.title)}<small>${esc(relReadable(row.happened_at))} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)}</small>${row.record_type==='event' ? relationshipRecordButton('events',{id:row.record_id,title:'Open Event'}) : relationshipRecordButton('contacts',{id:row.contact_id,name:'Open contact'})}</li>`).join('') || '<li>No recorded interactions.</li>'}</ul><div class="form-actions"><button class="button" id="company-activities-prev" ${offset ? '' : 'disabled'}>Previous</button><span>${page.total} total</span><button class="button" id="company-activities-next" ${offset+page.items.length>=page.total ? 'disabled' : ''}>Next</button><button class="button" id="company-activities-back">Back to Company</button></div></div>`);
     $('#company-activities-prev').onclick=()=>companyActivities(company,Math.max(0,offset-25));
     $('#company-activities-next').onclick=()=>companyActivities(company,offset+25);
     $('#company-activities-back').onclick=()=>relationshipDetail('companies',company.id);
@@ -899,7 +1016,7 @@ async function contactEvents(contact, offset = 0, feed = false) {
   try {
     const page = await relationshipRead(feed ? 'relationship-activities' : 'events',{contact_id:contact.id,limit:25,offset});
     if(epoch !== modalEpoch) return;
-    showModal(modalHead(contact.name + (feed ? ' · Activities' : ' · Events')) + `<div class="detail-body"><button class="button" id="contact-toggle-feed">${feed ? 'View Events' : 'View relationship Activities'}</button>${feed ? '<p class="subtitle">Self-reported interactions, not verified communications.</p><ul class="relationship-list">'+page.items.map(row=>`<li>${esc(row.title)}<small>${esc(row.happened_at)} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)}</small>${row.record_type === 'event' ? relationshipRecordButton('events',{id:row.record_id,title:'Open Event'}) : ''}</li>`).join('')+'</ul>' : relationshipRows(page,'events')}<div class="form-actions"><button class="button" id="contact-events-prev" ${offset ? '' : 'disabled'}>Previous</button><span>${page.total} total</span><button class="button" id="contact-events-next" ${offset+page.items.length>=page.total ? 'disabled' : ''}>Next</button><button class="button" id="contact-events-back">Back to contact</button></div></div>`);
+    showModal(modalHead(contact.name + (feed ? ' · Activities' : ' · Events')) + `<div class="detail-body"><button class="button" id="contact-toggle-feed">${feed ? 'View Events' : 'View relationship Activities'}</button>${feed ? '<p class="subtitle">Self-reported interactions, not verified communications.</p><ul class="relationship-list">'+page.items.map(row=>`<li>${esc(row.title)}<small>${esc(relReadable(row.happened_at))} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)}</small>${row.record_type === 'event' ? relationshipRecordButton('events',{id:row.record_id,title:'Open Event'}) : ''}</li>`).join('')+'</ul>' : relationshipRows(page,'events')}<div class="form-actions"><button class="button" id="contact-events-prev" ${offset ? '' : 'disabled'}>Previous</button><span>${page.total} total</span><button class="button" id="contact-events-next" ${offset+page.items.length>=page.total ? 'disabled' : ''}>Next</button><button class="button" id="contact-events-back">Back to contact</button></div></div>`);
     $('#contact-toggle-feed').onclick=()=>contactEvents(contact,0,!feed);
     $('#contact-events-prev').onclick=()=>contactEvents(contact,Math.max(0,offset-25),feed);
     $('#contact-events-next').onclick=()=>contactEvents(contact,offset+25,feed);

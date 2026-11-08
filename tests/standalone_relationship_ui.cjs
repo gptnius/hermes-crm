@@ -22,12 +22,20 @@ const run=s=>vm.runInContext(s,context);
  const dual=run("taskRelationshipContext({company_id:'company-a',company_name:'A <current>',company_link_basis:'current_contact_relationships',event_id:'event-b',event_company_id:'company-b',event_company_name:'B <explicit>',event_link_basis:'explicit_event_tasks'})");
  assert(dual.includes('Current-contact Company:') && dual.includes('Explicit Event Company:'));
  assert(dual.includes('data-id="company-a"') && dual.includes('data-id="company-b"') && dual.includes('A &lt;current&gt;') && dual.includes('B &lt;explicit&gt;'));
- assert(dual.includes('current_contact_relationships') && dual.includes('explicit_event_tasks'));
+ assert(dual.includes('Current Contact Relationships') && dual.includes('Explicit Event Tasks'));
  run("eventTaskForm({id:'event',version:1,contact_id:'review-contact',deal_id:'review-deal'})");
  const taskForm=nodes.get('#modal-body').innerHTML;
  assert(taskForm.includes('name="contact_id" value="review-contact"') && taskForm.includes('name="deal_id" value="review-deal"'));
  assert(taskForm.includes('Clear either ID for no direct context'));
- run('closeModal()');
+ const dirtyForm=nodes.get('#relationship-form'); dirtyForm.dataset.dirty='true';
+ assert.equal(run('closeModal()'),false); assert.equal(nodes.get('#modal').open,true);
+ assert.equal(nodes.get('#relationship-discard').hidden,false);
+ nodes.get('#relationship-keep').onclick(); assert.equal(nodes.get('#relationship-discard').hidden,true);
+ assert.equal(nodes.get('#modal').open,true);
+ let prevented=false; nodes.get('#modal').cancel({preventDefault(){prevented=true;}});
+ assert.equal(prevented,true); assert.equal(nodes.get('#modal').open,true);
+ nodes.get('#relationship-discard-confirm').onclick(); assert.equal(nodes.get('#modal').open,false);
+ delete dirtyForm.dataset.dirty; delete dirtyForm.dataset.discard;
  const links=run("eventRelatedLinks({contact_id:'contact-a',deal_id:'deal-a',company_id:'company-a'})");
  assert(links.includes('class="event-related-links"') && links.includes('aria-label="Related Event records"'));
  assert.equal((links.match(/class="name-button"/g)||[]).length,3);
@@ -108,3 +116,40 @@ const run=s=>vm.runInContext(s,context);
  assert.equal(nodes.get('#modal').open,false,'dismissed detail must not reopen');
  console.log('PASS: standalone exact IDs, escaping, explicit offsets/microseconds/IANA validation, workspace-scoped reads, unknown receipt lock, identical retry key across dismissal, stale detail dismissal. Fixture logic only; no layout claim.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+// Date controls use named wall times and exact hidden source metadata, never host timezone.
+const timeMarkup=run("eventFields({starts_at:'2026-11-01T01:30:00.123456-04:00',ends_at:'2026-11-01T02:30:00-05:00',timezone:'America/New_York'})");
+assert(timeMarkup.includes('type="datetime-local"') && timeMarkup.includes('step="1"') && timeMarkup.includes('data-time-zone'));
+assert(timeMarkup.includes('data-original="2026-11-01T01:30:00.123456-04:00"') && timeMarkup.includes('Original precise time'));
+assert(timeMarkup.includes('Repeated time: choose an occurrence'));
+const timeNode={dataset:{timeField:'starts_at',original:'2026-11-01T01:30:00.123456-04:00',zone:'America/New_York'},querySelector(){return {value:''};}};
+context.timeForm={querySelector(){return {value:'America/New_York'};},querySelectorAll(){return [timeNode];}};
+context.timeValues={starts_at:'2026-11-01T01:30',_time_zone:'America/New_York'};
+run('resolveRelationshipTimes(timeForm,timeValues)');assert.equal(context.timeValues.starts_at,'2026-11-01T01:30:00.123456-04:00');assert(!('_time_zone' in context.timeValues));
+context.timeValues={starts_at:'2026-03-08T02:30'};assert.throws(()=>run('resolveRelationshipTimes(timeForm,timeValues)'),/does not exist/);
+context.timeValues={starts_at:'2026-11-01T01:45'};assert.throws(()=>run('resolveRelationshipTimes(timeForm,timeValues)'),/occurs twice/);
+console.log('PASS standalone wall-input metadata, unchanged fractional submit, gap rejection and ambiguous time validation.');
+for(const year of ['0099','1899','2101','9998']) {
+ context.oldInstant=`${year}-01-01T12:00:00.123456Z`;
+ const markup=run("relationshipTimeField('starts_at','Start',oldInstant,'UTC')");
+ assert(!markup.includes(' min=') && !markup.includes(' max='),'browser validity must allow unchanged originals');
+ assert(markup.includes(`value="${year}-01-01T12:00:00"`));
+ const input={value:`${year}-01-01T12:00:00`}, choice={value:'',dataset:{}},preview={},occurrence={};
+ const container={dataset:{timeField:'starts_at',original:context.oldInstant,zone:'UTC'},querySelector(selector){return {'input':input,'[data-occurrence]':choice,'[data-time-preview]':preview,'[data-occurrence-label]':occurrence}[selector];}};
+ context.oldForm={querySelector(){return {value:'UTC'};},querySelectorAll(){return [container];}};
+ run('updateRelationshipTimes(oldForm)');assert(!preview.textContent.includes('Choose a year'));assert.equal(occurrence.hidden,true);
+ context.oldValues={starts_at:input.value};run('resolveRelationshipTimes(oldForm,oldValues)');assert.equal(context.oldValues.starts_at,context.oldInstant);
+ input.value=`${year}-01-01T12:01`;context.oldValues={starts_at:input.value};
+ run('updateRelationshipTimes(oldForm)');assert.match(preview.textContent,/1900 through 2100/);
+ assert.throws(()=>run('resolveRelationshipTimes(oldForm,oldValues)'),/1900 through 2100/);
+}
+// Clearing a wall value must invalidate an earlier fold choice, even if re-entered identically.
+{
+ const input={value:'2026-11-01T01:30'},choice={value:'',dataset:{}},preview={},occurrence={};
+ const container={dataset:{timeField:'starts_at',original:'',zone:'America/New_York'},querySelector(selector){return {'input':input,'[data-occurrence]':choice,'[data-time-preview]':preview,'[data-occurrence-label]':occurrence}[selector];}};
+ context.foldForm={querySelector(){return {value:'America/New_York'};},querySelectorAll(){return [container];}};
+ run('updateRelationshipTimes(foldForm)');
+ choice.value='2026-11-01T06:30:00.000Z';run('updateRelationshipTimes(foldForm)');
+ input.value='';run('updateRelationshipTimes(foldForm)');assert.equal(choice.value,'');assert.equal(occurrence.hidden,true);assert.equal(choice.dataset.signature,undefined);
+ input.value='2026-11-01T01:30';run('updateRelationshipTimes(foldForm)');assert.equal(occurrence.hidden,false);assert.equal(choice.value,'');assert.match(preview.textContent,/occurs twice/);
+ context.foldValues={starts_at:input.value};assert.throws(()=>run('resolveRelationshipTimes(foldForm,foldValues)'),/occurs twice/);
+}

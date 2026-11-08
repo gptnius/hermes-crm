@@ -18,7 +18,7 @@ The existing CRM view and selected record can move into the companion workspace.
 
 The plugin does not call the native composer write or submit helpers. On the tested source revision, their addressed insertion can defer through a mutable main-composer target and append from a draft reference. The copy-and-review flow avoids silently changing a different session or overwriting newer typing. It also works without pretending that an unmounted composer accepted text.
 
-Record context is data, not authorization to take an action. The user still tells the native agent what to do, and the host retains its normal approval behavior. Existing CRM tools can read and modify records in the current profile. This UI fetches records for display and copy validation, but does not dispatch agent work or modify records merely by opening the view or copying a reference. There is no email integration, sent/received capture or automatic outreach in this increment.
+Record context is data, not authorization to take an action. The user still tells the native agent what to do, and the host retains its normal approval behavior. Existing CRM tools can read and modify records in the current profile. This UI fetches records for display and copy validation, but does not dispatch agent work or modify records merely by opening the view or copying a reference. This conversation companion does not invoke the separate optional Gmail metadata reader, capture sent/received mail or send outreach. Any Gmail read needs its own configured account and explicit review; no sending adapter is enabled.
 
 ## Task-specific requests
 

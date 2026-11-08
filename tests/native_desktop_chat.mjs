@@ -76,7 +76,7 @@ async function fixture({ old = false, ignoreDock = false, noClipboard = false } 
   const visible = id => model ? model.findGroupOfPane(tree, id)?.active === id : panes.has(id) ? (!(ignoreDock || movedToCenter) || currentTab === id) : id === 'workspace' && (!(ignoreDock || movedToCenter) || currentTab === id);
   const env = { state, epoch, disposers, timers, intervals, copies, calls, navigation, panes, closers,
     get opens() { return opens; }, get removals() { return removals; }, get tree() { return tree; },
-    copyGate: null, readGate: null, token: 'workspace-secret-not-for-chat', version: 3,
+    copyGate: null, readGate: null, relationshipVersion: 1, token: 'workspace-secret-not-for-chat', version: 3,
     moveToCenter(id) { if (model) { tree = model.removePane(tree, id); tree = model.insertAtGroup(tree, model.findGroupOfPane(tree, 'workspace').id, id, 'center'); } else movedToCenter = true; },
   };
   const host = { state, navigate(path) { navigation.push(path); }, revealPane: reveal, paneVisibility: id => ({ get: () => visible(id) }),
@@ -112,6 +112,16 @@ async function fixture({ old = false, ignoreDock = false, noClipboard = false } 
       if (path === '/snapshot') return { meta: { workspace_token: env.token, backend: 'sqlite', profile: state.profile.get() }, contacts: [row], deals: [], tasks: [], activity: [],
         overview: { contacts: 1, open_deals: 0, pipeline_value: 0, weighted_value: 0, overdue_tasks: 0, stages: [], tasks: [], activity: [] } };
       if (path.startsWith('/contacts/c1?')) return env.readGate ? env.readGate.promise : { contact: row, deals: [], tasks: [], activity: [] };
+      if (path.startsWith('/contacts/c1/company?')) return { contact_id: 'c1', contact_version: env.version, company_id: 'co1', company_name: 'Linked Company' };
+      if (path.startsWith('/companies/co1?')) return { id: 'co1', name: 'Linked Company', version: env.relationshipVersion };
+      if (path.startsWith('/events/e1?')) return { id: 'e1', title: 'Linked Event', version: env.relationshipVersion, kind: 'call', status: 'scheduled', starts_at: '2027-01-02T12:00:00Z', ends_at: '2027-01-02T13:00:00Z', timezone: 'UTC' };
+      const linkedTask = { id: 't1', title: 'Linked Task', version: 1, status: 'open', due_at: '2027-01-03T12:00:00Z', priority: 'normal', schedule_status: 'not_scheduled' };
+      const paged = items => ({ items, total: 51, limit: 25, offset: Number(new URLSearchParams(path.split('?')[1]).get('offset') || 0) });
+      if (path.startsWith('/tasks/t1?')) return linkedTask;
+      if (path.startsWith('/companies?')) return paged([{ id: 'co1', name: 'Linked Company' }]);
+      if (path.startsWith('/events?') || path.startsWith('/companies/co1/records/events?')) return paged([{ id: 'e1', title: 'Linked Event' }]);
+      if (path.startsWith('/companies/co1/records/tasks?') || path.startsWith('/events/e1/tasks?')) return paged([linkedTask]);
+      if (path.startsWith('/companies/co1/') || path.startsWith('/events/e1/') || path.startsWith('/relationship-activities?') || path.startsWith('/contacts/c1/relationship-tasks?')) return { items: [], total: 0, limit: 25, offset: 0 };
       if (path.startsWith('/reports/contacts?')) return { items: [row], total: 1, limit: 50, offset: 0 };
       throw Error(`Unexpected read ${path}`);
     },
@@ -214,7 +224,7 @@ for (const options of [{ old: true }, { ignoreDock: true }]) {
   await e.change(() => input.props.onChange({ target: { value: 'Unsaved contact' } }));
   const blocked = e.button('Chat with Hermes'); await e.change(() => blocked.props.onClick());
   assert.equal(e.navigation.length, 0); assert.equal(input.props.value, 'Unsaved contact');
-  await e.click('Cancel'); await e.click('Chat with Hermes');
+  await e.click('Cancel'); assert.ok(e.button('Discard changes')); await e.click('Discard changes'); await e.click('Chat with Hermes');
   const pane = [...e.panes.values()][0]; assert.ok(pane);
   await e.unmount(); await e.mount(pane.render());
   assert.match(e.text(), /Ada Example/); assert.equal(e.root().root.findAll(n => n.props['aria-label'] === 'Record details').length, 1);
@@ -234,6 +244,101 @@ for (const options of [{ old: true }, { ignoreDock: true }]) {
   await e.change(() => { e.state.cwd.set('/other'); e.state.cwd.set('/synthetic'); });
   await e.change(() => e.readGate.resolve({ contact: { id: 'c1', version: 3 } }));
   assert.equal(e.copies.length, copiesBefore); assert.match(e.text(), /scope changed/);
+  await e.finish();
+}
+// Relocating a linked Company/Event retains only its identity, then fetches a fresh record.
+for (const [kind, target, title] of [['companies', 'co1', 'Linked Company · co1'], ['events', 'e1', 'Linked Event']]) {
+  const e = await fixture(); await e.mount(); await e.openRecord();
+  await e.click(title);
+  assert.ok(e.button(kind === 'companies' ? 'Edit Company' : 'Edit Event'));
+  await e.click('Chat with Hermes');
+  const pane = [...e.panes.values()][0]; assert.ok(pane);
+  await e.unmount();
+  const previousReads = e.calls.filter(path => path.startsWith(`/${kind}/${target}?`)).length;
+  e.relationshipVersion = 9;
+  await e.mount(pane.render());
+  assert.ok(e.button(kind === 'companies' ? 'Edit Company' : 'Edit Event'), 'Exact selected record survives relocation');
+  assert.ok(e.calls.filter(path => path.startsWith(`/${kind}/${target}?`)).length > previousReads, 'Relocated record is reread');
+  assert.match(e.text(), /Version 9/);
+  await e.click('Back to Contacts');
+  assert.equal(e.root().root.findAll(n => n.props['aria-label'] === 'Record details').length, 1);
+  await e.click('Close');
+  assert.equal(e.root().root.findAll(n => n.props['aria-label'] === 'Record details').length, 0);
+  await e.finish();
+}
+// Every relationship-table selection joins the same root history, with list and child-table pages retained.
+{
+  const e = await fixture(); await e.mount(); await e.click('Companies');
+  const panel = () => e.root().root.findByProps({ 'aria-label': 'Companies and relationship events' });
+  await e.change(() => panel().findAllByType('input').find(node => node.props.type !== 'checkbox').props.onChange({ target: { value: 'Acme' } }));
+  await e.change(() => panel().findAllByType('input').find(node => node.props.type === 'checkbox').props.onChange({ target: { checked: true } }));
+  await e.click('Next page');
+  await e.click('Linked Company');
+  const taskTable = panel().findAllByType('section').find(node => node.findAllByType('h3').length === 1 && flatten(node.findByType('h3').children) === 'tasks');
+  await e.change(() => taskTable.findAllByType('button').find(node => flatten(node.children) === 'Next page').props.onClick());
+  await e.click('Linked Task');
+  await e.click('Chat with Hermes'); const pane = [...e.panes.values()][0]; await e.unmount(); await e.mount(pane.render());
+  await e.click('Close');
+  assert.ok(e.button('Edit Company'), 'Task Close returns exact parent Company after split relocation');
+  assert.equal(new URLSearchParams(e.calls.findLast(path => path.startsWith('/companies/co1/records/tasks?')).split('?')[1]).get('offset'), '25');
+  await e.click('Close');
+  let params = new URLSearchParams(e.calls.findLast(path => path.startsWith('/companies?')).split('?')[1]);
+  assert.equal(params.get('q'), 'Acme'); assert.equal(params.get('include_archived'), 'true'); assert.equal(params.get('offset'), '25');
+  assert.equal(e.button('Close'), undefined, 'List has no stale record Close');
+  await e.click('Linked Company');
+  const staleTaskLink = e.button('Linked Task').props.onClick;
+  await e.click('Edit Company');
+  await e.change(() => panel().findAllByType('input')[0].props.onChange({ target: { value: 'Dirty Company' } }));
+  assert.equal(e.button('Back to companies').props.disabled, true);
+  await e.change(() => staleTaskLink());
+  assert.ok(e.root().root.findAllByType('form').length, 'Old link cannot discard an open relationship form');
+  await e.click('Cancel'); await e.click('Keep editing'); await e.click('Cancel'); await e.click('Discard changes');
+  await e.click('Close');
+  await e.finish();
+}
+// Both current and retained Chat handlers must honor the live relationship-form lock.
+for (const [entry, edit, dirty] of [['Linked Company · co1', 'Edit Company', 'Unsaved Company name'], ['Linked Event', 'Edit Event', 'Unsaved Event title']]) {
+  const e = await fixture(); await e.mount(); await e.openRecord(); await e.click(entry);
+  const staleChat = e.button('Chat with Hermes').props.onClick;
+  await e.click(edit);
+  const textInput = () => e.root().root.findByType('form').findAllByType('input').find(node => node.props.type !== 'datetime-local' && node.props.value !== 'UTC');
+  await e.change(() => textInput().props.onChange({ target: { value: dirty } }));
+  assert.equal(e.button('Chat with Hermes').props.disabled, true);
+  const reads = e.calls.length;
+  await e.change(() => { staleChat(); e.button('Chat with Hermes').props.onClick(); });
+  assert.equal(e.opens, 0); assert.equal(e.navigation.length, 0); assert.equal(e.panes.size, 0);
+  assert.equal(e.calls.length, reads, 'Blocked Chat handlers perform no transport calls');
+  assert.equal(textInput().props.value, dirty, 'Blocked relocation preserves the exact unsaved input');
+  await e.click('Cancel'); await e.click('Keep editing'); assert.equal(textInput().props.value, dirty);
+  await e.click('Cancel'); await e.click('Discard changes');
+  await e.click('Chat with Hermes'); assert.equal(e.opens, 1, 'Chat remains available after explicit discard');
+  await e.finish();
+}
+// Contact → Company → Event → Task follows every parent, including after split relocation.
+{
+  const e = await fixture(); await e.mount(); await e.openRecord();
+  await e.click('Linked Company · co1'); await e.click('Linked Event');
+  // Repeated current-target callback adds no extra entry.
+  const openCurrent = e.root().root.findAll(node => typeof node.type === 'function' && node.type.name === 'Relationships')[0].props.navigateRecord;
+  await e.change(() => openCurrent('events', 'e1'));
+  await e.click('Chat with Hermes'); const pane = [...e.panes.values()][0]; await e.unmount(); await e.mount(pane.render());
+  assert.ok(e.button('Edit Event'));
+  await e.click('Linked Task'); await e.click('Close'); assert.ok(e.button('Edit Event'));
+  await e.click('Close'); assert.ok(e.button('Edit Company'));
+  await e.click('Close'); assert.equal(e.root().root.findAllByProps({ 'aria-label': 'Record details' }).length, 1);
+  await e.click('Close'); assert.equal(e.root().root.findAllByProps({ 'aria-label': 'Record details' }).length, 0);
+  await e.finish();
+}
+// Event-list query/status/kind and pagination also survive child navigation.
+{
+  const e = await fixture(); await e.mount(); await e.click('Events');
+  const panel = () => e.root().root.findByProps({ 'aria-label': 'Companies and relationship events' });
+  await e.change(() => panel().findByType('input').props.onChange({ target: { value: 'Call' } }));
+  await e.change(() => panel().findAllByType('select')[0].props.onChange({ target: { value: 'scheduled' } }));
+  await e.change(() => panel().findAllByType('select')[1].props.onChange({ target: { value: 'call' } }));
+  await e.click('Next page'); await e.click('Linked Event'); await e.click('Linked Task'); await e.click('Close'); await e.click('Close');
+  const params = new URLSearchParams(e.calls.findLast(path => path.startsWith('/events?')).split('?')[1]);
+  assert.equal(params.get('q'), 'Call'); assert.equal(params.get('status'), 'scheduled'); assert.equal(params.get('kind'), 'call'); assert.equal(params.get('offset'), '25');
   await e.finish();
 }
 // Compact context is useful without expanding the preview; nothing copies on

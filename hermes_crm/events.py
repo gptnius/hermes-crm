@@ -2,12 +2,12 @@
 import json
 import uuid
 from contextlib import nullcontext
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import Field, field_validator, model_validator
 from sqlalchemy import select, update, delete, func
-from .domain import CRMError, StrictModel, TaskInput, contacts, deals, tasks, now
+from .domain import CRMError, StrictModel, TaskInput, contacts, deals, tasks, now, normalize_utc
 from .report_store import scope_for, canonical
 from .relationship_schema import events,event_revisions,event_tasks,companies,check_schema
 from .relationship_store import RelationshipStore
@@ -16,7 +16,7 @@ def timestamp(value):
     if not isinstance(value,str): raise ValueError('Time must be an ISO timestamp with explicit offset')
     dt=datetime.fromisoformat(value.replace('Z','+00:00'))
     if dt.tzinfo is None or dt.utcoffset() is None: raise ValueError('Time must include an explicit offset')
-    return dt.astimezone(timezone.utc).isoformat(timespec='microseconds')
+    return normalize_utc(dt)
 
 class EventInput(StrictModel):
     title: str = Field(min_length=1,max_length=200)
@@ -69,13 +69,17 @@ class CompletionInput(StrictModel):
 
 class EventStore(RelationshipStore):
     table=events
-    def _references(self,conn,scope,values):
+    def _references(self,conn,scope,values,previous_company_id=None):
         for name,table in (('contact_id',contacts),('deal_id',deals),('company_id',companies)):
             identifier=values.get(name)
             if identifier is None: continue
-            stmt=select(table.c.id).where(table.c.id==identifier)
+            stmt=select(table.c.id,table.c.archived_at) if table is companies else select(table.c.id)
+            stmt=stmt.where(table.c.id==identifier)
             if table is companies: stmt=stmt.where(table.c.scope==scope)
-            if conn.execute(stmt).first() is None: raise CRMError('Related record not found',404)
+            row=conn.execute(stmt).mappings().first()
+            if row is None: raise CRMError('Related record not found',404)
+            if table is companies and row['archived_at'] and identifier!=previous_company_id:
+                raise CRMError('Archived Company cannot receive links',409)
     def _revision(self,conn,scope,record,reason,actor):
         conn.execute(event_revisions.insert().values(scope=scope,event_id=record['id'],version=record['version'],record=canonical(record),reason=reason,actor=actor,created_at=now()))
     def list(self,q='',status=None,kind=None,contact_id=None,company_id=None,deal_id=None,starts_from=None,starts_before=None,limit=50,offset=0,*,conn=None):
@@ -124,7 +128,7 @@ class EventStore(RelationshipStore):
             else:
                 if terminal: raise CRMError('Reopen this Event before changing it',409)
                 if operation in ('updated','reschedule'):
-                    values=EventInput.model_validate({k:old[k] for k in EventInput.model_fields}|data).model_dump();self._references(conn,scope,values)
+                    values=EventInput.model_validate({k:old[k] for k in EventInput.model_fields}|data).model_dump();self._references(conn,scope,values,previous_company_id=old['company_id'])
                     if operation=='reschedule':
                         if not {'starts_at','ends_at','timezone'}.issubset(data): raise CRMError('Rescheduling requires reviewed start, end and timezone')
                         values['status']='scheduled'

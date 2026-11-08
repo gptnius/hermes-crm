@@ -21,6 +21,13 @@ metadata = MetaData()
 def now():
     return datetime.now(timezone.utc).isoformat(timespec='microseconds')
 
+def normalize_utc(dt):
+    """Normalize a validated aware datetime without leaking range errors."""
+    try:
+        return dt.astimezone(timezone.utc).isoformat(timespec='microseconds')
+    except OverflowError:
+        raise ValueError('Timestamp is outside the supported UTC range') from None
+
 def base_columns():
     return [Column('id', String(36), primary_key=True), Column('version', Integer, nullable=False),
             Column('created_at', String(40), nullable=False), Column('updated_at', String(40), nullable=False)]
@@ -123,7 +130,7 @@ class TaskInput(StrictModel):
     def date_valid(cls, value):
         dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
         if dt.tzinfo is None: raise ValueError('due_at must include a timezone')
-        return dt.astimezone(timezone.utc).isoformat(timespec='microseconds')
+        return normalize_utc(dt)
     @field_validator('contact_id','deal_id')
     @classmethod
     def empty_null(cls, value): return value or None

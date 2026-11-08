@@ -10,7 +10,7 @@ change the database, or add email controls. `hermes_crm/email_contracts.py` is a
 pure, integration-agnostic contract with an always-disabled adapter. No runtime
 surface imports it. Its tests use synthetic data only.
 
-## What the CRM actually stores today
+## Administrative audit storage
 
 `hermes_crm/domain.py` defines `crm_activity` with ID, entity type/ID, action,
 actor, summary and creation time. `CRM._audit` writes record-change events in the
@@ -60,13 +60,14 @@ proof of sending. A provider sent-folder label can also reflect an import or
 manual relabel, so label membership alone must not be described as transport
 verification.
 
-The original CRM-owned read-only Gmail design is described in
-[GMAIL_READONLY_PLAN.md](GMAIL_READONLY_PLAN.md). It would use the existing host-owned
-OAuth facade rather than borrowed skill/plugin credentials, with separately
-approved minimal scopes and account binding. Only a design and offline synthetic
-specification are being developed at this stage. No manifest OAuth declaration,
-runtime import, tool, connection control, synchronization or provider request is
-enabled by that work.
+The CRM-owned read-only Gmail design in
+[GMAIL_READONLY_PLAN.md](GMAIL_READONLY_PLAN.md) has a separate implemented,
+default-off metadata pilot. It uses the host-owned OAuth facade rather than
+borrowed skill/plugin credentials, with separately approved scopes and account
+binding. It includes an optional manifest declaration and explicit native
+verification/read controls, but no agent tool, automatic synchronization, send
+adapter or live-account verification. See [current setup and limits](GMAIL_SETUP.md).
+No provider request occurs merely by opening CRM or refreshing local status.
 
 ## Implemented data boundaries
 

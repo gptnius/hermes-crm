@@ -27,11 +27,11 @@ const h = React.createElement;
 await act(async () => { tree = Renderer.create(h(Relationships,{client:native,workspaceToken:'ws',page:'events',initial:{kind:'events',id:'event-one'},open:()=>{}})); });
 const button = name => tree.root.findAllByType('button').find(n=>n.children.join('')===name);
 await act(async () => button('Edit Event').props.onClick());
-let inputs = tree.root.findAllByType('input'); assert.ok(inputs.some(n=>n.props.value===event.starts_at));
+let inputs = tree.root.findAllByType('input'); assert.ok(inputs.some(n=>n.props.type==='datetime-local' && n.props.value==='2026-10-01T12:30:59'));
 await act(async () => tree.root.findByType('form').props.onSubmit({preventDefault(){}}));
 assert.equal(writes[0].body.data.starts_at,event.starts_at);assert.equal(writes[0].body.expected_version,3);
 await act(async () => button('Create associated task').props.onClick());
-assert.ok(tree.root.findAllByType('input').some(n=>n.props.required && n.props.placeholder?.includes('T14:00')));
+assert.ok(tree.root.findAllByType('input').some(n=>n.props.required && n.props.type==='datetime-local'));
 assert.ok(!tree.root.findAllByType('input').some(n=>n.props.value===event.title));
 await act(async () => button('Cancel').props.onClick());
 await act(async () => button('Needs rescheduling').props.onClick());
@@ -116,3 +116,47 @@ for(const scenario of receiptCases) for(const bad of scenario.bad) {
 }
 assert.ok(module.namespace.confirmedRelationshipReceipt('/tasks/task-a/event/unlink','POST',{event_id:'event-a',expected_version:2,expected_task_version:4},{event:{id:'event-a',version:3},event_id:null,task:{id:'task-a',version:5},task_id:'task-a'}));
 console.log(`Operation-specific receipt identities and positive versions: ${checkedReceipts} malformed cases retain original retry protection; valid unlink/no-op receipts accepted.`);
+// Practical time inputs preserve exact originals, require fold choices and protect dirty cancellation.
+let submitted=[],cancelled=0;
+const formSession={read:async()=>({items:[],total:0})};
+await act(async()=>{tree=Renderer.create(h(RelationshipForm,{kind:'events',row:{...event,starts_at:'2026-11-01T01:30:00.123456-04:00',ends_at:'2026-11-01T02:30:00.123456-05:00',timezone:'America/New_York'},session:formSession,submit:v=>submitted.push(v),cancel:()=>cancelled++,busy:false,pending:false}));});
+const formSubmit=()=>tree.root.findByType('form').props.onSubmit({preventDefault(){}});
+await act(async()=>formSubmit());
+assert.equal(submitted.at(-1).starts_at,'2026-11-01T01:30:00.123456-04:00');
+let wallInputs=tree.root.findAllByType('input').filter(n=>n.props.type==='datetime-local');
+await act(async()=>wallInputs[0].props.onChange({target:{value:'2026-11-01T01:45'}}));
+await act(async()=>formSubmit());assert.equal(submitted.length,1);assert.match(JSON.stringify(tree.toJSON()),/occurs twice/);
+const foldSelect=tree.root.findAllByType('select').find(n=>n.children.some(c=>c.children?.includes('Choose occurrence')));
+await act(async()=>foldSelect.props.onChange({target:{value:'2026-11-01T06:45:00.000Z'}}));
+await act(async()=>formSubmit());assert.equal(submitted.at(-1).starts_at,'2026-11-01T06:45:00.000Z');
+await act(async()=>button('Cancel').props.onClick());assert.equal(cancelled,0);assert.ok(button('Keep editing'));assert.ok(button('Discard changes'));
+await act(async()=>button('Keep editing').props.onClick());assert.equal(cancelled,0);
+await act(async()=>tree.root.findByType('form').props.onKeyDown({key:'Escape',preventDefault(){}}));
+await act(async()=>button('Discard changes').props.onClick());assert.equal(cancelled,1);
+await act(async()=>tree.unmount());
+submitted=[];
+await act(async()=>{tree=Renderer.create(h(RelationshipForm,{kind:'events',row:event,session:formSession,submit:v=>submitted.push(v),cancel:()=>{},busy:false,pending:false}));});
+const zoneInput=tree.root.findAllByType('input').find(n=>n.props.placeholder==='America/New_York');
+await act(async()=>zoneInput.props.onChange({target:{value:'Asia/Kathmandu'}}));await act(async()=>formSubmit());
+assert.equal(submitted[0].timezone,'Asia/Kathmandu');assert.equal(submitted[0].starts_at,'2026-10-01T06:45:59.000Z');
+await act(async()=>tree.unmount());
+let editing=[];
+await act(async()=>{tree=Renderer.create(h(Relationships,{client:native,workspaceToken:'draft-test',page:'events',open:()=>{},onEditingChange:v=>editing.push(v)}));});
+await act(async()=>button('Create Event').props.onClick());assert.equal(editing.at(-1),true);
+await act(async()=>button('Cancel').props.onClick());assert.equal(editing.at(-1),false);
+await act(async()=>tree.unmount());assert.equal(editing.at(-1),false);
+console.log('Practical native datetime controls: exact unchanged fold, required changed fold choice, changed zone, dirty Cancel/Escape keep/discard and parent editor lock passed.');
+for (const year of ['0099','1899','2101','9998']) {
+ submitted=[];
+ const old={...event,starts_at:`${year}-01-01T12:00:00.123456Z`,ends_at:`${year}-01-01T13:00:00.123456Z`};
+ await act(async()=>{tree=Renderer.create(h(RelationshipForm,{kind:'events',row:old,session:formSession,submit:v=>submitted.push(v),cancel:()=>{},busy:false,pending:false}));});
+ const fields=tree.root.findAllByType('input').filter(n=>n.props.type==='datetime-local');
+ // Browser range validation must not preempt the unchanged-original preservation path.
+ for(const field of fields){assert.equal(field.props.min,undefined);assert.equal(field.props.max,undefined);assert.equal(field.props.step,1);}
+ assert(!JSON.stringify(tree.toJSON()).includes('Choose a year from 1900 through 2100.'));
+ await act(async()=>formSubmit());assert.equal(submitted.at(-1).starts_at,old.starts_at);
+ await act(async()=>fields[0].props.onChange({target:{value:`${year}-01-01T12:01`}}));
+ await act(async()=>formSubmit());assert.equal(submitted.length,1);assert.match(JSON.stringify(tree.toJSON()),/Choose a year from 1900 through 2100/);
+ await act(async()=>tree.unmount());
+}
+console.log('Unchanged out-of-range originals: browser range attributes absent, readable preview, exact submit retained and changed wall time rejected.');
