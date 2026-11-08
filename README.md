@@ -19,10 +19,11 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Record history: recent administrative changes retain verified current-contact links. Relationship Activities separately shows completed local Events and self-reported contact logs, not fabricated communication evidence.
 - Companies and Events: explicit Company groups, reviewed primary contact links, paged related records, local appointments/calls with Scheduled, Needs rescheduling, Completed and Cancelled states, versioned corrections and genuine associated tasks. No automatic name merging, invitations, calls or agent execution. See [setup and use](docs/COMPANIES_EVENTS.md).
 - Logged contact: explicit self-reported interactions with corrections, kept separate from CRM edits and optional Gmail observations.
+- Research evidence: supplied source claims and separate hypotheses for exact Companies/Contacts, immutable evidence, and version-bound note proposals with explicit review/application. No web fetching, sends or scheduled-tool expansion. See [research review and limits](docs/RESEARCH_EVIDENCE.md).
 - Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.
 - Customization: versioned optional text/number/boolean/date/single-select fields on contacts, deals and tasks; native record forms and typed reports use the same catalog as agents. Archive retains definitions/values; used deal stages cannot be archived. See [custom fields and stages](docs/CUSTOMIZATION.md).
 - Follow-ups: timezone-aware due dates, optional human owners with an explicit workspace policy, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. A separate reviewed CRM confirmation can schedule, check or cancel that exact future assignment through the existing native conversation. Task-specific Preview/Copy remains available for manual native chat Send. See [assignment workflow](docs/ASSIGNMENT_UI.md).
-- Native Hermes: 68 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
+- Native Hermes: 73 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
 - Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
@@ -91,11 +92,18 @@ permission decisions explicitly parked.
 
 Additional work and remaining limits:
 
+- **Sourced research review, first increment implemented:** store supplied source
+  claims and hypotheses for an exact Company or Contact, prepare a version-bound
+  ordinary note append, and apply only after explicit current-record review.
+  Separate research tools do not add web access, automatic sending or
+  scheduled-agent permissions. See [usage and limits](docs/RESEARCH_EVIDENCE.md)
+  and the [implementation plan](docs/RESEARCH_EVIDENCE_PLAN.md).
 - **Agent work:** a supported safe immediate-execution path, stronger recovery
   evidence, reviewed cadences and bounded research capabilities. Consultation
   preparation should link a research task to its Event, Contact and Company,
   then retain reviewed research notes or attachments with explicit provenance.
-  The links are implemented; research permissions, result-writing and attachments
+  The links and sourced note proposals are implemented. Automatic research,
+  broader scheduled permissions, full agent-result review closure and attachments
   still require their own development and verification. No promise that
   every task executes or that outages and unknown outcomes cannot occur. See
   [agent-work roadmap](docs/NEXT_RELEASE_PLAN.md).

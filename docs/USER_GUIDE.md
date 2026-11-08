@@ -253,6 +253,20 @@ policy. Saving, scheduling, reporting and completing the business task are
 different actions. Review task details and assignment history before assuming
 work will run or has finished.
 
+## Review research evidence
+
+Open a saved Company or Contact and choose **Research**. Save a supplied source
+with its observation time, separate source claims from hypotheses, then prepare
+a note addition. Review the exact current Notes and proposed result before
+explicitly applying or dismissing it. Saving evidence or preparing a proposal
+does not change the record. A stale version requires fresh review.
+
+Five separate research tools let an already-authorized interactive Hermes agent
+submit evidence and prepare proposals. They do not enable browsing, send email,
+add scheduled permissions or apply the note for you. Existing generic authorized
+record edits remain separate. Read [the research workflow and privacy limits](RESEARCH_EVIDENCE.md)
+for source handling, unknown outcomes, exact retries and retained history.
+
 ## Read recent record history
 
 The dashboard's **Recent record history** card shows the latest five available CRM

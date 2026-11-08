@@ -2,6 +2,77 @@
 
 Updated November 8, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Sourced evidence and reviewed note proposals (November 8, 2026)
+
+This increment uses public ownership baseline
+`aed3f70e6ec5b55fe9192f856b520d1f241a26cf` (tree
+`0d7e4759978c6012f94770da032554a7f14493f6`). It stores supplied source claims
+and separate hypotheses against one exact Contact or Company, then prepares an
+append-only Notes proposal for explicit review. It does not fetch sources, run
+research, send messages, grant access or widen scheduled-agent toolsets. Source
+URLs, observation times and actor-channel labels are not verified authorship or
+proof of execution. Existing authorized record-editing tools remain available;
+this is not a global human-only write boundary.
+
+Final cloud Python aggregate: **1,374 passed, 680 optional cases skipped**, with
+two known dependency warnings. Coverage includes strict schema and packet
+validation, source/time grammar, workspace isolation, non-initializing reads,
+archive/restore staleness, exact Notes append, version/hash checks, atomic rollback,
+same-key historical replay and encrypted-export inclusion. Two local SQLite cases
+included in this aggregate verify that preparing a proposal leaves last-edit unchanged and
+applying it changes last-edit without changing last logged contact, open follow-up
+counts or the linked task's status/version. Same-key replay preserves the report
+metrics. These tests do not establish a new agent-run review or task-completion
+workflow.
+
+Disposable PostgreSQL 17.11 ARM64 verification passed **881 mixed checks with
+zero failures or skips** on the frozen backend plus the reviewed timestamp delta:
+**75 focused cases (57 local and 18 PostgreSQL)** and all 806 prior mixed
+regressions. A separate local test fed actual in-process FastAPI SQLite responses
+to the shipped native and standalone JavaScript validators and also passed. These
+are not 881 exclusively PostgreSQL-backed cases. All four owned fresh tmpfs-only
+loopback containers were removed and independently confirmed absent. Concurrency
+coverage uses same-process threads, not separate processes. Managed Supabase and
+hosted-service behavior remain unverified.
+
+Independent backend review found and corrected missing stored-packet validation
+on list/replay/export paths and malformed success-response handling. Timestamp
+syntax now agrees across Python and JavaScript before this unreleased increment
+ships, retaining accepted offsets and precision rather than normalizing evidence
+silently. URL restrictions reject malformed values and common credential-bearing
+parameters, but are not exhaustive secret detection or proof that a URL is public
+or safe. Digests are consistency checks, not authenticated tamper protection.
+
+Independent native and standalone reviews covered malformed packets/receipts,
+dirty drafts, pagination, exact append/hash previews, rejected and uncertain
+writes, duplicate clicks, historical receipt recovery, late responses and
+workspace/profile changes. Fixed defects included retained response extras,
+committed drafts that could be resubmitted, inaccessible Previous after a failed
+next page, and invalid empty proposal identifiers. Unknown requests retain their
+original key/body and require an explicit check or retry; no automatic write is
+performed. UI recovery does not persist full before/after Notes snapshots.
+
+The **22 non-render JavaScript module entrypoints** completed: 21 ran passing
+suites, while the exact-host work-command contract skipped because pinned source
+was unavailable. Two other optional assertions (chat pinned-source contract and
+Hermes CSS compatibility) also skipped. **12 supported CommonJS entrypoints**,
+**11 generator checks**, JavaScript syntax and whitespace checks passed, including
+the existing 25 bridge checks. React tests used actual React/react-test-renderer
+19.3.0 with synthetic SDK transports. The HTTP-to-JavaScript bridge exercises real
+application routes with synthetic records, not live Hermes authentication or a
+model/provider. A separate Playwright layout fixture was not rerun because the
+browser executable was absent; no bypass or installation was attempted.
+
+Physical native/standalone visual inspection, light/dark/responsive review,
+assistive-technology behavior and live public-source research remain **unverified
+for this increment**. The user's running application, records, profiles and
+credentials were not changed. Research content remains ordinary plaintext in the
+live database, and host conversations/tool logs may retain independent copies.
+Encrypted content export includes research tables but remains neither a full
+backup nor a tested restore workflow. General attachments, broader research
+execution, outbound email and agent-result review closure remain separate work.
+See [research evidence and boundaries](RESEARCH_EVIDENCE.md).
+
 ## Optional task ownership and policy (November 8, 2026)
 
 The ownership increment uses public planning baseline

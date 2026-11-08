@@ -80,7 +80,7 @@ const $ = (s) => document.querySelector(s),
 let stages = ["lead", "qualified", "proposal", "negotiation", "won", "lost"];
 let catalog = { stages: [], fields: {} };
 function adoptCatalog(meta) {
-  if (meta?.workspace_token) relationshipWorkspace = meta.workspace_token;
+  if (meta?.workspace_token) { if (relationshipWorkspace !== meta.workspace_token) researchWorkspaceEpoch++; relationshipWorkspace = meta.workspace_token; }
   if (!meta?.catalog || !Array.isArray(meta.catalog.stages)) return;
   catalog = meta.catalog;
   stages = catalog.stages.filter(s => !s.archived).map(s => s.key);
@@ -635,7 +635,7 @@ async function contactDetail(id) {
     if (scope !== relationshipWorkspace || c?.id !== id) return;
     showModal(
       modalHead(c.name) +
-        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}<section><h3>Company</h3>${c.company_id ? relationshipRecordButton("companies",{id:c.company_id,name:c.company_name || "Open linked Company"}) : `<p>Unlinked legacy company text: ${esc(c.company || "Not set")}</p>`}<button class="button" id="contact-company">Link or unlink Company</button><button class="button" id="contact-events">Events & Activities</button><button class="button" id="contact-create-event">Create Event</button></section>${customFieldDetails("contacts", c)}${contactActivity(list(result.activity), c.id)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
+        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}<section><h3>Company</h3>${c.company_id ? relationshipRecordButton("companies",{id:c.company_id,name:c.company_name || "Open linked Company"}) : `<p>Unlinked legacy company text: ${esc(c.company || "Not set")}</p>`}<button class="button" id="contact-company">Link or unlink Company</button><button class="button" id="contact-events">Events & Activities</button><button class="button" id="contact-create-event">Create Event</button></section>${customFieldDetails("contacts", c)}${contactActivity(list(result.activity), c.id)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button" id="contact-research">Research</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
     ); // Fresh detail records replace cached versions before later edits.
     state.deals = mergeRecords(state.deals, list(result.deals));
     state.tasks = mergeRecords(state.tasks, list(result.tasks));
@@ -643,6 +643,7 @@ async function contactDetail(id) {
     $("#contact-create-event")?.addEventListener("click",()=>startRelatedCreate("events","contacts",c));
     $("#contact-events")?.addEventListener("click",()=>contactEvents(c));
     $("#edit-contact").onclick = () => openForm("contact", c);
+    $("#contact-research").onclick = () => openResearch("contacts", c.id);
     return modalEpoch;
   } catch (e) {
     if (requestEpoch === modalEpoch) toast(e.message);
@@ -706,6 +707,8 @@ document.addEventListener("click", (e) => {
   if (a === "task-owner-policy") openTaskOwnerPolicy();
   if (a === "owner-retry") retryOwnerWrite();
   if (a === "owner-recover") recoverOwnerDraft();
+  if (a === "research-recover") researchRecover();
+  if (a === "research-retry") researchRecover(true);
   if (a === "task") {
     taskDetail(b.dataset.id);
   }
@@ -794,7 +797,7 @@ const relationshipDrafts = new Map();
 // Successful receipts retain the original navigation intent, including explicit null/list context.
 const relationshipReceiptContexts = new WeakMap();
 function relationshipNotices() {
-  return ownerNotices() + (relationshipAttempts.has(relationshipWorkspace) ? '<section class="error" role="alert">A relationship write has an unknown outcome. New writes are blocked.<button class="button" data-action="relationship-retry">Retry original request</button></section>' : '') + (relationshipDrafts.has(relationshipWorkspace) ? '<section class="error" role="alert">An original creation request was rejected. Its draft is retained for correction.<button class="button" data-action="relationship-recover-draft">Review original draft</button></section>' : '');
+  return researchNotice() + ownerNotices() + (relationshipAttempts.has(relationshipWorkspace) ? '<section class="error" role="alert">A relationship write has an unknown outcome. New writes are blocked.<button class="button" data-action="relationship-retry">Retry original request</button></section>' : '') + (relationshipDrafts.has(relationshipWorkspace) ? '<section class="error" role="alert">An original creation request was rejected. Its draft is retained for correction.<button class="button" data-action="relationship-recover-draft">Review original draft</button></section>' : '');
 }
 function refreshRelationshipNotices() {
   // Modal completion/dismissal need not reload the list to expose retained recovery controls.
@@ -988,8 +991,9 @@ async function relationshipDetail(kind,id,tab = 'contacts',offset = 0) {
     showModal(modalHead(row.name || row.title)+`<div class="detail-body"><p>${esc(row.domain || label(row.status || ''))}</p><details><summary>Record details</summary><p>ID ${esc(row.id)} · Version ${row.version}</p>${['starts_at','ends_at','outcome_happened_at','recorded_at'].filter(key=>row[key]).map(key=>`<p>${esc(label(key))}: ${esc(row[key])}</p>`).join('')}</details>${kind === 'events' ? `<p>${esc(relReadable(row.starts_at,row.timezone))} → ${esc(relReadable(row.ends_at,row.timezone))} · ${esc(row.timezone)}</p><p class="subtitle">Source: local${row.status === 'completed' ? ' · Self-reported completion, not verified attendance or a verified call' : ''}</p>${row.outcome_summary ? `<p>${esc(row.outcome_summary)}<small>Claimed: ${esc(relReadable(row.outcome_happened_at,row.timezone))} · Recorded: ${esc(relReadable(row.recorded_at,row.timezone))}</small></p>` : ''}<details><summary>About local Events</summary><p>${eventLocalHelp}</p></details>${eventRelatedLinks(row)}` : '<p class="subtitle">Current relationship rollup. Contacts use explicit Company links; deals follow their contact. Tasks can belong through their contact or linked Event. Events use their own Company link. A rename never overwrites legacy contact text.</p>'}${row.notes ? `<p class="notes">${esc(row.notes)}</p>` : ''}<div class="form-actions">${kind === 'companies' || ['scheduled','needs_rescheduling'].includes(row.status) ? '<button class="button primary" id="relationship-edit">Edit</button>' : ''}${buttons}</div>${kind === 'companies' ? `<div class="form-actions"><button class="button" id="company-activities">Relationship Activities</button>${['contacts','deals','tasks','events'].map(k=>`<button class="button" data-rel-tab="${k}" aria-pressed="${tab === k}">${label(k)} (${Number(result.counts[k] || 0)})</button>`).join('')}</div>` : '<h3>Associated tasks</h3><p class="subtitle">Task owners record human accountability. Agent assignments and execution are separate; review them in Hermes Desktop.</p><div class="form-actions"><button class="button" id="event-create-task">Create task</button><button class="button" id="event-link-task">Link existing task</button></div>'}${relationshipRows(page,kind === 'companies' ? tab : 'tasks')}${relationshipPager(page,'relationship-detail-page',`data-kind="${kind}" data-id="${esc(id)}" data-tab="${tab}"`)}</div>`);
     if (kind === 'companies') {
       const actions = document.createElement('div'); actions.className='form-actions';
-      actions.innerHTML=`<button class="button" id="company-create-contact" ${row.archived_at ? 'disabled' : ''}>Create contact</button><button class="button" id="company-create-event" ${row.archived_at ? 'disabled' : ''}>Create Event</button>`;
+      actions.innerHTML=`<button class="button" id="company-research">Research</button><button class="button" id="company-create-contact" ${row.archived_at ? 'disabled' : ''}>Create contact</button><button class="button" id="company-create-event" ${row.archived_at ? 'disabled' : ''}>Create Event</button>`;
       $('#modal-body .detail-body').prepend(actions);
+      $('#company-research').onclick=()=>openResearch('companies',id,()=>relationshipDetail(kind,id,tab,offset));
       $('#company-create-contact').onclick=()=>startRelatedCreate('contacts',kind,row,{tab,offset});
       $('#company-create-event').onclick=()=>startRelatedCreate('events',kind,row,{tab,offset});
     }
@@ -1072,6 +1076,10 @@ async function openRelatedResult(kind,id,source) {
   const back=document.createElement('button'); back.type='button'; back.className='button'; back.textContent='Back to source '+(source.kind === 'companies' ? 'Company' : source.kind.slice(0,-1));
   back.onclick=()=>restoreRelatedSource(source);
   $('#modal-body').append(back);
+  if (['contacts','companies'].includes(kind)) {
+    const researchButton=$(kind==='contacts'?'#contact-research':'#company-research');
+    if(researchButton) researchButton.onclick=()=>openResearch(kind,id,()=>openRelatedResult(kind,id,source));
+  }
 }
 function startRelatedCreate(kind,sourceKind,row,extra = {}) {
   if (sourceKind === 'companies' && row.archived_at) return;
@@ -1299,6 +1307,223 @@ function taskOwnerEditor(record,contacts,deals,policy,recovered=null) {
     await verifyOwnerPolicy(policy,scope,epoch);
     return ownerWrite('tasks'+(record.id ? '/'+encodeURIComponent(record.id) : ''),record.id ? 'PATCH' : 'POST',data,scope,false,recovered);
   },result=>{ if(recovered && ownerDrafts.get(scope)===recovered) ownerDrafts.delete(scope); refreshRelationshipNotices(); return taskDetail(result.id); });
+}
+
+// Manual research is local plaintext evidence, never an instruction to fetch or execute.
+const researchAttempts = new Map();
+const researchDrafts = new Map();
+let researchWorkspaceEpoch = 0;
+let researchView = null;
+function researchCurrent(ctx) { return ctx.scope === relationshipWorkspace && ctx.workspaceEpoch === researchWorkspaceEpoch && ctx.epoch === modalEpoch; }
+function researchContext(kind,id,back) { return {kind,id,scope:relationshipWorkspace,workspaceEpoch:researchWorkspaceEpoch,epoch:modalEpoch,back}; }
+function researchTarget(row,ctx) { return row && row.target_kind === ctx.kind && row.target_id === ctx.id; }
+function researchLength(v) { return Array.from(v).length; }
+function researchVersion(v) { return Number.isSafeInteger(v) && v > 0; }
+function researchId(v) { return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v); }
+function researchHash(v) { return typeof v === 'string' && /^[a-f0-9]{64}$/.test(v); }
+function researchNotice() {
+  const a=researchAttempts.get(relationshipWorkspace);
+  return a ? `<section class="error" role="alert">Research write outcome unconfirmed for ${esc(a.kind)} ${esc(a.id)}. New research writes are frozen. <button class="button" type="button" data-action="research-recover">Check original operation</button><button class="button" type="button" data-action="research-retry">Retry original unchanged request</button></section>` : '';
+}
+function researchReceipt(a,r) {
+  if (!r || !researchTarget(r,a) || !researchVersion(r.target_version)) return false;
+  const d=a.body.data, parts=a.path.split('/');
+  if (parts[1]==='evidence') {
+    if (!researchId(r.id) || !researchHash(r.digest) || !researchVersion(r.lifecycle_version) || typeof r.recorded_at!=='string' || typeof r.source_url!=='string' || typeof r.source_title!=='string' || typeof r.observed_at!=='string' || !(r.published_on===null || typeof r.published_on==='string') || !Number.isSafeInteger(r.claims_count) || r.claims_count<1 || !Number.isSafeInteger(r.hypotheses_count) || r.hypotheses_count<0) return false;
+    if (parts.length===2) return r.target_version===d.target_version && r.lifecycle_version===1 && r.source_url===d.source_url && r.source_title===d.source_title && r.observed_at===d.observed_at && r.published_on===d.published_on && r.claims_count===d.claims.length && r.hypotheses_count===d.hypotheses.length && r.archived_at===null;
+    return r.id===decodeURIComponent(parts[2]) && r.lifecycle_version===d.lifecycle_version+1 && (parts[3]==='archive' ? typeof r.archived_at==='string' : r.archived_at===null);
+  }
+  if(parts.length===2) return researchId(r.id) && typeof r.created_at==='string' && !!r.created_at && r.status==='pending' && r.proposal_version===1 && researchHash(r.proposal_digest) && researchHash(r.before_hash) && researchHash(r.after_hash) && r.evidence_id===d.evidence_id && r.evidence_digest===d.evidence_digest && r.evidence_lifecycle_version===d.evidence_lifecycle_version && r.target_version===d.target_version && r.addition===d.addition;
+  return researchId(r.evidence_id) && researchId(r.proposal_id) && researchHash(r.evidence_digest) && researchVersion(r.evidence_lifecycle_version) && researchHash(r.before_hash) && researchHash(r.after_hash) && typeof r.actor==='string' && typeof r.recorded_at==='string' && r.proposal_id===decodeURIComponent(parts[2]) && r.proposal_digest===d.proposal_digest && r.proposal_version===d.proposal_version+1 && r.status===(parts[3]==='apply' ? 'applied' : 'dismissed') && (parts[3]!=='apply' || (r.target_version===d.target_version && r.applied_target_version===d.target_version+1 && r.before_hash===d.before_hash && r.after_hash===d.after_hash));
+}
+async function researchWrite(ctx,path,data) {
+  if(!researchCurrent(ctx)) throw new Error('This research view is no longer current.');
+  if(researchAttempts.has(ctx.scope)) throw new Error('An earlier research outcome is unknown. Check the original operation first.');
+  const key=crypto.randomUUID(), a={kind:ctx.kind,id:ctx.id,path,key,body:JSON.parse(JSON.stringify({workspace_token:ctx.scope,idempotency_key:key,data})),running:true};
+  researchAttempts.set(ctx.scope,a);
+  try {
+    const r=await api(path,'POST',a.body);
+    if(!researchReceipt(a,r)) throw new Error('Unverified research receipt. Check the original operation before continuing.');
+    if(researchAttempts.get(ctx.scope)===a) researchAttempts.delete(ctx.scope);
+    return r;
+  } catch(e) {
+    if([400,404,409,422].includes(e.status) && researchAttempts.get(ctx.scope)===a) researchAttempts.delete(ctx.scope);
+    throw e;
+  } finally { a.running=false; refreshRelationshipNotices(); }
+}
+async function researchRecover(retry=false) {
+  const scope=relationshipWorkspace, a=researchAttempts.get(scope), epoch=modalEpoch, generation=researchWorkspaceEpoch;
+  if(!a || a.running) return;
+  a.running=true;
+  try {
+    const result=retry ? {state:'committed',receipt:await api(a.path,'POST',a.body)} : await api('research/operations/'+encodeURIComponent(a.key)+'?'+new URLSearchParams({workspace_token:scope}));
+    if(result.state==='committed' && researchReceipt(a,result.receipt)) {
+      if(researchAttempts.get(scope)===a) researchAttempts.delete(scope);
+      if(a.draftKey && researchDrafts.get(a.draftKey)===a.draft) researchDrafts.delete(a.draftKey);
+      if(scope===relationshipWorkspace && epoch===modalEpoch && generation===researchWorkspaceEpoch) {
+        toast('Original research operation confirmed. This historical receipt does not prove notes are unchanged.');
+        const form=$('#relationship-form'); if(form?.researchAttemptKey===a.key) await form.researchRecovery?.(true);
+      }
+    } else if(scope===relationshipWorkspace && epoch===modalEpoch && generation===researchWorkspaceEpoch) toast('Outcome remains unknown. Original key and request retained; no new write was sent.');
+  } catch(e) {
+    if(retry && [400,404,409,422].includes(e.status) && researchAttempts.get(scope)===a) {
+      researchAttempts.delete(scope);
+      if(scope===relationshipWorkspace && epoch===modalEpoch && generation===researchWorkspaceEpoch) { const form=$('#relationship-form'); if(form?.researchAttemptKey===a.key) await form.researchRecovery?.(false); }
+    }
+    if(scope===relationshipWorkspace && epoch===modalEpoch && generation===researchWorkspaceEpoch) toast(e.message);
+  }
+  finally { a.running=false; refreshRelationshipNotices(); }
+}
+function researchShell(ctx,title,body) {
+  showModal(modalHead(title)+`<div class="detail-body"><p>${esc(label(ctx.kind))} · ${esc(ctx.id)}</p><p class="subtitle">Manually supplied evidence. Claims and hypotheses are unverified plaintext. Nothing is fetched, researched, emailed or executed. Source URLs and supplied dates are not verified.</p>${researchNotice()}${body}<div class="form-actions"><button class="button" id="research-back">Back to record</button><button class="button" data-action="close">Close</button></div></div>`);
+  ctx.epoch=modalEpoch; researchView=ctx;
+  $('#research-back').onclick=()=>{if(researchCurrent(ctx) && closeModal(false)!==false) ctx.back();};
+}
+async function researchRow(ctx) {
+  const result=await relationshipRead(ctx.kind+'/'+encodeURIComponent(ctx.id));
+  const row=ctx.kind==='contacts' ? result.contact : result.company;
+  if(!row || row.id!==ctx.id || !researchVersion(row.version)) throw new Error('Target identity or version unavailable.');
+  return row;
+}
+function researchPageValid(page,ctx) {
+  return page && Array.isArray(page.items) && Number.isSafeInteger(page.total) && page.total>=0 && Number.isSafeInteger(page.offset) && page.offset>=0 && Number.isSafeInteger(page.limit) && page.limit>0 && page.items.every(r=>researchTarget(r,ctx));
+}
+async function openResearch(kind,id,back=null,tab='evidence',offset=0) {
+  if(!['contacts','companies'].includes(kind) || !['evidence','proposals'].includes(tab)) return;
+  const priorView=$('#modal').open && researchView && researchCurrent(researchView) ? researchView : null;
+  const form=$('#relationship-form');
+  if($('#modal').open && (form?.dataset.saving || (form?.dataset.dirty && !form.dataset.discard)) && closeModal(false)===false) return;
+  ++modalEpoch;
+  const returnToRecord=back || (async()=>{await (kind==='contacts' ? contactDetail(id) : relationshipDetail(kind,id)); $(kind==='contacts'?'#contact-research':'#company-research')?.focus();});
+  const ctx=researchContext(kind,id,returnToRecord);
+  try {
+    const [row,page]=await Promise.all([researchRow(ctx),relationshipRead('research/'+tab,{target_kind:kind,target_id:id,limit:10,offset})]);
+    if(!researchCurrent(ctx)) return;
+    if(!researchPageValid(page,ctx)) throw new Error('Research page identity could not be verified.');
+    researchShell(ctx,row.name+' · Research',`<div class="form-actions"><button class="button" id="research-evidence">Evidence</button><button class="button" id="research-proposals">Note proposals</button><button class="button primary" id="research-add">Add manual evidence</button></div><ul class="relationship-list">${page.items.map(r=>`<li>${tab==='evidence' ? `${esc(r.source_title)}<small>${esc(r.source_url)} · ${esc(researchObservedPreview(r.observed_at))} · Raw observation timestamp: ${esc(r.observed_at)} · ${r.archived_at ? 'Archived' : 'Active'} · ${Number(r.claims_count)} claims / ${Number(r.hypotheses_count)} hypotheses · Server-derived channel: ${esc(r.recorded_actor||'Not recorded')} (not a verified person)</small>` : `${esc(r.status)}${r.stale ? ' · Stale: '+esc(r.stale_reason) : ''}<small>${esc(r.id)} · Target version ${Number(r.target_version)} · Server-derived channel: ${esc(r.created_actor||'Not recorded')} (not a verified person)</small>`}<button class="button" data-research-item="${esc(r.id)}">${tab==='evidence' ? 'Review evidence' : 'Preview proposal'}</button></li>`).join('') || '<li>No records yet.</li>'}</ul><div class="form-actions"><button class="button" id="research-prev" ${offset===0?'disabled':''}>Previous</button><span>${page.total} total</span><button class="button" id="research-next" ${offset+page.items.length>=page.total?'disabled':''}>Next</button></div>`);
+    $('#research-evidence').onclick=()=>researchCurrent(ctx)&&openResearch(kind,id,ctx.back);
+    $('#research-proposals').onclick=()=>researchCurrent(ctx)&&openResearch(kind,id,ctx.back,'proposals');
+    $('#research-add').onclick=()=>researchEvidenceForm(ctx);
+    $('#research-prev').onclick=()=>researchCurrent(ctx)&&openResearch(kind,id,ctx.back,tab,Math.max(0,offset-10));
+    $('#research-next').onclick=()=>researchCurrent(ctx)&&openResearch(kind,id,ctx.back,tab,offset+10);
+    document.querySelectorAll('[data-research-item]').forEach(b=>b.onclick=()=>tab==='evidence'?researchEvidence(ctx,b.dataset.researchItem):researchPreview(ctx,b.dataset.researchItem));
+  } catch(e) { if(researchCurrent(ctx)) { if(priorView) priorView.epoch=modalEpoch; toast(e.message+' The previous view is retained. Try Previous or retry this page.'); } }
+}
+function researchDraftKey(ctx,type) { return JSON.stringify([ctx.scope,ctx.kind,ctx.id,type]); }
+function researchForm(ctx,title,fields,type,submit) {
+  researchShell(ctx,title,`<form id="relationship-form"><div class="relationship-form-grid">${fields}</div><p id="relationship-error" role="alert" hidden></p><div id="relationship-discard" role="alert" hidden><p>Discard unsaved changes?</p><button class="button" type="button" id="relationship-keep">Keep editing</button><button class="button" type="button" id="relationship-discard-confirm">Discard changes</button></div><div class="form-actions"><button class="button primary" type="submit">${type==='evidence'?'Save evidence':'Prepare append proposal'}</button><button class="button" type="button" id="research-refresh">Refresh target for corrected save</button></div></form>`);
+  const form=$('#relationship-form'), key=researchDraftKey(ctx,type);
+  form.researchRecovery=async committed=>{
+    if(!researchCurrent(ctx)) return;
+    form.querySelectorAll('input,textarea,button').forEach(b=>b.disabled=false);
+    if(committed) { delete form.dataset.dirty; form.dataset.discard='true'; form.dataset.researchCommitted='true'; form.querySelectorAll('input,textarea,button').forEach(b=>b.disabled=!['relationship-keep','relationship-discard-confirm'].includes(b.id)); await openResearch(ctx.kind,ctx.id,ctx.back,type==='evidence'?'evidence':'proposals'); }
+    else { $('#relationship-error').hidden=false; $('#relationship-error').textContent='Original request rejected. Draft retained. Refresh the target and explicitly save corrected data.'; }
+  };
+  const capture=()=>Object.fromEntries(new FormData(form));
+  const keep=()=>{form.dataset.dirty='true';researchDrafts.set(key,capture());};
+  form.addEventListener('input',keep); form.addEventListener('change',keep);
+  if(researchDrafts.has(key)) form.dataset.dirty='true';
+  $('#relationship-keep').onclick=()=>{$('#relationship-discard').hidden=true;form.querySelector('input,textarea')?.focus();};
+  $('#relationship-discard-confirm').onclick=()=>{researchDrafts.delete(key);form.dataset.discard='true';closeModal();};
+  $('#research-refresh').onclick=async()=>{
+    if(!researchCurrent(ctx)||form.dataset.saving || researchAttempts.has(ctx.scope)) return;
+    const button=$('#research-refresh'); button.disabled=true;
+    try { const row=await researchRow(ctx); if(researchCurrent(ctx)){ctx.targetVersion=row.version;$('#relationship-error').hidden=false;$('#relationship-error').textContent='Current target version '+row.version+' loaded. Draft retained. Review it, then explicitly save a corrected request.';} }
+    catch(e){if(researchCurrent(ctx)){ $('#relationship-error').hidden=false;$('#relationship-error').textContent=e.message; }} finally {button.disabled=false;}
+  };
+  form.addEventListener('submit',async event=>{
+    event.preventDefault(); if(!researchCurrent(ctx)||form.dataset.saving||form.dataset.researchCommitted||!form.reportValidity()) return;
+    const values=capture(); researchDrafts.set(key,values); form.dataset.dirty='true';form.dataset.saving='true';
+    const controls=[...form.querySelectorAll('input,textarea,button')]; controls.forEach(b=>b.disabled=true);
+    try { await submit(values); if(researchDrafts.get(key)===values) researchDrafts.delete(key); if(!researchCurrent(ctx))return;delete form.dataset.saving;delete form.dataset.dirty;form.dataset.discard='true';form.dataset.researchCommitted='true';await openResearch(ctx.kind,ctx.id,ctx.back,type==='evidence'?'evidence':'proposals'); }
+    catch(e){if(researchCurrent(ctx)){ $('#relationship-error').hidden=false;$('#relationship-error').textContent=e.message+' Draft retained. Conflicts require refreshed review and an explicit corrected save.'; }}
+    finally {delete form.dataset.saving; controls.forEach(b=>b.disabled=(!!form.dataset.researchCommitted || researchAttempts.has(ctx.scope)) && !['relationship-keep','relationship-discard-confirm'].includes(b.id)); if(researchCurrent(ctx) && researchAttempts.has(ctx.scope)){ const attempt=researchAttempts.get(ctx.scope);form.researchAttemptKey=attempt.key;if(!attempt.draftKey){attempt.draftKey=key;attempt.draft=values;} const recovery=document.createElement('div');recovery.innerHTML=researchNotice();form.append(recovery); }}
+  });
+}
+function researchTextarea(name,title,value='',extra='') { return `<label class="field relationship-wide">${esc(title)}<textarea name="${name}" rows="4" ${extra}>${esc(value)}</textarea></label>`; }
+function researchObservedPreview(value) {
+  if(!value) return 'No observation time supplied. Choose current time explicitly or enter the time you observed the evidence.';
+  try {
+    relInstant(value);
+    return 'Supplied observation: '+new Intl.DateTimeFormat('en-GB',{dateStyle:'full',timeStyle:'long',timeZone:'UTC'}).format(new Date(value))+' · Entered offset: '+value.match(/(Z|[+-]\d\d:\d\d)$/)[0]+'. This time is not verified.';
+  } catch { return 'Enter a valid date and time with an explicit offset, such as 2030-01-01T12:00:00+00:00.'; }
+}
+async function researchEvidenceForm(ctx) {
+  if(!researchCurrent(ctx))return;
+  ++modalEpoch;ctx={...ctx,epoch:modalEpoch};
+  try {
+    const row=await researchRow(ctx); if(!researchCurrent(ctx))return;ctx.targetVersion=row.version;
+    const d=researchDrafts.get(researchDraftKey(ctx,'evidence'))||{};
+    researchForm(ctx,'Add manual evidence',field('question','Research question',d.question||'','text','required')+field('source_url','HTTPS source URL (not verified)',d.source_url||'','url','required')+field('source_title','Source title',d.source_title||'','text','required')+field('observed_at','Observed at (supplied, explicit offset required: Z or ±HH:MM)',d.observed_at||'','text','required maxlength="40" placeholder="2030-01-01T12:00:00+00:00"')+'<div class="relationship-wide"><button class="button" type="button" id="research-observed-now">Use current time as my observation time</button><p class="subtitle">Only use current time if you observed this evidence now. Otherwise enter the actual observation time with its UTC offset.</p><p id="research-observed-preview" aria-live="polite"></p></div>'+field('published_on','Published on (supplied, optional)',d.published_on||'','date')+researchTextarea('claims','Claims: one per line, up to 10, 2000 characters each',d.claims||'','required')+researchTextarea('hypotheses','Hypotheses: one per line, up to 10, 2000 characters each',d.hypotheses||''),'evidence',async v=>{
+      const data={target_kind:ctx.kind,target_id:ctx.id,target_version:ctx.targetVersion,question:v.question,source_url:v.source_url,source_title:v.source_title,observed_at:v.observed_at,published_on:v.published_on||null,claims:v.claims.split('\n').filter(s=>s.trim()),hypotheses:v.hypotheses.split('\n').filter(s=>s.trim())};
+      if(!/^https:\/\/[^\s]+$/.test(data.source_url))throw new Error('Use an HTTPS source reference. It will not be fetched.');
+      if(researchLength(data.question)>1000 || researchLength(data.source_url)>2048 || researchLength(data.source_title)>200) throw new Error('Question/source URL/title exceed their 1000/2048/200 character limits.');
+      if(data.claims.length<1 || data.claims.length>10 || data.hypotheses.length>10 || [...data.claims,...data.hypotheses].some(s=>researchLength(s)>2000))throw new Error('Provide 1–10 claims and at most 10 hypotheses, up to 2000 characters each.');
+      relInstant(data.observed_at);
+      return researchWrite(ctx,'research/evidence',data);
+    });
+    const observed=$('[name="observed_at"]'), form=$('#relationship-form');
+    const preview=()=>{ $('#research-observed-preview').textContent=researchObservedPreview(observed.value); };
+    observed.addEventListener('input',preview);
+    $('#research-observed-now').onclick=()=>{
+      if(!researchCurrent(ctx) || form.dataset.saving || researchAttempts.has(ctx.scope)) return;
+      observed.value=new Date().toISOString(); form.dataset.dirty='true';
+      researchDrafts.set(researchDraftKey(ctx,'evidence'),{...Object.fromEntries(new FormData(form)),observed_at:observed.value});
+      preview(); observed.focus();
+    };
+    preview();
+  } catch(e){if(researchCurrent(ctx))toast(e.message);}
+}
+async function researchEvidence(ctx,id) {
+  if(!researchCurrent(ctx))return;
+  ++modalEpoch;ctx={...ctx,epoch:modalEpoch};
+  try {
+    const r=await relationshipRead('research/evidence/'+encodeURIComponent(id)); if(!researchCurrent(ctx))return;
+    if(!researchTarget(r,ctx)||r.id!==id||!Array.isArray(r.claims)||!Array.isArray(r.hypotheses))throw new Error('Evidence identity could not be verified.');
+    researchShell(ctx,'Review evidence',`<h3>${esc(r.source_title)}</h3><p class="notes">${esc(r.question)}</p><p>Source reference (not verified): ${esc(r.source_url)}</p><p>${esc(researchObservedPreview(r.observed_at))} · Raw observation timestamp: ${esc(r.observed_at)} · Published (supplied): ${esc(r.published_on||'Not supplied')} · Recorded locally: ${esc(r.recorded_at)} · Server-derived channel: ${esc(r.recorded_actor||'Not recorded')} (not a verified person)</p><h3>Claims</h3><ul>${r.claims.map(s=>`<li class="notes">${esc(s)}</li>`).join('')}</ul><h3>Hypotheses</h3><ul>${r.hypotheses.map(s=>`<li class="notes">${esc(s)}</li>`).join('')}</ul><p>${r.archived_at?'Archived':'Active'} · Lifecycle version ${Number(r.lifecycle_version)}</p><div class="form-actions"><button class="button primary" id="research-prepare" ${r.archived_at?'disabled':''}>Prepare note addition</button><button class="button" id="research-lifecycle">${r.archived_at?'Restore':'Archive'} evidence</button></div>`);
+    $('#research-prepare').onclick=()=>researchProposalForm(ctx,r);
+    const button=$('#research-lifecycle');button.onclick=async()=>{
+      if(!researchCurrent(ctx)||button.disabled)return;button.disabled=true;
+      try{await researchWrite(ctx,'research/evidence/'+encodeURIComponent(id)+'/'+(r.archived_at?'restore':'archive'),{lifecycle_version:r.lifecycle_version});if(researchCurrent(ctx))await openResearch(ctx.kind,ctx.id,ctx.back);}
+      catch(e){if(researchCurrent(ctx))toast(e.message);}finally{button.disabled=false;}
+    };
+  }catch(e){if(researchCurrent(ctx))toast(e.message);}
+}
+async function researchProposalForm(ctx,evidence) {
+  if(!researchCurrent(ctx))return;
+  ++modalEpoch;ctx={...ctx,epoch:modalEpoch};
+  try {
+    const row=await researchRow(ctx);if(!researchCurrent(ctx))return;ctx.targetVersion=row.version;
+    const type='proposal:'+evidence.id,d=researchDrafts.get(researchDraftKey(ctx,type))||{};
+    researchForm(ctx,'Prepare append proposal',`<p>Evidence ${esc(evidence.id)} · ${esc(evidence.source_title)}. Only the addition below will be appended. Review source claims and distinguish hypotheses. Full notes must remain within 10,000 characters.</p>`+researchTextarea('addition','Exact plaintext addition',d.addition||'','required'),type,v=>researchWrite(ctx,'research/proposals',{evidence_id:evidence.id,evidence_digest:evidence.digest,evidence_lifecycle_version:evidence.lifecycle_version,target_version:ctx.targetVersion,addition:v.addition}));
+  }catch(e){if(researchCurrent(ctx))toast(e.message);}
+}
+function researchPreviewValid(r,ctx,id) {
+  if(!researchTarget(r,ctx)||r.id!==id||!researchVersion(r.proposal_version)||!researchVersion(r.target_version)||!researchHash(r.proposal_digest)||!researchHash(r.before_hash)||!researchHash(r.after_hash)||typeof r.addition!=='string'||typeof r.stale!=='boolean'||!['pending','applied','dismissed'].includes(r.status))return false;
+  return r.stale || r.status!=='pending' || (typeof r.current_notes==='string'&&typeof r.proposed_notes==='string'&&r.proposed_notes===r.current_notes+(r.current_notes?'\n\n':'')+r.addition&&researchLength(r.proposed_notes)<=10000);
+}
+async function researchPreview(ctx,id) {
+  if(!researchCurrent(ctx))return;
+  ++modalEpoch;ctx={...ctx,epoch:modalEpoch};
+  try {
+    const r=await relationshipRead('research/proposals/'+encodeURIComponent(id)+'/preview');if(!researchCurrent(ctx))return;
+    if(!researchPreviewValid(r,ctx,id))throw new Error('Proposal preview could not be verified.');
+    if(!r.stale && r.status==='pending') {
+      const digest=async text=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))).map(n=>n.toString(16).padStart(2,'0')).join('');
+      const [before,after]=await Promise.all([digest(r.current_notes),digest(r.proposed_notes)]);
+      if(!researchCurrent(ctx))return;
+      if(before!==r.before_hash||after!==r.after_hash)throw new Error('Preview hashes do not match the displayed notes.');
+    }
+    researchShell(ctx,'Review note proposal',`<p>Action state: ${esc(r.status)} · ${r.stale?'Stale: '+esc(r.stale_reason):'Current review'} · Target version ${r.target_version}</p><p>Proposal ${esc(r.id)} · Evidence ${esc(r.evidence_id)} · Server-derived channel: ${esc(r.created_actor||'Not recorded')} (not a verified person)</p><h3>Addition</h3><div class="notes">${esc(r.addition)}</div>${!r.stale&&r.status==='pending'?`<h3>Current notes</h3><div class="notes">${esc(r.current_notes)}</div><h3>Proposed notes</h3><div class="notes">${esc(r.proposed_notes)}</div>`:''}<p class="subtitle">Applying updates ordinary notes and last edit only, not last interaction, task completion or agent execution. A historical applied receipt does not prove the current note is unchanged.</p><div class="form-actions"><button class="button primary" id="research-apply" ${r.stale||r.status!=='pending'?'disabled':''}>Apply reviewed append</button><button class="button" id="research-dismiss" ${r.status!=='pending'?'disabled':''}>Dismiss proposal</button><button class="button" id="research-repreview">Refresh preview</button></div>`);
+    $('#research-repreview').onclick=()=>researchPreview(ctx,id);
+    for(const action of ['apply','dismiss'])$('#research-'+action).onclick=async()=>{
+      const button=$('#research-'+action);if(!researchCurrent(ctx)||button.disabled)return;
+      const controls=['apply','dismiss','repreview'].map(s=>$('#research-'+s));controls.forEach(b=>b.disabled=true);
+      const data={proposal_version:r.proposal_version,proposal_digest:r.proposal_digest,...(action==='apply'?{target_version:r.target_version,before_hash:r.before_hash,after_hash:r.after_hash}:{})};
+      try{await researchWrite(ctx,'research/proposals/'+encodeURIComponent(id)+'/'+action,data);if(researchCurrent(ctx))await openResearch(ctx.kind,ctx.id,ctx.back,'proposals');}
+      catch(e){if(researchCurrent(ctx)){toast(e.message+' Refresh the preview before any further review action.');$('#research-repreview').disabled=false;}}
+    };
+  }catch(e){if(researchCurrent(ctx))toast(e.message);}
 }
 
 initialize();

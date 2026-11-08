@@ -50,6 +50,8 @@ def create_app(crm=None):
         token = current.existing_workspace_token()
         if token is None or supplied != token:
             raise CRMError('The workspace changed. Refresh and reopen the form before saving.', 409)
+    from .research_api import build_router as build_research_router
+    app.include_router(build_research_router(relationship_service, require_workspace, actor='web'), prefix='/api')
     from .task_ownership_api import build_router as build_owner_router
     app.include_router(build_owner_router(relationship_service, require_workspace), prefix='/api')
     from .relationship_api import build_router as build_relationship_router

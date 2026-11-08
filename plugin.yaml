@@ -46,6 +46,11 @@ provides_tools:
   - crm_schema_field_update
   - crm_record_fields
   - crm_task_owner_policy
+  - crm_research_evidence_submit
+  - crm_research_note_propose
+  - crm_research_evidence_list
+  - crm_research_proposal_list
+  - crm_research_evidence_get
   - crm_company_list
   - crm_company_get
   - crm_company_records
