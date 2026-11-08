@@ -1569,11 +1569,12 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   async function open(kind, id, assignmentId = null, navigation = {}) {
     if ((navigationLock.current && !navigation.afterSave) || !client.current() || !data || !validId(id)) return;
     const workspaceToken = data.meta.workspace_token;
+    if (navigation.creationContext) { rememberTrail(navigation.creationContext.trail); listPage.current = navigation.creationContext.listPage; }
     const current = trail.current.at(-1);
     if (!navigation.replace && (!current || current.kind !== kind || current.id !== id || current.assignmentId !== assignmentId)) {
-      if (!trail.current.length) { listFocus.current = shellRef.current?.ownerDocument.activeElement; listPage.current = page; }
+      if (!trail.current.length) { listFocus.current = shellRef.current?.ownerDocument.activeElement; if (!navigation.creationContext) listPage.current = page; }
       // Retained views may have a visible parent but no navigation trail yet.
-      const parent = detail && detail.workspaceToken === workspaceToken ? { kind: detail.kind, id: (detail.row.contact || detail.row).id, assignmentId: detail.assignment?.id ?? null } : null;
+      const parent = !navigation.creationContext && detail && detail.workspaceToken === workspaceToken ? { kind: detail.kind, id: (detail.row.contact || detail.row).id, assignmentId: detail.assignment?.id ?? null } : null;
       rememberTrail([...trail.current, ...(!current && parent && (parent.kind !== kind || parent.id !== id) ? [parent] : []), { kind, id, assignmentId }]);
     }
     const viewTicket = ++viewRequest.current;
@@ -1624,8 +1625,14 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   function edit(kind, row = null, workspaceToken = data.meta.workspace_token, initial = {}) {
     if (navigationLock.current) return;
     viewRequest.current++;
+    const pending = !row && ['contacts','events'].includes(kind) ? analyticsOperationStore(ctx, identity, 'relationships').get(workspaceToken) : null;
+    const recovering = pending?.method === 'POST' && ['/relationship-contacts','/events'].includes(pending.path);
+    const original = recovering ? JSON.parse(pending.payload) : null;
+    if (recovering) { kind = pending.path === '/relationship-contacts' ? 'contacts' : 'events'; initial = original.data || {}; }
     setEditor({
-      kind,
+      kind, recovering,
+      company: recovering ? (original.company_id ? {id:original.company_id, version:original.expected_company_version} : null) : null,
+      createContext: recovering ? (pending.context || {trail:[],listPage:kind}) : creationContext(),
       row,
       revision: viewRequest.current,
       assignmentId: row && detail?.kind === kind && (detail.row.contact || detail.row).id === row.id ? detail.assignment?.id ?? null : null,
@@ -1636,6 +1643,57 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     });
     setDetailLoading(false);
     setError("");
+  }
+  function startRelatedCreate(kind, sourceKind, source) {
+    if (navigationLock.current || disabled || mutationLock.current || !client.current() || viewRevision !== viewRequest.current || !validId(source?.id) || source.archived_at) return;
+    const key = sourceKind === 'companies' ? 'company_id' : sourceKind === 'contacts' ? 'contact_id' : 'deal_id';
+    edit(kind, null, data.meta.workspace_token, kind === 'events' ? {[key]: source.id} : {});
+    if (kind === 'contacts') setEditor(previous => previous && !previous.recovering ? {...previous, company: {id: source.id, version: source.version}} : previous);
+  }
+  function creationContext() {
+    return {trail:trail.current.map(({kind,id,assignmentId}) => ({kind,id,assignmentId:assignmentId || null})), listPage:trail.current.length ? listPage.current : page};
+  }
+  function restoreRejectedCreate(attempt, message) {
+    const body = JSON.parse(attempt.payload);
+    if (!client.current() || navigationLock.current || body.workspace_token !== latestWorkspace.current || !['/relationship-contacts','/events'].includes(attempt.path)) return;
+    const kind = attempt.path === '/relationship-contacts' ? 'contacts' : 'events';
+    edit(kind, null, body.workspace_token, body.data || {});
+    setEditor(previous => previous ? {...previous, recovering:false, company:body.company_id ? {id:body.company_id,version:body.expected_company_version} : null, createContext:attempt.context || {trail:[],listPage:kind}} : previous);
+    setError(message);
+  }
+  async function openCreated(kind, id, originalContext) {
+    const ticket = viewRequest.current, token = latestWorkspace.current;
+    const context = {trail:(originalContext?.trail || []).filter(item => ['contacts','companies','deals','events','tasks'].includes(item.kind) && validId(item.id)).map(({kind,id,assignmentId})=>({kind,id,assignmentId:assignmentId || null})), listPage:originalContext?.listPage || (kind === 'contacts' ? 'contacts' : 'events')};
+    const source = context.trail.at(-1);
+    if (source) {
+      try {
+        const value = await client.request(`/${source.kind}/${encodeURIComponent(source.id)}?${new URLSearchParams({workspace_token:token})}`);
+        if ((value?.contact || value?.company || value?.event || value)?.id !== source.id) throw new Error('Original source unavailable');
+      } catch {
+        context.trail = [];
+        if (client.current() && ticket === viewRequest.current && token === latestWorkspace.current) setNotice('Created record saved. The original source is unavailable; Back returns to its original list.');
+      }
+    }
+    if (client.current() && ticket === viewRequest.current && token === latestWorkspace.current)
+      await open(kind, id, null, {afterSave:true, creationContext:context});
+  }
+  async function saveRelated(values, session, capturedEditor) {
+    if (mutationLock.current || !client.current() || capturedEditor.revision !== viewRequest.current || capturedEditor.workspaceToken !== latestWorkspace.current) return false;
+    mutationLock.current = true; setBusy(true); setError('');
+    const attempt = session.pending();
+    if (attempt && !['/events','/relationship-contacts'].includes(attempt.path)) { mutationLock.current = false; setBusy(false); setError('Resolve the pending relationship operation from its original record before creating a new record.'); return false; }
+    const originalContext = attempt ? attempt.context : capturedEditor.createContext;
+    const path = attempt?.path || (capturedEditor.kind === 'contacts' ? '/relationship-contacts' : '/events');
+    try {
+      const result = await (attempt ? session.retry() : session.write(path, 'POST', values, capturedEditor.createContext));
+      if (!result || !client.current() || capturedEditor.revision !== viewRequest.current || capturedEditor.workspaceToken !== latestWorkspace.current) return false;
+      setEditor(null); setNotice('Saved to this agent’s CRM.');
+      await refresh();
+      if (client.current() && capturedEditor.revision === viewRequest.current && capturedEditor.workspaceToken === latestWorkspace.current)
+        await openCreated(path === '/relationship-contacts' ? 'contacts' : 'events', result.contact?.id || result.id, originalContext);
+      return true;
+    } catch (error) { if (client.current() && capturedEditor.revision === viewRequest.current) setError(error.message); return false; }
+    finally { mutationLock.current = false; if (client.current()) setBusy(false); }
   }
   function openNativeChat() {
     if (disabled || navigationLock.current || detailLoading || mutationLock.current || viewRevision !== viewRequest.current || !client.current()) return;
@@ -1678,17 +1736,17 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       invalidated: !client.current() || latestWorkspace.current !== protection.workspaceToken || viewRequest.current !== protection.revision,
       captureDownload: typeof sdk.captureGatewayFileDownload === "function" ? sdk.captureGatewayFileDownload : undefined,
       operationStore: lifetime.protectionAttempts, cancel: () => setProtection(null), returnFocus: protection.returnFocus,
-    }) : customize && data ? h(Customization, { key: customize.key, Drawer, catalog: workspaceCatalog(data), client, workspaceToken: customize.workspaceToken, current: () => latestWorkspace.current === customize.workspaceToken && viewRequest.current === customize.revision, onSaved: refresh, cancel: () => setCustomize(null), returnFocus: customize.returnFocus }) : editor && data ? h(Editor, {
-      key: editor.key, editor, data, busy: disabled, error,
-      cancel: () => { setEditor(null); setError(""); },
-      save: (values) => editor.revision !== viewRequest.current || editor.workspaceToken !== latestWorkspace.current ? false : write(
+    }) : customize && data ? h(Customization, { key: customize.key, Drawer, catalog: workspaceCatalog(data), client, workspaceToken: customize.workspaceToken, current: () => latestWorkspace.current === customize.workspaceToken && viewRequest.current === customize.revision, onSaved: refresh, cancel: () => setCustomize(null), returnFocus: customize.returnFocus }) : editor && data ? (editor.kind === 'events' ? h(RelatedEventEditor, {key: editor.key, editor, client, busy: disabled, error, operationStore: analyticsOperationStore(ctx, identity, "relationships"), cancel: () => { if (editor.revision === viewRequest.current && client.current() && editor.workspaceToken === latestWorkspace.current) { setEditor(null); setError(''); } }, save: (values, session) => saveRelated(values, session, editor)}) : h(Editor, {
+      key: editor.key, editor, data, busy: disabled, error, relationshipClient: client, operationStore: analyticsOperationStore(ctx, identity, "relationships"),
+      cancel: () => { if (editor.revision === viewRequest.current && client.current() && editor.workspaceToken === latestWorkspace.current) { setEditor(null); setError(""); } },
+      save: (values, session) => session ? saveRelated(values, session, editor) : editor.revision !== viewRequest.current || editor.workspaceToken !== latestWorkspace.current ? false : write(
         `/${editor.kind}${editor.row ? "/" + encodeURIComponent(editor.row.id) : ""}`,
         { method: editor.row ? "PATCH" : "POST", body: {
           ...(editor.row ? { data: { ...values, version: editor.row.version } } : createPayload(values, editor.key)),
           workspace_token: editor.workspaceToken,
         } }, editor,
       ),
-    }) : help ? h(Drawer, {
+    })) : help ? h(Drawer, {
       title: `About ${heading[0]}`, subtitle: heading[1], busy,
       cancel: () => { setHelp(null); setDemoConfirm(false); }, returnFocus: help.returnFocus, closeLabel: "Close information",
     }, h("div", { className: "hc-editor-body" },
@@ -1790,7 +1848,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
           }, null, { kind: "tasks", id: detail.row.id, assignmentId: detail.assignment?.id ?? null }),
           protect: () => setProtection({ key: crypto.randomUUID(), workspaceToken: detail.workspaceToken, revision: viewRequest.current, returnFocus: shellRef.current?.ownerDocument.activeElement, record: { kind: detail.kind, id: (detail.row.contact || detail.row).id } }),
           edit: () => edit(detail.kind, detail.row.contact || detail.row, detail.workspaceToken),
-          open,
+          open, startRelatedCreate,
           create: (kind, initial) => edit(kind, null, detail.workspaceToken, initial),
         }),
         h("div", { hidden: Boolean(detail && detail.workspaceToken === data.meta.workspace_token) },
@@ -2085,7 +2143,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
               h(Empty, null, "No matching follow-ups. You’re clear for now."),
           ),
         page === "tasks" && h(CoverageQueue, { client, workspaceToken: data.meta.workspace_token, snapshotGeneration, open, disabled }),
-        routeReady && ["companies", "events", "activities"].includes(page) && h(Relationships, { navigateRecord: open, onBack: closeDetail, initialListState: relationshipLists[page], onListStateChange: next => setRelationshipLists(previous => JSON.stringify(previous[page]) === JSON.stringify(next) ? previous : { ...previous, [page]: next }), onEditingChange: setRelationshipEditing, operationStore: analyticsOperationStore(ctx, identity, "relationships"), key: `${identity}:${data.meta.workspace_token}:${page}:${relationshipTarget?.id || "list"}`, client, workspaceToken: data.meta.workspace_token, page, initial: relationshipTarget, open, onSaved: refresh, disabled }),
+        routeReady && ["companies", "events", "activities"].includes(page) && h(Relationships, { startRelatedCreate, onCreated: openCreated, onCreateRejected: restoreRejectedCreate, createContext: creationContext(), navigateRecord: open, onBack: closeDetail, initialListState: relationshipLists[page], onListStateChange: next => setRelationshipLists(previous => JSON.stringify(previous[page]) === JSON.stringify(next) ? previous : { ...previous, [page]: next }), onEditingChange: setRelationshipEditing, operationStore: analyticsOperationStore(ctx, identity, "relationships"), key: `${identity}:${data.meta.workspace_token}:${page}:${relationshipTarget?.id || "list"}`, client, workspaceToken: data.meta.workspace_token, page, initial: relationshipTarget, open, onSaved: refresh, disabled }),
         page === "activity" && h(Activity, { rows: data.activity, open, disabled }),
         ),
       ),
@@ -2386,7 +2444,7 @@ export async function refreshDetailAfterRelationshipWrite(refresh, open, client,
     return open(detail.kind, (detail.row.contact || detail.row).id);
 }
 
-function Detail({ detail, data, disabled, client, onSaved, snapshotGeneration, close, backLabel, complete, edit, open, create, protect, ctx, identity, viewRequest, openNativeChat, companion }) {
+function Detail({ detail, data, disabled, client, onSaved, snapshotGeneration, close, backLabel, complete, edit, open, create, startRelatedCreate, protect, ctx, identity, viewRequest, openNativeChat, companion }) {
   const row = detail.row.contact || detail.row;
   const isContact = detail.kind === "contacts", isDeal = detail.kind === "deals";
   const title = row.name || row.title;
@@ -2416,6 +2474,7 @@ function Detail({ detail, data, disabled, client, onSaved, snapshotGeneration, c
         button("Close", close, { "aria-label": "Close record details" })),
       h("div", { className: "hc-actions hc-record-actions" },
         button("Edit", edit, { className: "hc-primary", disabled }),
+        (isContact || isDeal) && button("Create Event", () => startRelatedCreate("events", detail.kind, row), {disabled}),
         !isContact && !isDeal && button(row.status === "done" ? "Reopen" : "Complete", complete, { disabled, title: "Changes this CRM task only. Does not cancel assignments or confirm agent execution." }),
         (isContact || isDeal) && button("Create follow-up", () => create("tasks", initialTask), { disabled }),
         isContact && button("Create deal", () => create("deals", { contact_id: row.id }), { disabled }),
@@ -2501,13 +2560,35 @@ function Drawer({ title, subtitle, busy, cancel, children, returnFocus, closeLab
         h("p", { className: "hc-muted" }, subtitle)), children));
 }
 
-function Editor({ editor, data, busy, error, save, cancel }) {
+function RelatedEventEditor({editor, client, busy, error, operationStore, cancel, save}) {
+  const ref = useRef(null), cancelRef = useRef(null);
+  if (!ref.current) ref.current = relationshipSession(client, editor.workspaceToken, () => true, operationStore);
+  const session = ref.current; useRelationshipStatus(session);
+  const original = useRef(session.pending()?.path === '/events' ? JSON.parse(session.pending().payload).data : editor.initial).current;
+  useEffect(() => { session.activate(); return () => session.close(); }, [session]);
+  return h(Drawer, {title:'Create Event', busy, cancel: () => cancelRef.current?.(), returnFocus:editor.returnFocus},
+    error && h('p', {role:'alert'}, error),
+    h(RelationshipPendingCreate, {attempt:session.pending()}),
+    session.pending()?.state === 'unknown' && button('Retry original request', () => save(null, session), {disabled:busy}),
+    h(RelationshipForm, {kind:'events', row:null, initialValues:original, cancelRef, session, busy, pending:!!session.pending(), submit: data => save({data}, session), cancel}));
+}
+
+function Editor({ editor, data, busy, error, save, cancel, relationshipClient, operationStore }) {
   const { kind, row } = editor;
+  const sessionRef = useRef(null);
+  if (!sessionRef.current && relationshipClient) sessionRef.current = relationshipSession(relationshipClient, editor.workspaceToken, () => active.current, operationStore);
+  const session = sessionRef.current;
+  const recovery = useRef(!row && kind === 'contacts' && session?.pending()?.path === '/relationship-contacts' ? JSON.parse(session.pending().payload) : null).current;
+  const [company, setCompany] = useState(() => recovery ? (recovery.company_id ? {id:recovery.company_id,version:recovery.expected_company_version} : null) : editor.company || null);
+  const initialCompany = useRef(JSON.stringify(company));
+  const [, setOperationRevision] = useState(0);
+  useEffect(() => { if (!session) return; session.activate(); const stop = session.subscribe(() => setOperationRevision(v => v + 1)); return () => { stop(); session.close(); }; }, [session]);
+  const pending = !row && kind === 'contacts' ? session?.pending() : null;
   const [values, setValues] = useState(() => {
     const keys = kind === "contacts" ? ["name", "email", "company", "title", "lifecycle", "notes"]
       : kind === "deals" ? ["title", "contact_id", "value", "stage", "probability", "close_date", "notes"]
         : ["title", "contact_id", "deal_id", "due_at", "priority", "status", "notes"];
-    const defaults = { lifecycle: "lead", stage: "lead", probability: stageDefinitions(data).find(stage => stage.key === (editor.initial?.stage || "lead"))?.probability ?? 10, priority: "normal", status: "open", value: 0, ...editor.initial };
+    const defaults = { lifecycle: "lead", stage: "lead", probability: stageDefinitions(data).find(stage => stage.key === (editor.initial?.stage || "lead"))?.probability ?? 10, priority: "normal", status: "open", value: 0, ...editor.initial, ...recovery?.data };
     return Object.fromEntries(keys.map(key => [key,
       key === "value" ? String((row?.value || 0) / 100)
         : key === "due_at" && row?.due_at ? new Date(new Date(row.due_at).getTime() - new Date(row.due_at).getTimezoneOffset() * 60000).toISOString().slice(0, 16)
@@ -2516,8 +2597,8 @@ function Editor({ editor, data, busy, error, save, cancel }) {
   const initialValues = useRef(JSON.stringify(values));
   const [discard, setDiscard] = useState(false);
   const initialDueInput = useRef(values.due_at);
-  const [customValues, setCustomValues] = useState(row?.custom_fields || {});
-  const [customChanges, setCustomChanges] = useState({});
+  const [customValues, setCustomValues] = useState(row?.custom_fields || recovery?.data?.custom_fields || editor.initial?.custom_fields || {});
+  const [customChanges, setCustomChanges] = useState(recovery?.data?.custom_fields || editor.initial?.custom_fields || {});
   const [frozen, setFrozen] = useState(null);
   const fields = workspaceCatalog(data)?.fields[kind] || [];
   const stages = stageDefinitions(data);
@@ -2527,14 +2608,14 @@ function Editor({ editor, data, busy, error, save, cancel }) {
   // Prevent callbacks retained from dismissed/replaced editors from writing.
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  function discardChanges() { if (busy) return; active.current = false; cancel(); }
+  function discardChanges() { if (!active.current || busy) return; active.current = false; cancel(); }
   function dismiss() {
     if (busy) return;
-    if (frozen || JSON.stringify(values) !== initialValues.current || Object.keys(customChanges).length) setDiscard(true);
+    if (frozen || pending || JSON.stringify(company) !== initialCompany.current || JSON.stringify(values) !== initialValues.current || Object.keys(customChanges).length) setDiscard(true);
     else discardChanges();
   }
   function update(key, value) {
-    if (!active.current || busy || frozen) return;
+    if (!active.current || busy || frozen || pending) return;
     setValues(old => ({ ...old, [key]: value,
       ...(key === "stage" ? { probability: stages.find(stage => stage.key === value)?.probability ?? 0 } : {}),
     }));
@@ -2547,7 +2628,7 @@ function Editor({ editor, data, busy, error, save, cancel }) {
   const selectOptions = items => items.map(value => [value, label(value)]);
   const field = (key, title, type = "text", options = null, hint = "", wide = false) => {
     const required = key === "name" || key === "due_at" || (key === "title" && kind !== "contacts") || (key === "contact_id" && kind === "deals");
-    const props = { name: key, value: values[key], onChange: e => update(key, e.target.value), required, disabled: busy || !!frozen || (key === "probability" && stages.find(stage => stage.key === values.stage)?.outcome !== "open"),
+    const props = { name: key, value: values[key], onChange: e => update(key, e.target.value), required, disabled: busy || !!frozen || !!pending || (key === "probability" && stages.find(stage => stage.key === values.stage)?.outcome !== "open"),
       "aria-invalid": invalidField === key ? true : undefined,
       "aria-describedby": invalidField === key ? `${editor.key}-validation` : hint ? `${editor.key}-${key}-hint` : undefined };
     return h("label", { key, className: wide || key === "notes" || key === "name" || (key === "title" && kind !== "contacts") ? "hc-wide" : undefined },
@@ -2569,6 +2650,7 @@ function Editor({ editor, data, busy, error, save, cancel }) {
     event.preventDefault();
     if (!active.current || busy) return;
     setValidation(""); setInvalidField("");
+    if (pending) { if (pending.state === 'unknown') await save(null, session); return; }
     if (frozen) { if (!row) await save(frozen); return; }
     const payload = { ...values, ...(Object.keys(customChanges).length ? { custom_fields: customChanges } : {}) };
     const titleKey = kind === "contacts" ? "name" : "title";
@@ -2589,6 +2671,11 @@ function Editor({ editor, data, busy, error, save, cancel }) {
       payload.due_at = row?.due_at && payload.due_at === initialDueInput.current ? row.due_at : new Date(payload.due_at).toISOString();
       payload.contact_id ||= null; payload.deal_id ||= null;
     }
+    if (!row && kind === 'contacts' && session) {
+      if (company && (!Number.isSafeInteger(company.version) || company.version < 1 || company.archived_at)) return fail('name', 'Select and review an active Company version before saving.');
+      await save({data: payload, company_id: company?.id || null, expected_company_version: company?.version || null}, session);
+      return;
+    }
     setFrozen(payload);
     const succeeded = await save(payload);
     if (succeeded) setFrozen(null);
@@ -2604,6 +2691,7 @@ function Editor({ editor, data, busy, error, save, cancel }) {
     busy, cancel: dismiss, returnFocus: editor.returnFocus,
   }, h("form", { className: "hc-editor", ref: formRef, onSubmit: submit, "aria-label": `${row ? "Edit" : "Create"} ${kind}`, "aria-busy": busy },
     h("div", { className: "hc-editor-body" },
+      h(RelationshipPendingCreate, {attempt:pending}),
       discard && h("section", { role: "alert", "aria-label": "Unsaved changes" },
         h("p", null, frozen ? "This save is unconfirmed. Discarding loses the original retry form; refresh and verify the record before creating it again." : "Discard unsaved changes?"),
         button(frozen ? "Keep retry form" : "Keep editing", () => setDiscard(false), { disabled: busy }),
@@ -2616,7 +2704,10 @@ function Editor({ editor, data, busy, error, save, cancel }) {
         kind === "deals" ? section("Pipeline details", [field("value", "Deal value (USD)", "number"), field("stage", "Stage", "text", stages.map(stage => [stage.key, stage.label])), field("probability", "Probability (%)", "number", null, "Changing stage sets a suggested probability. You can adjust it."), field("close_date", "Expected close", "date")])
           : section("Timing and status", [field("due_at", "Due date and time (your local timezone)", "datetime-local", null, "Saving a follow-up does not schedule agent work or a reminder.", true), field("priority", "Priority", "text", selectOptions(["normal", "high"])), field("status", "Status", "text", selectOptions(["open", "done"]))]),
       ],
-      fields.some(field => !field.archived) && section("Custom fields", [h(CustomFieldInputs, { key: "custom-fields", fields, values: customValues, disabled: busy || !!frozen, update: (key, value) => { if (!active.current || busy || frozen) return; setCustomValues(old => ({ ...old, [key]: value })); setCustomChanges(old => ({ ...old, [key]: value })); } })], "Optional. Clearing an edited field removes its value; untouched fields are preserved."),
+      !row && kind === 'contacts' && session && h(RelationshipSelector, { session, kind: 'companies', label: 'Primary Company (explicit link)', value: company?.id, reviewedVersion: company?.version, disabled: busy || !!pending, onChange: (id, selected) => { if (active.current && !busy && !pending) setCompany(id ? {id, version: selected.version, archived_at: selected.archived_at} : null); } }),
+      company && h('p', null, `Reviewed Company: ${company.id} · Version ${company.version}`),
+      pending?.state === 'unknown' && h('p', {role:'status'}, 'Outcome unknown. Save retries the original request, including its original Company and fields. Closing does not discard this pending operation.'),
+      fields.some(field => !field.archived) && section("Custom fields", [h(CustomFieldInputs, { key: "custom-fields", fields, values: customValues, disabled: busy || !!frozen || !!pending, update: (key, value) => { if (!active.current || busy || frozen || pending) return; setCustomValues(old => ({ ...old, [key]: value })); setCustomChanges(old => ({ ...old, [key]: value })); } })], "Optional. Clearing an edited field removes its value; untouched fields are preserved."),
       frozen && h("p", { role: "status" }, row ? "This save was not confirmed. Close, refresh and reopen the record before editing again." : "Values are frozen. Save again retries the exact original request."),
       section("Notes", [field("notes", "Notes", "text", null, "Context stored on this CRM record.")])),
     h("footer", { className: "hc-editor-footer" },
@@ -3863,10 +3954,16 @@ const relationshipListeners = new WeakMap();
 export function confirmedRelationshipReceipt(path, method, body, result) {
   const version = value => Number.isSafeInteger(value) && value > 0;
   const id = value => typeof value === 'string' && value.trim().length > 0;
-  const record = value => value && id(value.id) && version(value.version);
+  const record = value => !!value && id(value.id) && version(value.version);
   const atLeast = (actual, expected) => version(actual) && (!version(expected) || actual >= expected);
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
   if (!result || typeof result !== 'object') return false;
+  if (parts[0] === 'relationship-contacts' && parts.length === 1 && method === 'POST') {
+    const contact = result.contact, link = result.company_link;
+    return record(contact) && !!link && link.contact_id === contact.id && link.contact_version === contact.version &&
+      Object.hasOwn(link, 'company_id') && link.company_id === body.company_id &&
+      link.company_link_basis === (body.company_id === null ? 'unlinked' : 'explicit');
+  }
   if (parts[0] === 'contacts' && parts.length === 3 && parts[2] === 'company' && method === 'PUT')
     return result.contact_id === parts[1] && atLeast(result.contact_version, body.expected_contact_version) && Object.hasOwn(result, 'company_id') && result.company_id === body.company_id;
   if (parts[0] === 'events' && parts.length === 3 && parts[2] === 'tasks' && method === 'POST')
@@ -3880,7 +3977,7 @@ export function confirmedRelationshipReceipt(path, method, body, result) {
     return false;
   }
   if (!['companies', 'events'].includes(parts[0]) || !record(result)) return false;
-  if (parts.length === 1) return method === 'POST';
+  if (parts.length === 1) return method === 'POST' && (parts[0] !== 'events' || ['contact_id','deal_id','company_id'].every(key => Object.hasOwn(result, key) && result[key] === (body.data?.[key] || null)));
   return result.id === parts[1] && atLeast(result.version, body.expected_version) &&
     ((parts.length === 2 && method === 'PATCH') || (parts.length === 3 && method === 'POST' &&
       (parts[0] === 'companies' ? ['archive', 'restore'] : ['complete', 'cancel', 'reopen', 'needs-rescheduling', 'reschedule']).includes(parts[2])));
@@ -3917,16 +4014,27 @@ export function relationshipSession(client, token, current = () => true, operati
       const result = await client.request(`${path}${separator}${new URLSearchParams({ ...params, workspace_token: token })}`);
       return valid() ? result : null;
     },
-    write(path, method, body) {
+    write(path, method, body, context = null) {
       if (!valid() || store.has(token)) return Promise.resolve(null);
-      const attempt = { path, method, state: 'running', payload: JSON.stringify({ ...body, workspace_token: token, idempotency_key: crypto.randomUUID() }) };
+      const attempt = { path, method, state: 'running', context: context ? JSON.parse(JSON.stringify(context)) : null, payload: JSON.stringify({ ...body, workspace_token: token, idempotency_key: crypto.randomUUID() }) };
       store.set(token, attempt);
       return perform(attempt);
     },
     retry() { const attempt = store.get(token); return valid() && attempt?.state === 'unknown' ? perform(attempt) : Promise.resolve(null); },
   };
 }
-function useRelationshipStatus(session) {
+// Retained write context is local-only navigation metadata; never sent to the API.
+export function RelationshipPendingCreate({ attempt }) {
+  if (!attempt || !['/relationship-contacts','/events','/companies'].includes(attempt.path) || attempt.method !== 'POST') return null;
+  const body = JSON.parse(attempt.payload), source = attempt.context?.trail?.at(-1);
+  return h('section', {className:'hc-notice', 'aria-label':'Original pending creation'},
+    h('h3', null, 'Original pending creation'),
+    h('p', null, 'Retry sends only this original frozen request. The current page does not change its destination or associations.'),
+    h('p', null, source ? `Original source: ${source.kind} · ${source.id}` : 'Original source: list (no parent record)'),
+    attempt.path === '/relationship-contacts' && h('p', null, body.company_id ? `Primary Company: ${body.company_id} · Reviewed version ${body.expected_company_version}` : 'Primary Company: Not linked'),
+    h('dl', null, Object.entries(body.data || {}).map(([key,value]) => h('div', {key}, h('dt', null, key === 'company' ? 'Legacy company text (unlinked)' : relLabel(key)), h('dd', null, value === null || value === '' ? 'Not set' : typeof value === 'object' ? JSON.stringify(value) : String(value))))));
+}
+export function useRelationshipStatus(session) {
   const [generation, setGeneration] = useState(0);
   useEffect(() => session.subscribe(() => setGeneration(value => value + 1)), [session]);
   return generation;
@@ -3962,36 +4070,56 @@ export function RelationshipRows({ session, path, params = {}, open, revision = 
       row.source && h('small', null, `Source: ${row.source} · Self-reported; not verified attendance or delivery`)))),
     h(RelationshipPager, { page, offset, change: setOffset, disabled })));
 }
-export function RelationshipSelector({ session, kind, value, onChange, disabled, label: caption }) {
+export function RelationshipSelector({ session, kind, value, onChange, disabled, label: caption, reviewedVersion }) {
   const [query, setQuery] = useState(''), [offset, setOffset] = useState(0), [page, setPage] = useState(null), [error, setError] = useState('');
   useEffect(() => { let live = true; setPage(null); setError('');
     const path = ['contacts', 'deals', 'tasks'].includes(kind) ? `/relationship-selectors/${kind}` : `/${kind}`;
     session.read(path, { q: query, limit: 25, offset }).then(result => { if (live && result) setPage(Array.isArray(result) ? { items: result, total: result.length } : result); }).catch(e => { if (live) setError(e.message); }); return () => { live = false; };
   }, [session, kind, query, offset]);
+  const [review, setReview] = useState(null), [reviewing, setReviewing] = useState(false);
+  const reviewGeneration = useRef(0);
+  useEffect(() => { reviewGeneration.current++; setReview(null); setReviewing(false); return () => { reviewGeneration.current++; }; }, [value]);
+  async function refreshSelected() {
+    if (disabled || reviewing || !value) return;
+    const ticket = ++reviewGeneration.current; setReviewing(true); setError('');
+    try { const result = await session.read(`/companies/${encodeURIComponent(value)}`); const row = result?.company || result;
+      if (ticket !== reviewGeneration.current) return;
+      if (!row || row.id !== value || !Number.isSafeInteger(row.version) || row.version < 1) throw new Error('Selected Company is unavailable. Clear or choose another Company.');
+      setReview(row);
+    } catch (error) { if (ticket === reviewGeneration.current) setError(error.message); }
+    finally { if (ticket === reviewGeneration.current) setReviewing(false); }
+  }
   return h('fieldset', { className: 'hc-relationship-selector', disabled }, h('legend', null, caption), h('label', null, 'Search', h('input', { value: query, onChange: e => { setQuery(e.target.value); setOffset(0); } })),
     h('p', null, value ? `Selected exact ID: ${value}` : 'Not linked'), value && relButton('Clear selection', () => onChange(null), disabled), error && h('p', { role: 'alert' }, error),
+    kind === 'companies' && value && reviewedVersion !== undefined && h('div', null,
+      relButton('Refresh selected Company', refreshSelected, disabled || reviewing),
+      review && h('p', null, `${relName(review)} · ${review.id} · Version ${review.version}${review.archived_at ? ' · archived; choose another Company' : ''}`),
+      review && relButton('Use reviewed Company version', () => onChange(review.id, review), disabled || !!review.archived_at)),
     page && h('div', null, h('ul', null, page.items.map(row => h('li', { key: row.id }, relButton(`${relName(row)} · ${row.email || row.domain || row.status || ''} · ${row.id}${row.archived_at ? ' · archived' : ''}`, () => onChange(row.id, row), disabled || !!row.archived_at, { 'aria-pressed': value === row.id })))), h(RelationshipPager, { page, offset, change: setOffset, disabled })));
 }
-export function RelationshipForm({ kind, row, action, session, submit, cancel, busy, pending }) {
+export function RelationshipForm({ kind, row, initialValues = null, action, session, submit, cancel, cancelRef, busy, pending }) {
   const fields = kind === 'companies' ? ['name', 'domain', 'notes'] : action === 'task' ? ['title', 'due_at', 'notes'] : action === 'complete' ? ['outcome_happened_at', 'outcome_summary'] : ['cancel', 'reopen', 'needs-rescheduling'].includes(action) ? ['reason'] : ['title', 'kind', 'starts_at', 'ends_at', 'timezone', 'notes'];
-  const [values, setValues] = useState(() => Object.fromEntries([...fields, ...(kind === 'events' && !action ? ['contact_id', 'deal_id', 'company_id'] : action === 'task' ? ['contact_id', 'deal_id'] : [])].map(key => [key, (action === 'task' && !['contact_id', 'deal_id'].includes(key) ? undefined : row?.[key]) ?? (key === 'kind' ? 'appointment' : key === 'timezone' ? 'UTC' : '')])));
+  const [values, setValues] = useState(() => Object.fromEntries([...fields, ...(kind === 'events' && !action ? ['contact_id', 'deal_id', 'company_id'] : action === 'task' ? ['contact_id', 'deal_id'] : [])].map(key => [key, (action === 'task' && !['contact_id', 'deal_id'].includes(key) ? undefined : (row || initialValues)?.[key]) ?? (key === 'kind' ? 'appointment' : key === 'timezone' ? 'UTC' : '')])));
   const original = useRef(values).current;
-  const originalZone = useRef(row?.timezone || 'UTC').current;
+  const originalZone = useRef((row || initialValues)?.timezone || 'UTC').current;
   const [zone, setZone] = useState(originalZone), [walls, setWalls] = useState(()=>Object.fromEntries(fields.filter(key=>key.endsWith('_at')).map(key=>[key, values[key] ? relWall(values[key],originalZone) : '']))), [choices,setChoices] = useState({});
   const [discard,setDiscard] = useState(false);
   const dirty = JSON.stringify(values)!==JSON.stringify(original) || zone!==originalZone || Object.entries(walls).some(([key,value])=>value!==(original[key] ? relWall(original[key],originalZone) : '')) || Object.values(choices).some(Boolean);
-  const requestCancel = () => { if (busy) return; if (dirty) setDiscard(true); else cancel(); };
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const requestCancel = () => { if (!active.current || busy) return; if (dirty) setDiscard(true); else cancel(); };
+  if (cancelRef) cancelRef.current = requestCancel;
   const [error, setError] = useState(''); const first = useRef(null);
   useEffect(() => { first.current?.focus(); }, []);
   const change = (key, value) => setValues(previous => ({ ...previous, [key]: value }));
-  return h('form', { className: 'hc-relationship-form', 'aria-label': `${action || (row ? 'Edit' : 'Create')} ${kind}`, onSubmit: e => { e.preventDefault(); setError(''); try {
+  return h('form', { className: 'hc-relationship-form', 'aria-label': `${action || (row ? 'Edit' : 'Create')} ${kind}`, onSubmit: e => { e.preventDefault(); if (!active.current || busy || pending) return; setError(''); try {
     const data = { ...values }; for (const key of ['contact_id', 'deal_id', 'company_id']) if (data[key] === '') data[key] = null;
     for (const field of ['starts_at', 'ends_at', 'outcome_happened_at', 'due_at']) if (Object.hasOwn(data, field)) data[field] = relResolve(walls[field], zone, original[field], originalZone, choices[field]);
     if (data.timezone) new Intl.DateTimeFormat('en', { timeZone: data.timezone }).format();
     if (data.starts_at && data.ends_at && relMicros(data.ends_at) <= relMicros(data.starts_at)) throw new Error('End must follow start.');
     if (data.outcome_happened_at && relMicros(data.outcome_happened_at) > BigInt(Date.now()) * 1000n) throw new Error('Claimed occurrence cannot be in the future.');
     submit(data);
-  } catch (error) { setError(error.message); } }, onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); requestCancel(); } } },
+  } catch (error) { setError(error.message); } }, onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); e.stopPropagation?.(); requestCancel(); } } },
     h('h3', null, `${relLabel(action || (row ? 'Edit' : 'Create'))} ${action === 'task' ? 'associated task' : kind === 'companies' ? 'Company' : 'Event'}`),
     kind === 'events' && h('p', { className: 'hc-muted' }, 'Local CRM record only. Saving does not invite, call, send, schedule a reminder, research, attach files or sync a calendar. Completion is your self-reported claim. Related records are context, not verified attendees. Notes are ordinary plaintext.'),
     action === 'task' && h('p', { className: 'hc-muted' }, 'Review the exact contact and deal context prefilled from this Event below, or clear each selection for an Event-only task. No Company is inferred. The explicit Event link remains separate from the task’s direct contact or deal context.'),
@@ -4001,7 +4129,7 @@ export function RelationshipForm({ kind, row, action, session, submit, cancel, b
     kind === 'events' && (!action || action === 'task') && (action === 'task' ? ['contacts', 'deals'] : ['contacts', 'deals', 'companies']).map(entity => { const key = entity === 'companies' ? 'company_id' : `${entity.slice(0, -1)}_id`; return h(RelationshipSelector, { key, session, kind: entity, label: `Related ${entity}`, value: values[key], disabled: busy || pending, onChange: id => change(key, id) }); }),
     error && h('p', { role: 'alert' }, error), h('div', { className: 'hc-actions' }, h('button', { type: 'submit', disabled: busy || pending, className: 'hc-primary' }, busy ? 'Saving…' : 'Save'), relButton('Cancel', requestCancel, busy)), discard && h('div', {className:'hc-discard-choice',role:'alert'}, h('p', null, 'Discard unsaved changes?'), relButton('Keep editing', ()=>setDiscard(false)), relButton('Discard changes', cancel, busy)));
 }
-export function Relationships({ client, workspaceToken, page = 'companies', initial = null, open, onSaved, onEditingChange, navigateRecord, onBack, initialListState = {}, onListStateChange, disabled = false, operationStore = null }) {
+export function Relationships({ client, workspaceToken, page = 'companies', initial = null, startRelatedCreate, onCreated, onCreateRejected, createContext = null, open, onSaved, onEditingChange, navigateRecord, onBack, initialListState = {}, onListStateChange, disabled = false, operationStore = null }) {
   const sessionRef = useRef(null);
   if (!sessionRef.current) sessionRef.current = relationshipSession(client, workspaceToken, () => true, operationStore);
   const session = sessionRef.current;
@@ -4023,8 +4151,8 @@ export function Relationships({ client, workspaceToken, page = 'companies', init
   function cancel() { setForm(null); }
   function edit(action = '') { returnFocus.current = root.current?.ownerDocument.activeElement; setForm({ action, expectedVersion: record?.version }); setError(''); }
   async function write(path, method, body, retry = false) {
-    if (mutationLock.current || disabled) return; mutationLock.current = true; const ticket = ++sequence.current; setBusy(true); setError('');
-    try { const result = await (retry ? session.retry() : session.write(path, method, body)); if (result && session.valid() && ticket === sequence.current) { setForm(null); setRevision(v => v + 1); onSaved?.(); returnFocus.current?.focus(); } } catch (error) { if (session.valid() && ticket === sequence.current) setError(error.message); } finally { mutationLock.current = false; if (session.valid() && ticket === sequence.current) setBusy(false); }
+    if (mutationLock.current || disabled) return; mutationLock.current = true; const ticket = ++sequence.current; const attemptPath = retry ? session.pending()?.path : path; const attemptMethod = retry ? session.pending()?.method : method; const rejectedAttempt = retry ? session.pending() : null; const attemptContext = retry ? session.pending()?.context : createContext; setBusy(true); setError('');
+    try { const result = await (retry ? session.retry() : session.write(path, method, body, createContext)); if (result && session.valid() && ticket === sequence.current) { setForm(null); setRevision(v => v + 1); onSaved?.(); if (attemptMethod === 'POST' && ['/relationship-contacts','/events','/companies'].includes(attemptPath)) onCreated?.(attemptPath === '/relationship-contacts' ? 'contacts' : attemptPath.slice(1), result.contact?.id || result.id, attemptContext); returnFocus.current?.focus(); } } catch (error) { if (session.valid() && ticket === sequence.current) { setError(error.message); if (rejectedAttempt && !session.pending() && rejectedAttempt.method === 'POST' && ['/relationship-contacts','/events'].includes(rejectedAttempt.path)) onCreateRejected?.(rejectedAttempt, error.message); } } finally { mutationLock.current = false; if (session.valid() && ticket === sequence.current) setBusy(false); }
   }
   function save(values) {
     const action = form.action; const base = `/${kind}${record ? '/' + encodeURIComponent(record.id) : ''}`;
@@ -4034,13 +4162,15 @@ export function Relationships({ client, workspaceToken, page = 'companies', init
     write(`${base}${action ? '/' + (action === 'task' ? 'tasks' : action) : ''}`, record && !action ? 'PATCH' : 'POST', body);
   }
   const pending = session.pending(), locked = busy || disabled || !!pending;
+  const recoveringCreate = pending?.state === 'unknown' && ['/relationship-contacts','/events'].includes(pending.path);
   return h('section', { ref: root, tabIndex: -1, className: 'hc-relationships', 'aria-label': 'Companies and relationship events' },
+    h(RelationshipPendingCreate, {attempt: pending}),
     error && h('div', null, h('p', { role: 'alert', className: 'hc-notice' }, error), selected && relButton('Refresh current record (keep draft)', () => setRevision(v => v + 1), busy)), pending?.state === 'unknown' && relButton('Retry original request', () => write('', '', {}, true), busy || disabled),
     form?.action === 'link-task' ? h('section', null, h(RelationshipSelector, { session, kind: 'tasks', label: 'Select exact existing task', value: taskChoice?.id, onChange: (id, row) => setTaskChoice(id ? row : null), disabled: locked }), relButton('Link selected task', () => write(`/tasks/${encodeURIComponent(taskChoice.id)}/event`, 'PUT', { event_id: record.id, expected_version: record.version, expected_task_version: taskChoice.version }), locked || !taskChoice), relButton('Cancel', cancel, busy)) : form ? h('div', null, form.expectedVersion !== record?.version && record && h('div', null, h('p', null, `Record is now version ${record.version}. Review current values before using this draft.`), h('dl', null, Object.entries(record).filter(([key, value]) => ['name','title','domain','notes','starts_at','ends_at','timezone','status'].includes(key) && value != null).map(([key, value]) => h('div', { key }, h('dt', null, relLabel(key)), h('dd', null, String(value))))), relButton('Use refreshed version for this draft', () => setForm({ ...form, expectedVersion: record.version }), locked)), h(RelationshipForm, { key: `${kind}:${record?.id || 'new'}:${form.action}`, kind, row: record, action: form.action, session, submit: save, cancel, busy, pending: !!pending })) : selected ? h('div', null,
       relButton(onBack ? 'Close' : 'Back to list', () => { if (busy || disabled || form) return; sequence.current++; if (onBack) onBack(); else { setSelected(null); setRecord(null); } }, busy || disabled),
       !record ? h('p', { role: 'status' }, 'Loading record…') : h('section', { className: 'hc-record' },
         h('h2', { ref: heading, tabIndex: -1 }, relName(record)), h('details', {className:'hc-record-meta'}, h('summary', null, 'Record details'), h('p', null, `${record.id} · Version ${record.version}`), ...['starts_at','ends_at','outcome_happened_at','recorded_at'].filter(key=>record[key]).map(key=>h('p',{key},`${relLabel(key)}: ${record[key]}`))),
-        kind === 'companies' ? h('div', null, h('p', null, `${record.domain || 'No domain'}${record.archived_at ? ' · Archived' : ''}`), h('p', null, record.notes), h('div', { className: 'hc-actions' }, relButton('Edit Company', () => edit(), locked, {className:'hc-primary'}), relButton(record.archived_at ? 'Restore Company' : 'Archive Company', () => write(`/companies/${encodeURIComponent(record.id)}/${record.archived_at ? 'restore' : 'archive'}`, 'POST', { expected_version: record.version }), locked)), h('p', { className: 'hc-muted' }, 'Current explicit relationships. Contacts have one primary Company. Deals follow their contact. Tasks follow their direct contact or deal contact; Event-linked tasks also show their Event basis. Events retain their own explicit Company. Domain is unverified text.'), ['contacts', 'deals', 'tasks', 'events'].map(entity => h(RelationshipRows, { key: entity, ...pagination(`company:${record.id}:${entity}`), session, path: `/companies/${encodeURIComponent(record.id)}/records/${entity}`, title: relLabel(entity), kind: entity, open: select, revision: revision + operationGeneration, disabled: locked })), h(RelationshipRows, { ...pagination(`company:${record.id}:activities`), session, path: '/relationship-activities', params: { company_id: record.id }, title: 'Company Activities · current relationship membership', open: select, revision: revision + operationGeneration, disabled: locked })) : h('div', null,
+        kind === 'companies' ? h('div', null, h('p', null, `${record.domain || 'No domain'}${record.archived_at ? ' · Archived' : ''}`), h('p', null, record.notes), h('div', { className: 'hc-actions' }, relButton('Edit Company', () => edit(), locked, {className:'hc-primary'}), relButton('Create contact', () => startRelatedCreate?.('contacts', 'companies', record), busy || disabled || (!!pending && !recoveringCreate) || !!record.archived_at || !startRelatedCreate), relButton('Create Event', () => startRelatedCreate?.('events', 'companies', record), busy || disabled || (!!pending && !recoveringCreate) || !!record.archived_at || !startRelatedCreate), relButton(record.archived_at ? 'Restore Company' : 'Archive Company', () => write(`/companies/${encodeURIComponent(record.id)}/${record.archived_at ? 'restore' : 'archive'}`, 'POST', { expected_version: record.version }), locked)), h('p', { className: 'hc-muted' }, 'Current explicit relationships. Contacts have one primary Company. Deals follow their contact. Tasks follow their direct contact or deal contact; Event-linked tasks also show their Event basis. Events retain their own explicit Company. Domain is unverified text.'), ['contacts', 'deals', 'tasks', 'events'].map(entity => h(RelationshipRows, { key: entity, ...pagination(`company:${record.id}:${entity}`), session, path: `/companies/${encodeURIComponent(record.id)}/records/${entity}`, title: relLabel(entity), kind: entity, open: select, revision: revision + operationGeneration, disabled: locked })), h(RelationshipRows, { ...pagination(`company:${record.id}:activities`), session, path: '/relationship-activities', params: { company_id: record.id }, title: 'Company Activities · current relationship membership', open: select, revision: revision + operationGeneration, disabled: locked })) : h('div', null,
           h('p', null, `${relLabel(record.kind)} · ${relLabel(record.status)} · Local`), h('p', null, `${relReadable(record.starts_at,record.timezone)} → ${relReadable(record.ends_at,record.timezone)} · Display timezone: ${record.timezone}`), h('p', null, record.notes),
           record.status === 'completed' && h('p', null, `Self-reported completion: ${relReadable(record.outcome_happened_at,record.timezone)} · ${record.outcome_summary}. Recorded ${relReadable(record.recorded_at || record.updated_at,record.timezone)}. Not verified attendance or call.`),
           h('div', { className: 'hc-actions' }, ['contact', 'deal', 'company'].map(entity => record[`${entity}_id`] && relButton(`Open ${entity} · ${record[`${entity}_id`]}`, () => select(entity === 'company' ? 'companies' : `${entity}s`, record[`${entity}_id`]), locked, { key: entity }))),
@@ -4060,9 +4190,9 @@ export function ContactCompany({ client, workspaceToken, contact, open, disabled
   useEffect(() => { let live = true; session.read(`/contacts/${encodeURIComponent(contact.id)}/company`).then(row => { if (live && row) setLink(row); }).catch(e => { if (live) setError(e.message); }); return () => { live = false; }; }, [session, contact.id, revision, operationGeneration]);
   const mutationLock = useRef(false);
   const company = link?.company_id ? { id: link.company_id, name: link.company_name, archived_at: link.company_archived } : null;
-  async function save(retry = false) { if (mutationLock.current || disabled) return; mutationLock.current = true; setBusy(true); setError(''); try { const result = await (retry ? session.retry() : session.write(`/contacts/${encodeURIComponent(contact.id)}/company`, 'PUT', { company_id: choice, expected_contact_version: link?.contact_version ?? contact.version })); if (result) { setEditing(false); setRevision(v => v + 1); onSaved?.(); } } catch (e) { if (session.valid()) setError(e.message); } finally { mutationLock.current = false; if (session.valid()) setBusy(false); } }
+  async function save(retry = false) { if (retry && session.pending()?.path !== `/contacts/${encodeURIComponent(contact.id)}/company`) return; if (mutationLock.current || disabled) return; mutationLock.current = true; setBusy(true); setError(''); try { const result = await (retry ? session.retry() : session.write(`/contacts/${encodeURIComponent(contact.id)}/company`, 'PUT', { company_id: choice, expected_contact_version: link?.contact_version ?? contact.version })); if (result) { setEditing(false); setRevision(v => v + 1); onSaved?.(); } } catch (e) { if (session.valid()) setError(e.message); } finally { mutationLock.current = false; if (session.valid()) setBusy(false); } }
   return h('section', { className: 'hc-card hc-relationships' }, h('h3', null, 'Primary Company'), company ? relButton(`${company.name} · ${company.id}${company.archived_at ? ' · archived' : ''}`, () => open('companies', company.id), disabled) : h('p', null, 'No explicit Company link.'), h('p', { className: 'hc-muted' }, `Legacy company text (unlinked): ${contact.company || 'Not set'}. No automatic name matching.`), error && h('p', { role: 'alert' }, error),
-    session.pending()?.state === 'unknown' && relButton('Retry original request', () => save(true), busy || disabled),
+    session.pending()?.state === 'unknown' && session.pending()?.path === `/contacts/${encodeURIComponent(contact.id)}/company` && relButton('Retry original request', () => save(true), busy || disabled),
     editing ? h('div', null, h(RelationshipSelector, { session, kind: 'companies', label: 'Select exact Company', value: choice, onChange: setChoice, disabled: busy || !!session.pending() }), relButton(choice ? 'Save explicit link' : 'Unlink Company', () => save(), busy || disabled || !!session.pending()), relButton('Cancel', () => setEditing(false), busy)) : relButton('Change Company link', () => { setChoice(company?.id || null); setEditing(true); }, disabled || busy || !!session.pending()));
 }
 
@@ -4081,11 +4211,11 @@ export function TaskEventRelationship({ client, workspaceToken, task, open, disa
   const session = ref.current; useRelationshipStatus(session); const [event, setEvent] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
   useEffect(() => { session.activate(); return () => session.close(); }, [session]);
   async function review() { setBusy(true); setError(''); try { const value = await session.read(`/events/${encodeURIComponent(task.event_id)}`); if (value?.id !== task.event_id) throw new Error('Event identity could not be verified'); setEvent(value); } catch (e) { if (session.valid()) setError(e.message); } finally { mutationLock.current = false; if (session.valid()) setBusy(false); } }
-  async function unlink(retry = false) { if (mutationLock.current || disabled) return; mutationLock.current = true; setBusy(true); setError(''); try { const result = await (retry ? session.retry() : session.write(`/tasks/${encodeURIComponent(task.id)}/event/unlink`, 'POST', { event_id: event.id, expected_version: event.version, expected_task_version: task.version })); if (result) onSaved?.(); } catch (e) { if (session.valid()) setError(e.message); } finally { mutationLock.current = false; if (session.valid()) setBusy(false); } }
+  async function unlink(retry = false) { if (retry && session.pending()?.path !== `/tasks/${encodeURIComponent(task.id)}/event/unlink`) return; if (mutationLock.current || disabled) return; mutationLock.current = true; setBusy(true); setError(''); try { const result = await (retry ? session.retry() : session.write(`/tasks/${encodeURIComponent(task.id)}/event/unlink`, 'POST', { event_id: event.id, expected_version: event.version, expected_task_version: task.version })); if (result) onSaved?.(); } catch (e) { if (session.valid()) setError(e.message); } finally { mutationLock.current = false; if (session.valid()) setBusy(false); } }
   const mutationLock = useRef(false);
   const locked = busy || disabled || !!session.pending();
   return h('section', { className: 'hc-card hc-relationships' }, h('h3', null, 'Linked Event'), relButton(`${task.event_title || 'Event'} · ${task.event_id}`, () => open('events', task.event_id), disabled || busy), h('p', null, 'Association basis: explicit Event task link. Agent-work ownership is separate.'), error && h('p', { role: 'alert' }, error),
-    session.pending()?.state === 'unknown' && relButton('Retry original request', () => unlink(true), busy || disabled),
+    session.pending()?.state === 'unknown' && session.pending()?.path === `/tasks/${encodeURIComponent(task.id)}/event/unlink` && relButton('Retry original request', () => unlink(true), busy || disabled),
     event ? h('div', null, h('p', null, `Unlink from ${event.title} · ${event.id} · Event version ${event.version} · Task version ${task.version}? This keeps both records.`), relButton('Unlink from reviewed Event', () => unlink(), locked), relButton('Cancel unlink', () => setEvent(null), busy)) : relButton('Review Event unlink', review, locked));
 }
 // END GENERATED RELATIONSHIPS PANEL

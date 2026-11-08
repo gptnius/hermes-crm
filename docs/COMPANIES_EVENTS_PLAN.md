@@ -55,6 +55,10 @@ unverified text, not proof of ownership. No hard deletion or Company custom
 fields in this slice.
 
 Methods: list/get/create/update/archive/restore; exact-ID contact link/unlink.
+The additive [contextual contact-create operation](CONTEXTUAL_CREATION.md) saves
+a contact and optional version-reviewed Company link in one transaction using
+the existing tables and scoped retry receipts. Old core create receipts remain
+unchanged; Company names are never inferred as links.
 Link changes require the contact's expected version and a stable retry key,
 then atomically bump its version/timestamp and add audit history. Linking an
 archived Company is rejected; existing archived links remain visible. Setting

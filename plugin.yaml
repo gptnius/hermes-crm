@@ -54,6 +54,7 @@ provides_tools:
   - crm_company_archive
   - crm_company_restore
   - crm_contact_company_set
+  - crm_contact_create_with_company
   - crm_event_list
   - crm_event_get
   - crm_event_create

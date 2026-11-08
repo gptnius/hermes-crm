@@ -33,6 +33,11 @@ class Create(Strict):
     idempotency_key: str = Field(min_length=1, max_length=160)
 
 
+class ContactCreate(Create):
+    company_id: str | None = Field(default=None, min_length=1, max_length=36)
+    expected_company_version: int | None = Field(default=None, ge=1)
+
+
 class Version(Get):
     expected_version: int = Field(ge=1)
     idempotency_key: str = Field(min_length=1, max_length=160)
@@ -109,6 +114,10 @@ def revisions(crm, args):
         {**project(row,frozenset(('event_id','version','created_at','actor'))), 'record':project(row['record'],EVENT_FIELDS)} for row in result['items']]}
 
 
+def contact_receipt(result):
+    return dict(contact=project(result['contact'],CORE_FIELDS), company_link=project(result['company_link'],LINK_FIELDS))
+
+
 def task_receipt(result):
     return dict(event=project(result['event'],EVENT_FIELDS) if result['event'] is not None else None, task=project(result['task'],CORE_FIELDS), event_id=result['event_id'], task_id=result['task_id'])
 
@@ -131,6 +140,7 @@ def register_relationship_tools(register):
          lambda crm,a: page(RelationshipQueries(crm).company_records(a['record_id'],a['kind'],limit=a.get('limit',50),offset=a.get('offset',0)), EVENT_FIELDS if a['kind']=='events' else CORE_FIELDS))
     tool('crm_contact_company_get', 'Read the explicit primary Company link without changing legacy company text.', Get, 'crm_company_read', lambda crm,a: project(CompanyStore(crm).get_contact_company(a['record_id']),LINK_FIELDS))
     tool('crm_company_create', 'Create an explicitly requested Company identity with a stable retry key. Never infer or match by name.', Create, 'crm_company_write', lambda crm,a: project(CompanyStore(crm).create(a['data'],actor='hermes',key=a['idempotency_key']),COMPANY_FIELDS))
+    tool('crm_contact_create_with_company', 'Create a contact with an optional exact reviewed Company ID and current Company version. Never infer a link or overwrite legacy company text. Retry with the original payload and key.', ContactCreate, 'crm_company_write', lambda crm,a: contact_receipt(CompanyStore(crm).create_contact(a['data'],a.get('company_id'),a.get('expected_company_version'),actor='hermes',key=a['idempotency_key'])))
     tool('crm_company_update', 'Update an exact Company at its reviewed current version.', Update, 'crm_company_write', lambda crm,a: project(CompanyStore(crm).update(a['record_id'],a['data'],expected_version=a['expected_version'],actor='hermes',key=a['idempotency_key']),COMPANY_FIELDS))
     for action in ('archive','restore'):
         tool('crm_company_'+action, action.title()+' the exact Company at its expected version. Existing links remain visible.', Version, 'crm_company_write', lambda crm,a,action=action: project(getattr(CompanyStore(crm),action)(a['record_id'],expected_version=a['expected_version'],actor='hermes',key=a['idempotency_key']),COMPANY_FIELDS))

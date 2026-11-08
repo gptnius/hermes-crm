@@ -2,6 +2,80 @@
 
 Updated November 8, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Contextual contact and Event creation
+
+The new optional Primary Company selector creates a contact and its exact Company
+link in one transaction. It does not infer identity from names, overwrite legacy
+company text, merge records or alter the existing contact-create receipt format.
+Company, Contact and opportunity shortcuts prefill only the explicitly selected
+source identity. The new agent tool shares that service in `crm_company_write`;
+no scheduled-agent toolset gains access.
+
+Independent backend and interface reviews cleared the implementation. New
+contracts cover exact Company/version checks, archives, scope, custom values,
+rollback, unchanged historical receipts, same-key replay and conflicting retries.
+Interface checks cover paged duplicate Company names, explicit refresh/review of
+changed versions, source-only Event prefills and fresh detail reads. Uncertain
+requests retain their exact original payload, key and source after navigating to
+a different record; a definitive retry rejection restores the original draft
+without automatically submitting a replacement. Original list context also
+remains distinct from a subsequently opened Company.
+
+Disposable PostgreSQL 17.11 ARM64 verification passed **766 mixed checks with
+zero failures or skips** on the frozen backend snapshot: **19 new PostgreSQL and
+19 new SQLite/local cases**, plus all 728 earlier mixed regressions. This is not
+766 exclusively PostgreSQL-backed tests. Both fresh memory-backed, loopback-only
+containers were removed and independently confirmed absent; all source hashes
+remained unchanged. Concurrency fixtures use threads in one process, not multiple
+independent PostgreSQL client processes. Known dependency and intentional
+malformed-primary-key warnings remain disclosed.
+
+Cloud aggregate verification: **1,288 Python cases passed, 647 optional cases
+skipped**, with two known dependency warnings. Native React/VM suites, both
+design contracts, standalone contextual creation/retry/recovery and prior UI/time
+fixtures, **25 bridge checks**, JavaScript syntax and all **nine generator
+checks** passed. Pinned-host source and optional real nanostores assertions were
+unavailable in the cloud and are not counted as new host verification. Python
+runtime/tests and the plugin manifest are byte-identical to the frozen
+PostgreSQL snapshot.
+
+An isolated Mac Electron fixture rendered the actual native and standalone
+components with synthetic SDK/endpoints in light/dark themes at 1280, 640 and
+390 pixels. **378 renderer assertions passed**: 196 native checks and 182 final
+standalone rerun checks. This includes source-only prefills, paged Company
+selection, explicit stale-version review, exact custom values, dirty cancellation,
+confirmed child/parent navigation, and original Company/list recovery after
+uncertain or rejected saves. Native stale-profile completion was also checked.
+
+Rendering found a retained standalone retry that could become invisible after
+closing later details without refreshing the list. A scoped notice-slot update
+fixed it without another request, list replacement or automatic retry. The fix
+and regression passed independent review. Final standalone Contact/Event recovery
+covered both original Company and list sources, successful replay and definitive
+conflict restoration without extra section navigation; all six standalone
+responsive/theme cases were repeated. Native source was unchanged and was not
+rerun after this standalone-only patch. Nine earlier standalone parent-navigation
+and archived-control assertions were not repeated after the patch.
+
+**27 distinct screenshots were actually inspected** out of 151 retained captures:
+10 final patched standalone, 9 unchanged native and 8 earlier standalone images.
+The retained total includes exploratory and superseded captures. No unintended
+control clipping, overlap or horizontal page overflow was observed in inspected
+images; responsive DOM checks also confirmed page width. Long dialogs require
+scrolling and some placeholders truncate normally. Recorded renderer-error and
+blocked-network-request arrays were empty; intended synthetic transport failures
+were used for recovery tests. Nonfatal Electron deprecation/resource-extension
+warnings were recorded. All owned launch sessions exited.
+
+This is sampled pixel and DOM-event verification, not installed-host or OS
+keyboard/mouse testing. Synthetic fixtures do not establish full accessibility,
+physical host operation, real provider behavior or production performance.
+
+No active app, real profile, credential, provider, mailbox, external message or
+production record was involved. The new operation adds no research execution,
+invitation, calendar synchronization or agent scheduling. See
+[the contract and its remaining limits](CONTEXTUAL_CREATION.md).
+
 ## Workflow continuity and validation fixes
 
 This increment adds native linked-record Back navigation, confirmed child-record

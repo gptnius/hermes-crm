@@ -340,9 +340,11 @@ tree = root();
 const form = all(tree, (n) => n.type === "form")[0];
 await form.props.onSubmit({ preventDefault() {} });
 assert.equal(writes.length, 1);
-assert.equal(writes[0][0], "/contacts");
+assert.equal(writes[0][0], "/relationship-contacts");
 assert.equal(writes[0][1].body.workspace_token, "workspace-a");
 assert.equal(writes[0][1].body.data.name, "New contact");
+assert.equal(writes[0][1].body.company_id, null);
+assert.equal(writes[0][1].body.expected_company_version, null);
 assert.match(writes[0][1].body.idempotency_key, /^[0-9a-f-]{36}$/);
 // Route transition removes old records synchronously, before any new read settles.
 profile = "fresh-profile";

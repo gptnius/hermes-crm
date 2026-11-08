@@ -56,7 +56,7 @@ assert.equal(unlinkCalls.length,2);assert.deepEqual({...unlinkCalls[1].options.b
 const store=new Map();let original;
 const old=relationshipSession({current:()=>true,request:async(path,options)=>{original=options.body;throw new Error('lost');}},'workspace',()=>true,store);
 await assert.rejects(old.write('/events','POST',{data:{title:'Fixture'}}));old.close();
-const fresh=relationshipSession({current:()=>true,request:async(path,options)=>{assert.deepEqual(options.body,original);return {id:'event-one',version:1};}},'workspace',()=>true,store);
+const fresh=relationshipSession({current:()=>true,request:async(path,options)=>{assert.deepEqual(options.body,original);return {id:'event-one',version:1,contact_id:null,deal_id:null,company_id:null};}},'workspace',()=>true,store);
 await fresh.retry();assert.equal(store.size,0);
 // Malformed receipts remain uncertain rather than silently clearing retry protection.
 const malformed=relationshipSession({current:()=>true,request:async()=>({})},'malformed');await assert.rejects(malformed.write('/companies','POST',{data:{name:'Fixture'}}),/Outcome unknown/);assert.equal(malformed.pending().state,'unknown');
@@ -160,3 +160,67 @@ for (const year of ['0099','1899','2101','9998']) {
  await act(async()=>tree.unmount());
 }
 console.log('Unchanged out-of-range originals: browser range attributes absent, readable preview, exact submit retained and changed wall time rejected.');
+// Contextual creation has one receipt contract, even when explicitly unlinked.
+const receipt = module.namespace.confirmedRelationshipReceipt;
+for (const company_id of [null, 'company-exact']) {
+  const body = {data:{name:'Fixture',company:'Independent legacy text',custom_fields:{zero:0,flag:false}},company_id,expected_company_version:company_id ? 7 : null};
+  const good = {contact:{id:'created',version:1},company_link:{contact_id:'created',contact_version:1,company_id,company_link_basis:company_id ? 'explicit' : 'unlinked'}};
+  assert.equal(receipt('/relationship-contacts','POST',body,good),true);
+  for (const bad of [{id:'created',version:1},{contact:good.contact},{...good,company_link:{...good.company_link,contact_id:'other'}},{...good,company_link:{...good.company_link,contact_version:2}},{...good,company_link:{...good.company_link,company_id:'wrong'}},{...good,company_link:{...good.company_link,company_link_basis:'inferred'}}]) assert.equal(receipt('/relationship-contacts','POST',body,bad),false);
+  const retained=new Map();let writes=[],answer={};const c={current:()=>true,request:async(path,options)=>{writes.push({path,...options});return answer;}};
+  let origin=relationshipSession(c,'create-scope',()=>true,retained);
+  await assert.rejects(origin.write('/relationship-contacts','POST',body),/Outcome unknown/);origin.close();
+  origin=relationshipSession(c,'create-scope',()=>true,retained);
+  assert.equal(await origin.write('/relationship-contacts','POST',{...body,company_id:'different'}),null);
+  answer=good;await origin.retry();assert.deepEqual(writes[0],writes[1]);assert.equal(writes[1].body.data.custom_fields.zero,0);assert.equal(writes[1].body.data.custom_fields.flag,false);
+}
+for(const key of ['contact_id','deal_id','company_id']) {
+  const body={data:{[key]:'exact'}};const good={id:'created-event',version:1,contact_id:null,deal_id:null,company_id:null,[key]:'exact'};
+  assert.equal(receipt('/events','POST',body,good),true);assert.equal(receipt('/events','POST',body,{...good,[key]:null}),false);
+  let submitted=[],cancelled=0;
+  await act(async()=>{tree=Renderer.create(h(RelationshipForm,{kind:'events',initialValues:{[key]:'exact'},session:relationshipSession(native,'prefill'),submit:data=>submitted.push(data),cancel:()=>cancelled++}));});
+  assert.equal(tree.root.findByType('form').props['aria-label'],'Create events');assert.match(JSON.stringify(tree.toJSON()),/Selected exact ID: exact/);assert.equal(submitted.length,0);
+  await act(async()=>button('Clear selection').props.onClick());await act(async()=>button('Cancel').props.onClick());assert.equal(cancelled,0);assert.ok(button('Keep editing'));await act(async()=>button('Discard changes').props.onClick());assert.equal(cancelled,1);await act(async()=>tree.unmount());
+}
+// More than 100 duplicate-name Companies remain distinct and selected versions survive paging.
+const companies=Array.from({length:126},(_,i)=>({id:`company-${i}`,name:'Duplicate',version:i+1,domain:`${i}.test`,archived_at:i===125?'2026-01-01':null}));
+let chosen=null, reviewed=0;
+const paged={current:()=>true,request:async path=>{const url=new URL(path,'http://fixture');if(url.pathname==='/companies/company-100')return {...companies[100],version:202};const offset=Number(url.searchParams.get('offset'));return {items:companies.slice(offset,offset+25),total:126};}};
+function SelectorFixture(){const [choice,setChoice]=React.useState(null);return h(module.namespace.RelationshipSelector,{session:React.useMemo(()=>relationshipSession(paged,'paged'),[]),kind:'companies',value:choice?.id,reviewedVersion:choice?.version,label:'Primary Company',onChange:(id,row)=>{chosen=id?row:null;setChoice(chosen);reviewed++;}});}
+await act(async()=>{tree=Renderer.create(h(SelectorFixture));});for(let n=0;n<4;n++)await act(async()=>button('Next page').props.onClick());
+await act(async()=>tree.root.findAllByType('button').find(n=>n.children.join('').includes('company-100')).props.onClick());assert.equal(chosen.id,'company-100');assert.equal(chosen.version,101);
+await act(async()=>button('Previous page').props.onClick());assert.match(JSON.stringify(tree.toJSON()),/Selected exact ID: company-100/);assert.equal(chosen.version,101);
+await act(async()=>button('Refresh selected Company').props.onClick());assert.equal(chosen.version,101);await act(async()=>button('Use reviewed Company version').props.onClick());assert.equal(chosen.version,202);
+await act(async()=>button('Next page').props.onClick());await act(async()=>button('Next page').props.onClick());assert.equal(tree.root.findAllByType('button').find(n=>n.children.join('').includes('company-125')).props.disabled,true);
+await act(async()=>button('Clear selection').props.onClick());assert.equal(chosen,null);await act(async()=>tree.unmount());
+console.log('Contextual receipts, partial/unknown replay, 0/false custom fields, exact clearable Event prefills, dirty cancel, 126 duplicate-name Companies, off-page retained identity/version and explicit refresh review passed.');
+// Navigation context is cloned once, local-only, and cannot follow later page changes.
+const navigation = {trail:[{kind:'companies',id:'original-company',assignmentId:null}],listPage:'contacts'};
+let transport;const scoped=relationshipSession({current:()=>true,request:async(path,options)=>{transport=options.body;throw new Error('lost');}},'navigation-scope');
+await assert.rejects(scoped.write('/relationship-contacts','POST',{data:{name:'Original'},company_id:null,expected_company_version:null},navigation));
+navigation.trail[0].id='later-company';navigation.listPage='companies';
+assert.equal(scoped.pending().context.trail[0].id,'original-company');assert.equal(scoped.pending().context.listPage,'contacts');assert.equal(Object.hasOwn(transport,'context'),false);
+console.log('Retained navigation metadata is immutable by later caller changes and excluded from request transport.');
+// Unrelated link panels cannot consume a pending create as link/unlink success.
+const pendingCreateStore=new Map();let unrelatedWrites=0;
+const pendingClient={current:()=>true,request:async(path,options)=>{if(options){unrelatedWrites++;throw new Error('lost');}if(path.includes('/company?'))return {contact_id:'contact-one',contact_version:1,company_id:null};return {items:[],total:0};}};
+await assert.rejects(relationshipSession(pendingClient,'shared-create',()=>true,pendingCreateStore).write('/relationship-contacts','POST',{data:{name:'Original pending'},company_id:null,expected_company_version:null}));
+for(const [Component,props] of [[ContactCompany,{contact:{id:'contact-one',version:1}}],[module.namespace.TaskEventRelationship,{task:{id:'task-one',version:1,event_id:'event-one'}}]]) {
+  await act(async()=>{tree=Renderer.create(h(Component,{client:pendingClient,workspaceToken:'shared-create',operationStore:pendingCreateStore,open:()=>{},...props}));});
+  assert.equal(button('Retry original request'),undefined);assert.equal(pendingCreateStore.size,1);assert.equal(unrelatedWrites,1);await act(async()=>tree.unmount());
+}
+console.log('Contact Company and task Event panels cannot consume another pending creation.');
+// A generic recovery surface hands definitive conflicts back to the original ordinary editor draft.
+for(const company_id of [null,'original-company']) {
+  const operations=new Map();let status=0,restored=null,count=0;
+  const client={current:()=>true,request:async(path,options)=>{if(options){count++;throw Object.assign(new Error('Review the Company'),status?{status}:{});}return path.startsWith('/companies/current-company?')?{id:'current-company',name:'Current Company',version:1}:{items:[],total:0};}};
+  const origin=relationshipSession(client,'draft-recovery',()=>true,operations),context={trail:company_id?[{kind:'companies',id:company_id}]:[],listPage:'contacts'};
+  await assert.rejects(origin.write('/relationship-contacts','POST',{data:{name:'Original retained draft',custom_fields:{zero:0,flag:false}},company_id,expected_company_version:company_id?1:null},context));
+  const original=origin.pending();status=409;
+  await act(async()=>{tree=Renderer.create(h(Relationships,{client,workspaceToken:'draft-recovery',operationStore:operations,page:'companies',initial:{kind:'companies',id:'current-company'},open:()=>{},onCreateRejected:(attempt,message)=>restored={attempt,message}}));});
+  await act(async()=>button('Retry original request').props.onClick());
+  assert.equal(restored.attempt,original);assert.match(restored.message,/Review the Company/);assert.equal(operations.size,0);assert.equal(count,2);
+  assert.equal(JSON.parse(restored.attempt.payload).data.custom_fields.flag,false);assert.equal(JSON.parse(restored.attempt.payload).data.custom_fields.zero,0);assert.equal(restored.attempt.context.trail.length,company_id?1:0);
+  await act(async()=>tree.unmount());
+}
+console.log('Generic panel known-conflict recovery preserves original ordinary/custom draft and source without retaining a lock or issuing a new write.');

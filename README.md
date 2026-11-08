@@ -22,7 +22,7 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.
 - Customization: versioned optional text/number/boolean/date/single-select fields on contacts, deals and tasks; native record forms and typed reports use the same catalog as agents. Archive retains definitions/values; used deal stages cannot be archived. See [custom fields and stages](docs/CUSTOMIZATION.md).
 - Follow-ups: timezone-aware due dates, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. A separate reviewed CRM confirmation can schedule, check or cancel that exact future assignment through the existing native conversation. Task-specific Preview/Copy remains available for manual native chat Send. See [assignment workflow](docs/ASSIGNMENT_UI.md).
-- Native Hermes: 66 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
+- Native Hermes: 67 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
 - Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
@@ -76,11 +76,14 @@ explicit in [verification](docs/VERIFICATION.md). See the
 
 **Workflow improvements:** native record-to-record Back navigation and creation
 continuity, practical Event date/time entry, clearer relationship pages and
-in-app dirty-form controls are implemented with integrity fixes. Exact test scope
-and remaining checks are in [verification](docs/VERIFICATION.md). A usable
-agent-result review step, canonical Company creation shortcuts and integration
-gaps remain in the [workflow plan](docs/WORKFLOW_REVIEW.md), with unsettled metric,
-review and permission decisions explicitly parked.
+in-app dirty-form controls are implemented with integrity fixes. New contacts
+can be created atomically with an optional explicit Company link; contextual
+Company/Contact/opportunity actions prefill local Events without inferred links.
+See [contextual creation and recovery](docs/CONTEXTUAL_CREATION.md). Exact test
+scope and remaining checks are in [verification](docs/VERIFICATION.md). A usable
+agent-result review step and integration gaps remain in the
+[workflow plan](docs/WORKFLOW_REVIEW.md), with unsettled metric, review and
+permission decisions explicitly parked.
 
 Other planned work remains explicitly separate:
 

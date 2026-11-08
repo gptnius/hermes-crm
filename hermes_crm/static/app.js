@@ -415,10 +415,10 @@ async function render() {
         head("Record history", "Administrative record changes, separate from relationship Activities.") +
         `<section class="card"><div class="card-head"><h2>Workspace timeline</h2><span class="subtitle">${rows.length} changes</span></div>${activityRows(rows)}</section>`;
     }
-    if (token === state.render) root.innerHTML = (relationshipAttempts.has(relationshipWorkspace) ? '<section class="error" role="alert">A relationship write has an unknown outcome. New writes are blocked.<button class="button" data-action="relationship-retry">Retry original request</button></section>' : '') + html;
+    if (token === state.render) root.innerHTML = `<div id="relationship-notices">${relationshipNotices()}</div>` + html;
   } catch (e) {
     if (token === state.render)
-      root.innerHTML = `<div class="error" role="alert">${esc(e.message)}</div><div class="error-actions"><button class="button" data-action="retry">Try again</button><button class="button" data-action="reset-current-filters">Reset filters</button></div>`;
+      root.innerHTML = `<div id="relationship-notices">${relationshipNotices()}</div><div class="error" role="alert">${esc(e.message)}</div><div class="error-actions"><button class="button" data-action="retry">Try again</button><button class="button" data-action="reset-current-filters">Reset filters</button></div>`;
   }
 }
 function route() {
@@ -460,11 +460,14 @@ function closeModal(restoreFocus = true) {
     $('#relationship-keep').focus();
     return false;
   }
+  const returnContext = form?.returnContext;
   const wasOpen = $("#modal").open;
   $("#modal").close();
   modalEpoch++;
+  refreshRelationshipNotices();
   if (restoreFocus && wasOpen && modalOpener && document.contains(modalOpener))
     modalOpener.focus();
+  if (restoreFocus && wasOpen && returnContext) restoreRelatedSource(returnContext);
 }
 function field(name, title, value = "", type = "text", extra = "") {
   return `<label class="field">${title}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
@@ -489,13 +492,14 @@ function taskDuePayload(value, record) {
     ? record.due_at
     : new Date(value).toISOString();
 }
-async function openForm(type, record = {}) {
+async function openForm(type, record = {}, context = null) {
   // A newer dialog, navigation, or cancellation wins over late network results.
   const requestEpoch = ++modalEpoch;
   try {
     const meta = await api("meta");
     if (requestEpoch !== modalEpoch) return;
     adoptCatalog(meta);
+    if (type === "contact" && !record.id) return newContactForm(record, context);
     let contacts = [],
       deals = [];
     if (type !== "contact") {
@@ -560,6 +564,14 @@ async function openForm(type, record = {}) {
       modalHead((record.id ? "Edit " : "Add ") + type) +
         `<form id="record-form"><div class="form-body"><div id="form-error" class="error" role="alert" hidden></div>${fields}</div><div class="form-actions"><button type="button" class="button" data-action="close">Cancel</button><button type="submit" class="button primary">${record.id ? "Save changes" : "Create " + type}</button></div></form>`,
     );
+    if (type === 'deal' && record.id) {
+      const action=document.createElement('button'); action.type='button'; action.className='button'; action.textContent='Create Event';
+      let changed=false;
+      $('#record-form').addEventListener('input',()=>{changed=true; action.disabled=true; action.title='Save or cancel deal changes before creating an Event.';});
+      $('#record-form').addEventListener('change',()=>{changed=true; action.disabled=true;});
+      action.onclick=()=>{if(!changed) startRelatedCreate('events','deals',record);};
+      $('#record-form .form-actions').prepend(action);
+    }
     const epoch = modalEpoch;
     const createKey = crypto.randomUUID();
     $("#record-form").addEventListener("submit", async (e) => {
@@ -613,21 +625,24 @@ async function openForm(type, record = {}) {
   }
 }
 async function contactDetail(id) {
-  const requestEpoch = ++modalEpoch;
+  const requestEpoch = ++modalEpoch, scope = relationshipWorkspace;
   try {
     const [result, meta] = await Promise.all([api("contacts/" + id), api("meta")]);
     if (requestEpoch !== modalEpoch) return;
     adoptCatalog(meta);
     const c = result.contact;
+    if (scope !== relationshipWorkspace || c?.id !== id) return;
     showModal(
       modalHead(c.name) +
-        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}<section><h3>Company</h3>${c.company_id ? relationshipRecordButton("companies",{id:c.company_id,name:c.company_name || "Open linked Company"}) : `<p>Unlinked legacy company text: ${esc(c.company || "Not set")}</p>`}<button class="button" id="contact-company">Link or unlink Company</button><button class="button" id="contact-events">Events & Activities</button></section>${customFieldDetails("contacts", c)}${contactActivity(list(result.activity), c.id)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
+        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}<section><h3>Company</h3>${c.company_id ? relationshipRecordButton("companies",{id:c.company_id,name:c.company_name || "Open linked Company"}) : `<p>Unlinked legacy company text: ${esc(c.company || "Not set")}</p>`}<button class="button" id="contact-company">Link or unlink Company</button><button class="button" id="contact-events">Events & Activities</button><button class="button" id="contact-create-event">Create Event</button></section>${customFieldDetails("contacts", c)}${contactActivity(list(result.activity), c.id)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
     ); // Fresh detail records replace cached versions before later edits.
     state.deals = mergeRecords(state.deals, list(result.deals));
     state.tasks = mergeRecords(state.tasks, list(result.tasks));
     $("#contact-company")?.addEventListener("click",()=>contactCompanyForm(c));
+    $("#contact-create-event")?.addEventListener("click",()=>startRelatedCreate("events","contacts",c));
     $("#contact-events")?.addEventListener("click",()=>contactEvents(c));
     $("#edit-contact").onclick = () => openForm("contact", c);
+    return modalEpoch;
   } catch (e) {
     if (requestEpoch === modalEpoch) toast(e.message);
   }
@@ -770,6 +785,17 @@ async function initialize() {
 // Local relationships are exact-ID records. No external calendar or communication side effects.
 let relationshipWorkspace = null;
 const relationshipAttempts = new Map();
+const relationshipDrafts = new Map();
+// Successful receipts retain the original navigation intent, including explicit null/list context.
+const relationshipReceiptContexts = new WeakMap();
+function relationshipNotices() {
+  return (relationshipAttempts.has(relationshipWorkspace) ? '<section class="error" role="alert">A relationship write has an unknown outcome. New writes are blocked.<button class="button" data-action="relationship-retry">Retry original request</button></section>' : '') + (relationshipDrafts.has(relationshipWorkspace) ? '<section class="error" role="alert">An original creation request was rejected. Its draft is retained for correction.<button class="button" data-action="relationship-recover-draft">Review original draft</button></section>' : '');
+}
+function refreshRelationshipNotices() {
+  // Modal completion/dismissal need not reload the list to expose retained recovery controls.
+  const slot=$('#relationship-notices');
+  if(slot) slot.innerHTML=relationshipNotices();
+}
 function relationshipPath(path, params = {}) {
   if (!relationshipWorkspace) throw new Error('Workspace identity unavailable. Refresh before continuing.');
   return path + '?' + new URLSearchParams({ ...params, workspace_token: relationshipWorkspace });
@@ -782,6 +808,12 @@ function confirmedRelationshipReceipt(path, method, body, result) {
   const atLeast = (actual, expected) => version(actual) && (!version(expected) || actual >= expected);
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
   if (!result || typeof result !== 'object') return false;
+  if (parts[0] === 'relationship-contacts' && parts.length === 1 && method === 'POST') {
+    const contact = result.contact, link = result.company_link;
+    return record(contact) && Boolean(link) && link.contact_id === contact.id && link.contact_version === contact.version &&
+      Object.hasOwn(link,'company_id') && link.company_id === (body.company_id ?? null) &&
+      link.company_link_basis === (body.company_id ? 'explicit' : 'unlinked');
+  }
   if (parts[0] === 'contacts' && parts.length === 3 && parts[2] === 'company' && method === 'PUT')
     return result.contact_id === parts[1] && atLeast(result.contact_version, body.expected_contact_version) && Object.hasOwn(result, 'company_id') && result.company_id === body.company_id;
   if (parts[0] === 'events' && parts.length === 3 && parts[2] === 'tasks' && method === 'POST')
@@ -795,29 +827,31 @@ function confirmedRelationshipReceipt(path, method, body, result) {
     return false;
   }
   if (!['companies', 'events'].includes(parts[0]) || !record(result)) return false;
-  if (parts.length === 1) return method === 'POST';
+  if (parts.length === 1) return method === 'POST' && (parts[0] !== 'events' || ['contact_id','deal_id','company_id'].every(key => Object.hasOwn(result,key) && result[key] === (body.data?.[key] ?? null)));
   return result.id === parts[1] && atLeast(result.version, body.expected_version) &&
     ((parts.length === 2 && method === 'PATCH') || (parts.length === 3 && method === 'POST' &&
       (parts[0] === 'companies' ? ['archive', 'restore'] : ['complete', 'cancel', 'reopen', 'needs-rescheduling', 'reschedule']).includes(parts[2])));
 }
-async function relationshipWrite(path, method, body) {
+async function relationshipWrite(path, method, body, returnContext = null) {
   const scope = relationshipWorkspace;
+  if (!scope) throw new Error('Workspace identity unavailable. Refresh before continuing.');
   const payload = JSON.stringify({ ...body, workspace_token: scope });
   let attempt = relationshipAttempts.get(scope);
   if (attempt && (attempt.path !== path || attempt.method !== method || attempt.payload !== payload)) throw new Error('An earlier write has an unknown outcome. Retry that original request before changing intent.');
   if (attempt?.running) throw new Error('A write is already running.');
-  if (!attempt) { attempt = { path, method, payload, key: crypto.randomUUID() }; relationshipAttempts.set(scope, attempt); }
+  if (!attempt) { attempt = { path, method, payload, key: crypto.randomUUID(), returnContext }; relationshipAttempts.set(scope, attempt); }
   attempt.running = true;
   try {
     const result = await api(path, method, { ...JSON.parse(attempt.payload), idempotency_key: attempt.key });
     if (!confirmedRelationshipReceipt(attempt.path, attempt.method, JSON.parse(attempt.payload), result)) throw new Error('Unconfirmed response');
+    relationshipReceiptContexts.set(result,attempt.returnContext);
     relationshipAttempts.delete(scope);
     return result;
   } catch (error) {
     if ([400, 404, 409, 422].includes(error.status)) relationshipAttempts.delete(scope);
     else error.message += ' Outcome unknown. Retry the original unchanged request; its key is retained even if you close this form.';
     throw error;
-  } finally { attempt.running = false; }
+  } finally { attempt.running = false; if(scope === relationshipWorkspace) refreshRelationshipNotices(); }
 }
 function relationshipPager(page, action, extra = '') {
   return `<div class="form-actions"><span>${page.total} total · ${page.items.length ? page.offset + 1 : 0}–${page.offset + page.items.length} shown</span><button class="button" data-action="${action}" data-offset="${Math.max(0,page.offset-page.limit)}" ${extra} ${page.offset ? '' : 'disabled'}>Previous</button><button class="button" data-action="${action}" data-offset="${page.offset+page.limit}" ${extra} ${page.offset+page.items.length >= page.total ? 'disabled' : ''}>Next</button></div>`;
@@ -847,10 +881,17 @@ async function relationshipPage() {
   return head(label(kind),kind === 'activities' ? 'Completed local Events and self-reported contact logs. Not verified communications.' : kind === 'companies' ? 'Explicit organizations and their associated records.' : 'Local appointments and calls.',kind === 'activities' ? '' : `<button class="button primary" data-action="relationship-create" data-kind="${kind}">Add ${kind === 'companies' ? 'Company' : 'Event'}</button>`) + `<section class="card">${kind !== 'activities' ? `<input class="search" id="search" type="search" aria-label="Search ${kind}" placeholder="Search ${kind}" value="${esc(state.query)}">` : ''}${kind === 'events' ? filterSelect("status","Event status",[["","All statuses"],["scheduled","Scheduled"],["needs_rescheduling","Needs rescheduling"],["completed","Completed"],["cancelled","Cancelled"]])+filterSelect("kind","Event type",[["","All types"],["appointment","Appointment"],["call","Call"]]) : ""}${kind === 'activities' ? `<ul class="relationship-list">${body || '<li>No recorded interactions.</li>'}</ul>` : relationshipRows(page,kind)}${relationshipPager(page,'relationship-page')}</section>`;
 }
 const eventLocalHelp = 'Local record only. Saving does not invite attendees, place calls, send reminders, schedule agent work or sync a calendar. Related records are context, not verified attendees. Notes and outcomes are ordinary plaintext.';
-function relationshipForm(title, fields, submit, done) {
+function relationshipForm(title, fields, submit, done, returnContext = null) {
   showModal(modalHead(title) + `<form id="relationship-form" class="detail-body"><div class="relationship-form-grid">${fields}</div><p role="alert" id="relationship-error" hidden></p><div id="relationship-discard" class="relationship-wide" role="alert" hidden><p>Discard unsaved changes?</p><button class="button" type="button" id="relationship-keep">Keep editing</button><button class="button" type="button" id="relationship-discard-confirm">Discard changes</button></div><div class="form-actions"><button class="button" type="button" data-action="close">Cancel</button><button class="button primary" type="submit">Save</button></div></form>`);
   const epoch = modalEpoch, scope = relationshipWorkspace;
   const form = $('#relationship-form');
+  form.returnContext = returnContext;
+  const pending=relationshipAttempts.get(scope);
+  if(pending) {
+    const origin=pending.returnContext;
+    $('#relationship-error').hidden=false;
+    $('#relationship-error').textContent='An earlier request has an unknown outcome. Save can only retry its identical original data. Its original return destination is '+(origin ? origin.kind+' record '+origin.id : 'the list (no source record)')+'. Close this form and choose Retry original request to recover it without changing intent.';
+  }
   $('#relationship-keep').onclick=()=>{ $('#relationship-discard').hidden=true; form.querySelector('input,textarea,select')?.focus(); };
   $('#relationship-discard-confirm').onclick=()=>{form.dataset.discard='true';closeModal();};
   form.addEventListener('input',()=>{form.dataset.dirty='true'; updateRelationshipTimes(form);});
@@ -866,7 +907,7 @@ function relationshipForm(title, fields, submit, done) {
       resolveRelationshipTimes(form,values);
       const result = await submit(values);
       if (scope !== relationshipWorkspace || modalEpoch !== epoch) return;
-      delete form.dataset.saving; form.dataset.discard='true'; closeModal(); await render(); if (done) await done(result);
+      delete form.dataset.saving; form.dataset.discard='true'; closeModal(false); const closedEpoch=modalEpoch; await render(); if (scope !== relationshipWorkspace || closedEpoch !== modalEpoch) return; if (done) await done(result,relationshipReceiptContexts.has(result) ? relationshipReceiptContexts.get(result) : returnContext);
     } catch(error) {
       if (scope === relationshipWorkspace && modalEpoch === epoch) { $('#relationship-error').hidden = false; $('#relationship-error').textContent = error.message; }
     } finally { delete form.dataset.saving; controls.forEach(control => control.disabled = false); }
@@ -924,26 +965,35 @@ function eventPayload(values) {
   for (const name of ['contact_id','deal_id','company_id']) values[name] = values[name] || null;
   return values;
 }
-function relationshipEditor(kind, row = {}, operation = '') {
+function relationshipEditor(kind, row = {}, operation = '', initialValues = {}, returnContext = null) {
   const path = `${kind}${row.id ? '/'+encodeURIComponent(row.id) : ''}${operation ? '/'+operation : ''}`;
-  relationshipForm(`${row.id ? operation === 'reschedule' ? 'Reschedule' : 'Edit' : 'Add'} ${kind === 'companies' ? 'Company' : 'Event'}`,kind === 'companies' ? field('name','Company name',row.name || '','text','required maxlength="200"')+field('domain','Domain (unverified text)',row.domain || '')+relationshipNotes(row.notes) : eventFields(row),values => relationshipWrite(path,operation || !row.id ? 'POST' : 'PATCH',{data:kind === 'events' ? eventPayload(values) : values,...(row.id ? {expected_version:row.version} : {})}),result => relationshipDetail(kind,result.id || row.id));
+  relationshipForm(`${row.id ? operation === 'reschedule' ? 'Reschedule' : 'Edit' : 'Add'} ${kind === 'companies' ? 'Company' : 'Event'}`,kind === 'companies' ? field('name','Company name',row.name || '','text','required maxlength="200"')+field('domain','Domain (unverified text)',row.domain || '')+relationshipNotes(row.notes) : eventFields(row.id ? row : initialValues),values => relationshipWrite(path,operation || !row.id ? 'POST' : 'PATCH',{data:kind === 'events' ? eventPayload(values) : values,...(row.id ? {expected_version:row.version} : {})},returnContext),(result,originalContext) => openRelatedResult(kind,result.id || row.id,originalContext),returnContext);
 }
 async function relationshipDetail(kind,id,tab = 'contacts',offset = 0) {
   const requestEpoch = ++modalEpoch, scope = relationshipWorkspace;
   try {
     const result = await relationshipRead(`${kind}/${encodeURIComponent(id)}`);
     const row = kind === 'companies' ? result.company : result;
+    if (row?.id !== id) throw new Error('The source record could not be verified. Refresh and try again.');
     const path = kind === 'companies' ? `companies/${encodeURIComponent(id)}/records/${tab}` : `events/${encodeURIComponent(id)}/tasks`;
     const page = await relationshipRead(path,{limit:25,offset});
     if (requestEpoch !== modalEpoch || scope !== relationshipWorkspace) return;
     const buttons = kind === 'companies' ? `<button class="button" data-rel-op="${row.archived_at ? 'restore' : 'archive'}">${row.archived_at ? 'Restore' : 'Archive'}</button>` : ['scheduled','needs_rescheduling'].includes(row.status) ? `<button class="button" data-rel-op="reschedule">Reschedule</button><button class="button" data-rel-op="complete">Complete (self-reported)</button><details><summary>More Event actions</summary><div class="form-actions"><button class="button" data-rel-op="cancel">Cancel Event</button>${row.status === 'scheduled' ? '<button class="button" data-rel-op="needs-rescheduling">Needs rescheduling</button>' : ''}</div></details>` : '<button class="button" data-rel-op="reopen">Reopen</button>';
     showModal(modalHead(row.name || row.title)+`<div class="detail-body"><p>${esc(row.domain || label(row.status || ''))}</p><details><summary>Record details</summary><p>ID ${esc(row.id)} · Version ${row.version}</p>${['starts_at','ends_at','outcome_happened_at','recorded_at'].filter(key=>row[key]).map(key=>`<p>${esc(label(key))}: ${esc(row[key])}</p>`).join('')}</details>${kind === 'events' ? `<p>${esc(relReadable(row.starts_at,row.timezone))} → ${esc(relReadable(row.ends_at,row.timezone))} · ${esc(row.timezone)}</p><p class="subtitle">Source: local${row.status === 'completed' ? ' · Self-reported completion, not verified attendance or a verified call' : ''}</p>${row.outcome_summary ? `<p>${esc(row.outcome_summary)}<small>Claimed: ${esc(relReadable(row.outcome_happened_at,row.timezone))} · Recorded: ${esc(relReadable(row.recorded_at,row.timezone))}</small></p>` : ''}<details><summary>About local Events</summary><p>${eventLocalHelp}</p></details>${eventRelatedLinks(row)}` : '<p class="subtitle">Current relationship rollup. Contacts use explicit Company links; deals follow their contact. Tasks can belong through their contact or linked Event. Events use their own Company link. A rename never overwrites legacy contact text.</p>'}${row.notes ? `<p class="notes">${esc(row.notes)}</p>` : ''}<div class="form-actions">${kind === 'companies' || ['scheduled','needs_rescheduling'].includes(row.status) ? '<button class="button primary" id="relationship-edit">Edit</button>' : ''}${buttons}</div>${kind === 'companies' ? `<div class="form-actions"><button class="button" id="company-activities">Relationship Activities</button>${['contacts','deals','tasks','events'].map(k=>`<button class="button" data-rel-tab="${k}" aria-pressed="${tab === k}">${label(k)} (${Number(result.counts[k] || 0)})</button>`).join('')}</div>` : '<h3>Associated tasks</h3><p class="subtitle">Task assignees are not recorded. Open the task and use the genuine assignment workflow in Hermes Desktop.</p><div class="form-actions"><button class="button" id="event-create-task">Create task</button><button class="button" id="event-link-task">Link existing task</button></div>'}${relationshipRows(page,kind === 'companies' ? tab : 'tasks')}${relationshipPager(page,'relationship-detail-page',`data-kind="${kind}" data-id="${esc(id)}" data-tab="${tab}"`)}</div>`);
+    if (kind === 'companies') {
+      const actions = document.createElement('div'); actions.className='form-actions';
+      actions.innerHTML=`<button class="button" id="company-create-contact" ${row.archived_at ? 'disabled' : ''}>Create contact</button><button class="button" id="company-create-event" ${row.archived_at ? 'disabled' : ''}>Create Event</button>`;
+      $('#modal-body .detail-body').prepend(actions);
+      $('#company-create-contact').onclick=()=>startRelatedCreate('contacts',kind,row,{tab,offset});
+      $('#company-create-event').onclick=()=>startRelatedCreate('events',kind,row,{tab,offset});
+    }
     $('#company-activities')?.addEventListener('click',()=>companyActivities(row));
     $('#relationship-edit')?.addEventListener('click',()=>relationshipEditor(kind,row));
     document.querySelectorAll('[data-rel-tab]').forEach(button=>button.addEventListener('click',()=>relationshipDetail(kind,id,button.dataset.relTab)));
     document.querySelectorAll('[data-rel-op]').forEach(button=>button.addEventListener('click',()=>relationshipOperation(kind,row,button.dataset.relOp)));
     $('#event-create-task')?.addEventListener('click',()=>eventTaskForm(row));
     $('#event-link-task')?.addEventListener('click',()=>eventLinkTask(row));
+    return modalEpoch;
   } catch(error) { if (requestEpoch === modalEpoch) toast(error.message); }
 }
 function relationshipOperation(kind,row,operation) {
@@ -975,24 +1025,117 @@ function eventLinkTask(event) {
 function contactCompanyForm(contact) {
   relationshipForm('Link Company',exactSelector('company_id','companies',contact.company_id)+`<p class="subtitle">Choose an exact Company ID, or clear the ID to unlink. Legacy company text (${esc(contact.company || 'empty')}) remains unchanged. Names are never matched automatically.</p>`,values=>relationshipWrite('contacts/'+encodeURIComponent(contact.id)+'/company','PUT',{company_id:values.company_id || null,expected_contact_version:contact.version}),()=>contactDetail(contact.id));
 }
+// Contextual creation keeps exact source identity separate from editable values.
+function recoverRelationshipDraft(scope = relationshipWorkspace) {
+  const saved=relationshipDrafts.get(scope);
+  if(!saved || scope !== relationshipWorkspace) return;
+  if($('#modal').open && closeModal(false) === false) return;
+  const body=JSON.parse(saved.attempt.payload), source=saved.attempt.returnContext;
+  if(saved.attempt.path === 'relationship-contacts') {
+    // The old reviewed version is intentionally not restored: review a fresh exact selection.
+    newContactForm({...body.data,company_id:body.company_id},source);
+  } else if(saved.attempt.path === 'events') {
+    relationshipEditor('events',{},'',body.data,source);
+  } else return;
+  relationshipDrafts.delete(scope);
+  refreshRelationshipNotices();
+  $('#relationship-form').dataset.dirty='true';
+  $('#relationship-error').hidden=false;
+  $('#relationship-error').textContent=saved.error+' Original draft restored. Review and correct the fields before saving.'+(saved.attempt.path === 'relationship-contacts' && body.company_id ? ' Choose the exact Company again from search results to review its current version.' : '');
+}
+function relatedSourceContext(kind,row,extra = {}) {
+  return {kind,id:row.id,scope:relationshipWorkspace,...extra};
+}
+async function restoreRelatedSource(source) {
+  if (!source || source.scope !== relationshipWorkspace) return;
+  try {
+    if (source.kind === 'companies') return await relationshipDetail('companies',source.id,source.tab,source.offset);
+    if (source.kind === 'contacts') return await contactDetail(source.id);
+    const epoch=++modalEpoch, row=await relationshipRead('deals/'+encodeURIComponent(source.id));
+    if (epoch === modalEpoch && source.scope === relationshipWorkspace && row.id === source.id) return openForm('deal',row);
+  } catch(error) { if(source.scope === relationshipWorkspace) toast(error.message); }
+}
+async function openRelatedResult(kind,id,source) {
+  if (source && source.scope !== relationshipWorkspace) return;
+  const epoch = kind === 'contacts' ? await contactDetail(id) : await relationshipDetail(kind,id);
+  if (!source || source.scope !== relationshipWorkspace || epoch !== modalEpoch) return;
+  const back=document.createElement('button'); back.type='button'; back.className='button'; back.textContent='Back to source '+(source.kind === 'companies' ? 'Company' : source.kind.slice(0,-1));
+  back.onclick=()=>restoreRelatedSource(source);
+  $('#modal-body').append(back);
+}
+function startRelatedCreate(kind,sourceKind,row,extra = {}) {
+  if (sourceKind === 'companies' && row.archived_at) return;
+  const source=relatedSourceContext(sourceKind,row,extra);
+  if (kind === 'contacts') return openForm('contact',{company_id:row.id,expected_company_version:row.version},source);
+  const key={companies:'company_id',contacts:'contact_id',deals:'deal_id'}[sourceKind];
+  relationshipEditor('events',{},'',{[key]:row.id},source);
+}
+function contactCreatePayload(values,record,selected) {
+  const company_id=values.company_id || null;
+  const expected_company_version=company_id ? Number(selected.dataset.reviewedVersion) : null;
+  if (company_id && (selected.dataset.reviewedId !== company_id || !Number.isSafeInteger(expected_company_version) || expected_company_version < 1)) throw new Error('Choose the exact Company from search results to review its current version. Search again after a stale or archived Company error.');
+  const data={...values}; delete data.company_id;
+  if (record.custom_fields) data.custom_fields=structuredClone(record.custom_fields);
+  return {data,company_id,expected_company_version};
+}
+function newContactForm(record = {},source = null) {
+  if (source && source.scope !== relationshipWorkspace) return;
+  const fields=field('name','Full name *',record.name,'text','required maxlength="160"')+field('email','Email',record.email,'email')+field('company','Legacy company text (unlinked)',record.company)+field('title','Job title',record.title)+select('lifecycle','Contact type',['lead','customer','partner'],record.lifecycle || 'lead')+exactSelector('company_id','companies',record.company_id)+customFieldDetails('contacts',record)+relationshipNotes(record.notes);
+  relationshipForm('Add contact',fields,values=>relationshipWrite('relationship-contacts','POST',contactCreatePayload(values,record,document.querySelector('[name="company_id"]')),source),(result,originalContext)=>openRelatedResult('contacts',result.contact.id,originalContext),source);
+  const selected=document.querySelector('[name="company_id"]');
+  selected.dataset.reviewedId=record.company_id || '';
+  selected.dataset.reviewedVersion=String(record.expected_company_version || '');
+  selected.addEventListener('input',()=>{delete selected.dataset.reviewedId; delete selected.dataset.reviewedVersion;});
+  exactSearch(document.querySelector('[data-exact-search="companies"]'));
+}
+
 let exactSearchSequence = 0;
 async function exactSearch(input,offset = 0) {
-  const seq = ++exactSearchSequence, epoch = modalEpoch, kind = input.dataset.exactSearch, name = input.dataset.exactName;
+  const seq = ++exactSearchSequence, epoch = modalEpoch, scope = relationshipWorkspace, kind = input.dataset.exactSearch, name = input.dataset.exactName;
   const container = document.querySelector(`[data-exact-results="${name}"]`);
   try {
     const page = await relationshipRead(kind === 'companies' ? kind : 'relationship-selectors/'+kind,{q:input.value,limit:25,offset});
-    if (seq !== exactSearchSequence || epoch !== modalEpoch) return;
+    if (seq !== exactSearchSequence || epoch !== modalEpoch || scope !== relationshipWorkspace) return;
     const rows = Array.isArray(page) ? page : page.items;
-    container.innerHTML = rows.map(row=>`<button type="button" class="button" data-exact-id="${esc(row.id)}">${esc(row.name || row.title)} · ${esc(row.email || row.domain || row.status || '')} · ${esc(row.id)}</button>`).join('') || 'No matches';
-    container.querySelectorAll('[data-exact-id]').forEach(button=>button.addEventListener('click',()=>{ document.querySelector(`[name="${name}"]`).value = button.dataset.exactId; const form=$('#relationship-form'); if(form) form.dataset.dirty='true'; container.textContent = 'Selected exact ID: '+button.dataset.exactId; }));
+    container.innerHTML = rows.map(row=>`<button type="button" class="button" data-exact-id="${esc(row.id)}" data-exact-version="${esc(row.version || '')}">${esc(row.name || row.title)} · ${esc(row.email || row.domain || row.status || '')} · ${esc(row.id)}</button>`).join('') || 'No matches';
+    container.querySelectorAll('[data-exact-id]').forEach(button=>button.addEventListener('click',()=>{ const selected=document.querySelector(`[name="${name}"]`); selected.value = button.dataset.exactId; selected.dataset.reviewedId=button.dataset.exactId; selected.dataset.reviewedVersion=button.dataset.exactVersion; const form=$('#relationship-form'); if(form) form.dataset.dirty='true'; container.textContent = 'Selected exact ID: '+button.dataset.exactId+(button.dataset.exactVersion ? ' · Reviewed version '+button.dataset.exactVersion : ''); }));
     if (!Array.isArray(page)) { const pager = document.createElement('div'); pager.innerHTML = `<button class="button" type="button" ${offset ? '' : 'disabled'}>Previous matches</button><button class="button" type="button" ${offset+rows.length>=page.total ? 'disabled' : ''}>Next matches</button>`; container.append(pager); const buttons = pager.querySelectorAll('button'); buttons[0].onclick=()=>exactSearch(input,Math.max(0,offset-25));buttons[1].onclick=()=>exactSearch(input,offset+25); }
     else container.insertAdjacentHTML('beforeend','<small>Returned matches only; enter an exact ID if not listed.</small>');
-  } catch(error) { if(seq === exactSearchSequence && epoch === modalEpoch) container.textContent = error.message; }
+  } catch(error) { if(seq === exactSearchSequence && epoch === modalEpoch && scope === relationshipWorkspace) container.textContent = error.message; }
 }
 async function relationshipClick(event) {
   const button = event.target.closest('[data-action]'); if (!button) return;
   const {action,id,kind,tab} = button.dataset;
-  if(action === 'relationship-retry') { const attempt=relationshipAttempts.get(relationshipWorkspace); if(attempt) try { await relationshipWrite(attempt.path,attempt.method,JSON.parse(attempt.payload)); toast('Original request confirmed.'); render(); } catch(error) { toast(error.message); } }
+  if(action === 'relationship-retry') {
+    const scope=relationshipWorkspace, epoch=modalEpoch, attempt=relationshipAttempts.get(scope);
+    if(attempt) try {
+      const result=await relationshipWrite(attempt.path,attempt.method,JSON.parse(attempt.payload));
+      if(scope !== relationshipWorkspace || epoch !== modalEpoch) return;
+      toast('Original request confirmed.'); await render();
+      if(scope !== relationshipWorkspace || epoch !== modalEpoch) return;
+      if(attempt.path === 'relationship-contacts') await openRelatedResult('contacts',result.contact.id,attempt.returnContext);
+      else if(attempt.path === 'events') await openRelatedResult('events',result.id,attempt.returnContext);
+    } catch(error) {
+      const rejected=[400,404,409,422].includes(error.status);
+      if(rejected && ['relationship-contacts','events'].includes(attempt.path)) {
+        relationshipDrafts.set(scope,{attempt,error:error.message});
+        if(scope === relationshipWorkspace) refreshRelationshipNotices();
+      }
+      if(scope !== relationshipWorkspace || epoch !== modalEpoch) return;
+      toast(error.message);
+      if(rejected) {
+        await render();
+        if(scope === relationshipWorkspace && epoch === modalEpoch) {
+          recoverRelationshipDraft(scope);
+          if(!relationshipDrafts.has(scope)) await render();
+        }
+      }
+    }
+  }
+  if(action === 'relationship-recover-draft') {
+    recoverRelationshipDraft();
+    if(!relationshipDrafts.has(relationshipWorkspace)) render();
+  }
   if(action === 'relationship-create') relationshipEditor(kind);
   if(action === 'company' || action === 'event') relationshipDetail(action === 'company' ? 'companies' : 'events',id);
   if(action === 'relationship-page') { state.offset = Number(button.dataset.offset); render(); }

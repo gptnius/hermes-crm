@@ -8,9 +8,12 @@ starts an agent. Back up an existing datastore before updating the plugin.
 
 1. Open **Companies**, then **Create Company**. Enter a name, optional domain and
    ordinary notes. Domain is unverified text, not proof of identity or ownership.
-2. Open a contact and choose **Change Company link** (standalone: **Link or unlink
-   Company**). Search and select the exact Company. The displayed ID distinguishes
-   organizations with identical names. Save the explicit link.
+2. Choose **Create contact** from the Company, or select its exact identity in a
+   new contact's optional **Primary Company** chooser. Contact and link save
+   together. For an existing contact, choose **Change Company link** (standalone:
+   **Link or unlink Company**) to change its relationship separately. Displayed
+   IDs distinguish organizations with identical names; legacy company text is
+   independent. See [creation and recovery](CONTEXTUAL_CREATION.md).
 3. Click the linked Company to see its contacts, opportunities, tasks and Events.
    Related lists use server pagination and full counts rather than the 500-row
    legacy snapshot. Company archival preserves records/links; restore before
@@ -46,6 +49,9 @@ Open **Events** and create an appointment or call. Provide a title, start and en
 IANA timezone (for example `America/New_York`), ordinary notes and any explicitly
 selected Contact, opportunity or Company context. Associations are related
 records, not verified attendees.
+Alternatively, **Create Event** from a Company, Contact or opportunity prefills
+only that exact source association. Review the other links deliberately; none
+are inferred from the source's current relationships.
 
 The interface provides date/time controls interpreted in the displayed timezone
 and shows the resolved instant before saving. Nonexistent daylight-saving times

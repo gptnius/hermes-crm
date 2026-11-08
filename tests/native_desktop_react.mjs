@@ -133,6 +133,8 @@ let delayDetail = false,
 let delayTaskDetail = false;
 const releaseTaskDetails = [];
 let workRows = [], workError = "", delayWork = false, releaseWork;
+let companyMissing = false;
+let createdEvent = null, companyArchived = false, contactFailureStatus = 0;
 let writeError = "", delayWrite = false, releaseWrite;
 const pluginDisposers = [];
 const ctx = {
@@ -147,8 +149,17 @@ const ctx = {
       writes.push({ path, options, profile: profile.get() });
       if (writeError) throw new Error(writeError);
       if (delayWrite) return new Promise(resolve => { releaseWrite = resolve; });
+      if (path === "/events") { createdEvent = {...options.body.data,id:'event-created',version:1,status:'scheduled'}; return createdEvent; }
+      if (path === '/relationship-contacts' && contactFailureStatus) throw Object.assign(new Error('Company changed'), {status:contactFailureStatus});
+      if (path === "/relationship-contacts") return {contact:{...contact,version:1},company_link:{contact_id:contact.id,contact_version:1,company_id:options.body.company_id,company_link_basis:options.body.company_id ? 'explicit' : 'unlinked'}};
       return options.method === "POST" && ["/contacts", "/tasks", "/deals"].includes(path) ? { id: path === "/contacts" ? "c1" : path === "/tasks" ? "t1" : "d1" } : {};
     }
+    if (path.startsWith('/events/event-created?')) return createdEvent;
+    if (path.startsWith('/events?') || path.startsWith('/relationship-selectors/') || path.startsWith('/relationship-activities?') || path.startsWith('/companies/co1/records/') || path.startsWith('/events/event-created/tasks?')) return {items:[],total:0};
+    if (path.startsWith('/companies/co1?') && companyMissing) throw Object.assign(new Error('Original Company removed'),{status:404});
+    if (path.startsWith('/companies/co2?')) return {id:'co2',name:'Other Company',version:1};
+    if (path.startsWith('/companies/co2/records/')) return {items:[],total:0};
+    if (path.startsWith("/companies?")) return {items:[{id:"co1",name:"Exact Company",version:1},{id:'co2',name:'Other Company',version:1}],total:2};
     if (path.startsWith("/reports/work?")) {
       if (workError) throw new Error(workError);
       if (delayWork) return new Promise(resolve => { releaseWork = resolve; });
@@ -176,7 +187,7 @@ const ctx = {
       "/tasks": [task],
       "/activity": activityRows,
       "/contacts/c1/company": { contact_id: "c1", contact_version: contact.version, company_id: "co1", company_name: "Exact Company" },
-      "/companies/co1": { id: "co1", name: "Exact Company", version: 1 },
+      "/companies/co1": { id: "co1", name: "Exact Company", version: 1, archived_at:companyArchived ? "2026-01-01" : null },
       "/contacts/c1": { contact, deals: relatedDeals, tasks: [task], activity: activityRows },
       "/contacts/outside": { contact: {...contact, id: "outside", name: "Fresh outside contact"}, deals: [], tasks: [], activity: activityRows },
       "/tasks/t1": task,
@@ -802,7 +813,7 @@ await submitForm();
 assert.equal(root.root.findAllByType("form").length, 1);
 assert.equal(input("name").props.value, "Retained contact");
 assert.equal(input("email").props.value, "retained@example.test");
-assert.match(flatten(dialog().children), /Validation rejected by the CRM/);
+assert.match(flatten(dialog().children), /Outcome unknown/);
 const retryKey = writes.at(-1).options.body.idempotency_key;
 writeError = ""; delayWrite = true;
 const pendingSubmit = root.root.findByType("form").props.onSubmit;
@@ -820,7 +831,7 @@ assert.equal(root.root.findAllByType("form").length, 1, "Pending mutations canno
 delayWrite = false;
 await act(async () => { releaseWrite({}); await savePromise; });
 assert.equal(root.root.findAllByType("form").length, 1, "Missing confirmed ID retains the original form");
-assert.match(text(), /created record ID was not confirmed/);
+assert.match(text(), /Outcome unknown/);
 await submitForm();
 assert.equal(writes.at(-1).options.body.idempotency_key, retryKey);
 const afterConfirmedRetry = writes.length;
@@ -1046,6 +1057,107 @@ await act(async () => releaseDetail({ contact, deals: relatedDeals, tasks: [task
 assert.equal(recordDetails().length, 0);
 assert.doesNotMatch(text(), /Loading record…/);
 delayDetail = false;
+// Retried creates retain their original payload AND original ID-only return context.
+testCatalog={schema_version:1,stages:[],fields:{contacts:[{key:'zero',label:'Zero value',type:'number',version:1,archived:false},{key:'flag',label:'False value',type:'boolean',version:1,archived:false}],deals:[],tasks:[]}};
+await click('Refresh');
+for (const scenario of ['linked','unlinked','conflict','panel','panel-conflict','panel-null-conflict','missing-source']) {
+  await click('Contacts');
+  if(!['unlinked','panel-null-conflict'].includes(scenario)){await openRecord('Ada Example');await click('Exact Company · co1');await click('Create contact');}
+  else await click('+ Contact');
+  const originalName=`Original ${scenario} child`;
+  await change(input('name'),originalName);
+  await change(input('custom_zero'),'0');await change(select('custom_flag'),'false');
+  writeError='Lost creation receipt';await submitForm();
+  const original=writes.at(-1), beforeRetry=writes.length;
+  await click('Cancel');await click('Discard changes');
+  await click('Companies');await openRecord('Other Company');
+  assert.match(text(),/Original pending creation/);
+  if(scenario.startsWith('panel')) {
+    writeError='';if(scenario.includes('conflict'))contactFailureStatus=409;await click('Retry original request');
+  } else {
+    assert.equal(button('Create contact').props.disabled,false,'Context action can reopen the original unknown create');
+    await click('Create contact');
+    assert.equal(input('name').props.value,originalName);
+    assert.equal(input('name').props.disabled,true);
+    assert.doesNotMatch(flatten(dialog().children),/Selected exact ID: co2/);
+    assert.match(flatten(dialog().children),scenario==='unlinked'?/Primary Company: Not linked/:/Primary Company: co1/);
+    writeError='';if(scenario==='conflict')contactFailureStatus=409;if(scenario==='missing-source')companyMissing=true;
+    await submitForm();
+  }
+  assert.equal(writes.length,beforeRetry+1,'Recovery sends exactly one original mutation');
+  assert.equal(JSON.stringify(writes.at(-1).options.body),JSON.stringify(original.options.body),'Original body and key remain byte-for-byte stable');
+  assert.equal(Object.hasOwn(writes.at(-1).options.body,'context'),false,'Navigation metadata never enters transport');
+  if(scenario.includes('conflict')) {
+    assert.equal(input('name').props.value,originalName);assert.equal(input('name').props.disabled,false);
+    assert.equal(Number(input('custom_zero').props.value),0);assert.equal(select('custom_flag').props.value,'false');
+    if(scenario==='panel-null-conflict')assert.doesNotMatch(flatten(dialog().children),/Selected exact ID: co[12]/);else assert.match(flatten(dialog().children),/Selected exact ID: co1/);
+    assert.match(flatten(dialog().children),/Company changed/);
+    assert.equal(writes.length,beforeRetry+1,'Restoring rejected draft does not submit it');
+    contactFailureStatus=0;if(scenario!=='panel-null-conflict'){await click('Refresh selected Company');await click('Use reviewed Company version');}await submitForm();
+    assert.notEqual(writes.at(-1).options.body.idempotency_key,original.options.body.idempotency_key);
+    assert.equal(writes.at(-1).options.body.company_id,scenario==='panel-null-conflict'?null:'co1');assert.equal(writes.at(-1).options.body.data.name,originalName);
+    assert.equal(writes.at(-1).options.body.data.custom_fields.zero,0);assert.equal(writes.at(-1).options.body.data.custom_fields.flag,false);
+  }
+  assert.match(flatten(recordDetails()[0].children),/Ada Example/);
+  if(['unlinked','panel-null-conflict','missing-source'].includes(scenario)) {
+    if(scenario==='missing-source')assert.match(text(),/original source is unavailable/);
+    await click('Back to Contacts');assert.equal(recordDetails().length,0);assert.doesNotMatch(text(),/Other Company/);
+  } else {
+    await click('Back to Companies');assert.match(text(),/Exact Company/);assert.doesNotMatch(text(),/Other Company/);
+  }
+  companyMissing=false;
+}
+testCatalog=undefined;await click('Refresh');
+await click('Contacts');
+console.log('PASS unknown A→B and null→B original frozen preview/body/key, restored original parent/list, known409 original-draft review/new key, panel null/A409 preserving ordinary/custom0/false with no auto-write, panel recovery, missing-source fallback and no transport navigation metadata.');
+// Canonical Company creation and exact contextual Event actions use the ordinary native editors.
+await openRecord('Ada Example');
+await click('Exact Company · co1');
+const beforeContext = writes.length;
+await click('Create contact');
+assert.equal(input('company').props.value, '', 'Canonical Company must never populate legacy text');
+assert.match(text(), /Selected exact ID: co1/);
+await change(input('name'),'Contextual child');
+await change(input('company'),'Independent legacy');
+contactFailureStatus=409;await submitForm();
+assert.equal(input('name').props.value,'Contextual child');
+assert.equal(input('name').props.disabled,false,'Definitive stale rejection permits reviewing retained draft');
+assert.match(text(),/Refresh the record and review/);
+const rejectedKey=writes.at(-1).options.body.idempotency_key;
+contactFailureStatus=0;
+await click('Refresh selected Company');await click('Use reviewed Company version');await submitForm();
+assert.equal(writes.at(-1).path,'/relationship-contacts');
+assert.equal(writes.at(-1).options.body.company_id,'co1');
+assert.equal(writes.at(-1).options.body.expected_company_version,1);
+assert.equal(writes.at(-1).options.body.data.company,'Independent legacy');
+assert.notEqual(writes.at(-1).options.body.idempotency_key,rejectedKey);
+assert.match(flatten(recordDetails()[0].children),/Ada Example/);
+await click('Back to Companies');assert.match(text(),/Exact Company/);
+for (const sourceKind of ['companies','contacts','deals']) {
+  if(sourceKind==='contacts'){await click('Back to Contacts');}
+  if(sourceKind==='deals'){await openRecord('Example opportunity');}
+  const count=writes.length;
+  await click('Create Event');
+  const key=sourceKind==='companies'?'company_id':sourceKind==='contacts'?'contact_id':'deal_id';
+  const exact=sourceKind==='companies'?'co1':sourceKind==='contacts'?'c1':'d1';
+  assert.match(flatten(dialog().children),new RegExp('Selected exact ID: '+exact));
+  assert.equal(root.root.findByType('form').props['aria-label'],'Create events');
+  assert.equal(writes.length,count,'Opening contextual Event never writes');
+  const eventForm=root.root.findByType('form');
+  const title=eventForm.findAllByType('label').find(n=>flatten(n.children).startsWith('title')).findByType('input');
+  await change(title,'Context Event');
+  const times=eventForm.findAllByType('input').filter(n=>n.props.type==='datetime-local');
+  await change(times[0],'2027-04-03T10:00');await change(times[1],'2027-04-03T11:00');
+  await submitForm();
+  assert.equal(writes.at(-1).path,'/events');assert.equal(writes.at(-1).options.method,'POST');
+  for(const association of ['company_id','contact_id','deal_id'])assert.equal(writes.at(-1).options.body.data[association],association===key?exact:null);
+  assert.match(text(),/Context Event/);
+  await click('Back to '+(sourceKind==='companies'?'Companies':sourceKind==='contacts'?'Contacts':'Deals'));
+}
+await click('Contacts');await openRecord('Ada Example');companyArchived=true;await click('Exact Company · co1');
+assert.equal(button('Create contact').props.disabled,true);assert.equal(button('Create Event').props.disabled,true);
+companyArchived=false;await click('Contacts');
+console.log('PASS contextual native Company contact creation, stale-version draft review, independent legacy text, confirmed child and Back, archived source blocking and Company/Contact/Deal Event POST with only exact source association.');
 await click("+ Contact");
 for (const [name, transition] of [
   [

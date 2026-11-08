@@ -3,7 +3,7 @@ import uuid
 from contextlib import nullcontext
 from pydantic import Field, field_validator
 from sqlalchemy import select, update, delete, or_
-from .domain import CRMError, StrictModel, contacts, now
+from .domain import CRMError, StrictModel, ContactInput, contacts, now
 from .report_store import scope_for
 from .relationship_schema import companies,contact_companies,check_schema
 from .relationship_store import RelationshipStore
@@ -36,6 +36,41 @@ class CompanyStore(RelationshipStore):
             conn.execute(companies.insert().values(scope=scope,**result)); self.crm._audit(conn,'companies',result,'created',actor)
             return result
         return self._write(key,['company_create',values,actor],action)
+    def create_contact(self,data,company_id=None,expected_company_version=None,*,actor,key):
+        """Atomically create a contact with an optional reviewed explicit Company.
+
+        Separate receipts preserve CRM.create semantics. Legacy company text is
+        independent; no name matching or implicit overwrite is performed.
+        """
+        if not isinstance(data,dict): raise CRMError('Contact data must be an object')
+        data=dict(data)
+        custom=data.pop('custom_fields',{})
+        if not isinstance(custom,dict): raise CRMError('custom_fields must be an object')
+        values=ContactInput.model_validate(data).model_dump()
+        actor=self._actor(actor)
+        if company_id is None:
+            if expected_company_version is not None: raise CRMError('Company version requires a Company ID')
+        else:
+            try:
+                if not isinstance(company_id,str) or str(uuid.UUID(company_id))!=company_id:
+                    raise ValueError()
+            except (ValueError,AttributeError):
+                raise CRMError('Company ID must be an exact canonical UUID or null')
+            self._version(expected_company_version)
+        def action(conn,scope):
+            if company_id is not None:
+                company=self._get(conn,scope,company_id)
+                if company['version']!=expected_company_version:
+                    raise CRMError('Company changed; refresh before creating a contact',409)
+                if company['archived_at'] is not None:
+                    raise CRMError('Archived Company cannot receive links',409)
+            contact=self.crm._insert_created(conn,'contacts',values,custom,actor)
+            if company_id is not None:
+                stamp=now()
+                conn.execute(contact_companies.insert().values(scope=scope,contact_id=contact['id'],company_id=company_id,created_at=stamp,updated_at=stamp))
+            return dict(contact=contact,company_link=self.get_contact_company(contact['id'],conn=conn))
+        return self._write(key,['contact_create_with_company',values,custom,company_id,expected_company_version,actor],action)
+
     def _change(self,record_id,data,expected_version,actor,key,operation):
         self._version(expected_version);actor=self._actor(actor)
         if not isinstance(data,dict) or set(data)-{'name','domain','notes'}: raise CRMError('Unknown Company fields')

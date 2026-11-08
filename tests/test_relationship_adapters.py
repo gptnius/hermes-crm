@@ -94,7 +94,7 @@ def test_all_tool_models_forbid_injected_actor_scope(adapter):
     from pydantic import ValidationError
     registered={}
     register_relationship_tools(lambda name,description,properties,required,handler,**kw: registered.update({name:kw}))
-    assert len(registered)==24
+    assert len(registered)==25
     for options in registered.values():
         for field in ('actor','scope','profile','source'):
             with pytest.raises(ValidationError):

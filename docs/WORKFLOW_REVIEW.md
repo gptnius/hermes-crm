@@ -157,10 +157,11 @@ correct selection of the data being exported.
 
 ## Additional workflow gaps to plan
 
-- Canonical Company selection during new-contact creation and Company-level
-  Create Contact/Event actions need an atomic relationship-aware contract. A
-  two-step create-then-link flow must not hide partial success or create duplicates
-  after an uncertain response. Legacy company text is not a substitute.
+- The first [contextual creation increment](CONTEXTUAL_CREATION.md) implements
+  optional canonical Company selection during new-contact creation, atomic
+  contact/link saving, and Company/Contact/opportunity Event actions. Legacy
+  company text remains independent. Multi-company contact roles and automatic
+  relationship discovery remain outside this slice.
 - Existing core contact/deal selectors are bounded by the legacy snapshot.
   Reuse paged exact-ID selectors where possible rather than imply all records
   are present. Preserve the selected identity even when its page is not loaded.
@@ -246,5 +247,5 @@ and production performance must not be inferred from synthetic fixtures.
 
 The [README roadmap](../README.md#development-roadmap) remains the priority index.
 The [verification report](VERIFICATION.md) separates implemented and tested fixes
-from remaining verification limits. The result-review action and the additional
-workflow capabilities above remain designs or backlog, not release claims.
+from remaining verification limits. The result-review action and remaining
+workflow gaps above are designs or backlog, not release claims.

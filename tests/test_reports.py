@@ -142,5 +142,5 @@ def test_api_and_tool_parity(crm,monkeypatch):
         assert client.get(root+'/tasks',params={'priority':'high','due':'overdue'}).json()==crm.list('tasks',priority='high',due='overdue',include_relationships=True)
     assert not json.loads(ctx.tools['crm_contact_report']['handler']({'limit':True}))['ok']
     assert not json.loads(ctx.tools['crm_contact_report']['handler']({'unknown':True}))['ok']
-    assert len(ctx.tools)==66 and sum(t['toolset']=='crm_read' for t in ctx.tools.values())==8
+    assert len(ctx.tools)==67 and sum(t['toolset']=='crm_read' for t in ctx.tools.values())==8
     assert ctx.tools['crm_contact_create']['schema']['parameters']['properties']['lifecycle']['title']=='Contact type'

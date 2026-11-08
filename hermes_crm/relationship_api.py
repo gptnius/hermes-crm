@@ -19,6 +19,11 @@ class CreateBody(ScopedBody):
     data: dict[str, Any]
 
 
+class ContactCreateBody(CreateBody):
+    company_id: str | None = Field(default=None, min_length=1, max_length=36)
+    expected_company_version: int | None = Field(default=None, ge=1)
+
+
 class UpdateBody(CreateBody):
     expected_version: int = Field(ge=1)
 
@@ -88,6 +93,13 @@ def build_router(service, require_workspace, actor='desktop'):
         with service() as crm:
             check(request, crm, body.workspace_token)
             return CompanyStore(crm).create(body.data, actor=actor, key=body.idempotency_key)
+
+    @router.post('/relationship-contacts', status_code=201)
+    def create_contact(request: Request, body: ContactCreateBody):
+        with service() as crm:
+            check(request, crm, body.workspace_token)
+            return CompanyStore(crm).create_contact(body.data, body.company_id, body.expected_company_version,
+                                                    actor=actor, key=body.idempotency_key)
 
     @router.patch('/companies/{record_id}')
     def update_company(request: Request, record_id: str, body: UpdateBody):
