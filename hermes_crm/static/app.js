@@ -15,6 +15,7 @@ const $ = (s) => document.querySelector(s),
 let stages = ["lead", "qualified", "proposal", "negotiation", "won", "lost"];
 let catalog = { stages: [], fields: {} };
 function adoptCatalog(meta) {
+  if (meta?.workspace_token) relationshipWorkspace = meta.workspace_token;
   if (!meta?.catalog || !Array.isArray(meta.catalog.stages)) return;
   catalog = meta.catalog;
   stages = catalog.stages.filter(s => !s.archived).map(s => s.key);
@@ -94,7 +95,7 @@ async function api(path, method = "GET", body, key) {
       "The server returned an unreadable response. Please try again.",
     );
   }
-  if (!r.ok) throw new Error(data.error || "Request failed. Please try again.");
+  if (!r.ok) { const error = new Error(data.error || "Request failed. Please try again."); error.status = r.status; throw error; }
   return data;
 }
 const list = (data) => (Array.isArray(data) ? data : []);
@@ -118,7 +119,7 @@ function createButton(type) {
 }
 function contactTable(rows) {
   return rows.length
-    ? `<div class="table-scroll" role="region" aria-label="Contacts table" tabindex="0"><table><thead><tr><th scope="col">Name</th><th scope="col">Company</th><th scope="col">Contact type</th><th scope="col">Linked deal stages</th><th scope="col">Added</th></tr></thead><tbody>${rows.map((c) => `<tr><td><div class="person"><span class="avatar" aria-hidden="true">${esc(initials(c.name))}</span><div><button class="name-button" data-action="contact" data-id="${esc(c.id)}">${esc(c.name)}</button><small>${esc(c.email || "No email added")}</small></div></div></td><td>${esc(c.company || "—")}</td><td>${badge(c.lifecycle)}</td><td>${Array.isArray(c.deal_stages) ? (c.deal_stages.map(stageBadge).join(" ") || "Unassigned") : "See contact details"}</td><td>${date(c.created_at)}</td></tr>`).join("")}</tbody></table></div>`
+    ? `<div class="table-scroll" role="region" aria-label="Contacts table" tabindex="0"><table><thead><tr><th scope="col">Name</th><th scope="col">Company</th><th scope="col">Contact type</th><th scope="col">Linked deal stages</th><th scope="col">Added</th></tr></thead><tbody>${rows.map((c) => `<tr><td><div class="person"><span class="avatar" aria-hidden="true">${esc(initials(c.name))}</span><div><button class="name-button" data-action="contact" data-id="${esc(c.id)}">${esc(c.name)}</button><small>${esc(c.email || "No email added")}</small></div></div></td><td>${c.company_id ? relationshipRecordButton("companies",{id:c.company_id,name:c.company_name || "Open Company"}) : esc(c.company || "—") + (c.company ? " <small>Unlinked text</small>" : "")}</td><td>${badge(c.lifecycle)}</td><td>${Array.isArray(c.deal_stages) ? (c.deal_stages.map(stageBadge).join(" ") || "Unassigned") : "See contact details"}</td><td>${date(c.created_at)}</td></tr>`).join("")}</tbody></table></div>`
     : empty("No matching contacts. Change filters or add a contact.");
 }
 function taskRows(rows) {
@@ -127,7 +128,7 @@ function taskRows(rows) {
         .map((t) => {
           const overdue =
             t.status !== "done" && t.due_at && new Date(t.due_at) < new Date();
-          return `<div class="task-row"><button class="check" aria-pressed="${t.status === "done"}" data-action="toggle-task" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "done" ? "✓" : ""}</button><div class="task-copy"><button data-action="task" data-id="${esc(t.id)}">${esc(t.title)}</button><div class="task-meta">${esc(t.contact_name || "Workspace task")}${t.priority === "high" ? " · High priority" : ""}</div></div><span class="due ${overdue ? "overdue" : ""}">${t.status === "done" ? "Done" : (overdue ? "Overdue · " : "") + date(t.due_at)}</span></div>`;
+          return `<div class="task-row"><button class="check" aria-pressed="${t.status === "done"}" data-action="toggle-task" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "done" ? "✓" : ""}</button><div class="task-copy"><button data-action="task" data-id="${esc(t.id)}">${esc(t.title)}</button><div class="task-meta">${esc(t.contact_name || "Workspace task")}${t.priority === "high" ? " · High priority" : ""}</div>${taskRelationshipContext(t)}</div><span class="due ${overdue ? "overdue" : ""}">${t.status === "done" ? "Done" : (overdue ? "Overdue · " : "") + date(t.due_at)}</span></div>`;
         })
         .join("")
     : empty("All clear. No tasks to show.");
@@ -171,7 +172,7 @@ function activityContact(a, currentContactId) {
     ? `<button class="name-button" data-action="contact" data-id="${esc(a.linked_contact_id)}">Current contact: ${esc(a.linked_contact_name)}</button>` : "";
 }
 function contactActivity(rows, currentContactId) {
-  return `<h3>Recent CRM activity</h3><p class="subtitle">CRM record changes only. Sent and received emails are not synced here.</p>${activityRows(rows.slice(0, 5), currentContactId)}${rows.length > 5 ? `<details><summary>Older CRM activity (${rows.length - 5} available)</summary>${activityRows(rows.slice(5), currentContactId)}</details>` : ""}<p class="subtitle">Up to 100 recent CRM changes for this contact and its currently linked records; older history may not be included.</p>`;
+  return `<h3>Record history</h3><p class="subtitle">CRM record changes only. Sent and received emails are not synced here.</p>${activityRows(rows.slice(0, 5), currentContactId)}${rows.length > 5 ? `<details><summary>Older Record history (${rows.length - 5} available)</summary>${activityRows(rows.slice(5), currentContactId)}</details>` : ""}<p class="subtitle">Up to 100 recent CRM changes for this contact and its currently linked records; older history may not be included.</p>`;
 }
 function activityRows(rows, currentContactId) {
   return rows.length
@@ -290,14 +291,14 @@ async function render() {
           )
           .join(
             "",
-          )}</div><div class="grid"><section class="card"><div class="card-head"><div><h2>Sales pipeline</h2><div class="subtitle">Deal value by stage, including Won and Lost.</div></div><a class="text-link" href="#deals">View deals ↗</a></div>${stageChart(ps)}<div class="attention-reports"><h3>Lead attention</h3><button class="button" data-action="attention" data-followup="missing">${Number(o.lead_attention?.no_open_followup || 0)} leads with no open follow-up</button><button class="button" data-action="attention" data-followup="overdue">${Number(o.lead_attention?.overdue_followup || 0)} leads with overdue follow-ups</button><p class="subtitle">Based on stored tasks, not agent execution.</p></div></section><section class="card"><div class="card-head"><div><h2>Upcoming Tasks</h2><div class="subtitle">${o.open_tasks} open tasks · ${o.overdue_tasks} overdue</div></div><a href="#tasks" class="text-link">View all ↗</a></div><div class="upcoming-context"><p class="subtitle">Earliest open tasks, including overdue.</p><details class="task-assignment"><summary>About task assignments</summary><p>Task assignees are not stored. Agent-work owners are separate. Agent work shows saved intent, not a live execution check.</p></details></div>${upcomingTasks(state.tasks)}</section></div><div class="grid"><section class="card"><div class="card-head"><div><h2>People in your orbit</h2><div class="subtitle">Every great opportunity starts with a connection.</div></div><a href="#contacts" class="text-link">All contacts ↗</a></div>${contactTable(state.contacts.slice(0, 5))}</section><section class="card"><div class="card-head"><h2>Recent Activities</h2><a href="#activity" class="text-link">View all ↗</a></div><p class="subtitle activity-disclaimer">Latest 5 CRM record changes. Contact links reflect current relationships, not historical ownership. Communications are not synced in this feed.</p>${activityRows(list(o.activity).slice(0, 5))}</section></div>`;
+          )}</div><div class="grid"><section class="card"><div class="card-head"><div><h2>Sales pipeline</h2><div class="subtitle">Deal value by stage, including Won and Lost.</div></div><a class="text-link" href="#deals">View deals ↗</a></div>${stageChart(ps)}<div class="attention-reports"><h3>Lead attention</h3><button class="button" data-action="attention" data-followup="missing">${Number(o.lead_attention?.no_open_followup || 0)} leads with no open follow-up</button><button class="button" data-action="attention" data-followup="overdue">${Number(o.lead_attention?.overdue_followup || 0)} leads with overdue follow-ups</button><p class="subtitle">Based on stored tasks, not agent execution.</p></div></section><section class="card"><div class="card-head"><div><h2>Upcoming Tasks</h2><div class="subtitle">${o.open_tasks} open tasks · ${o.overdue_tasks} overdue</div></div><a href="#tasks" class="text-link">View all ↗</a></div><div class="upcoming-context"><p class="subtitle">Earliest open tasks, including overdue.</p><details class="task-assignment"><summary>About task assignments</summary><p>Task assignees are not stored. Agent-work owners are separate. Agent work shows saved intent, not a live execution check.</p></details></div>${upcomingTasks(state.tasks)}</section></div><div class="grid"><section class="card"><div class="card-head"><div><h2>People in your orbit</h2><div class="subtitle">Every great opportunity starts with a connection.</div></div><a href="#contacts" class="text-link">All contacts ↗</a></div>${contactTable(state.contacts.slice(0, 5))}</section><section class="card"><div class="card-head"><h2>Recent Record history</h2><a href="#activity" class="text-link">View all ↗</a></div><p class="subtitle activity-disclaimer">Latest 5 CRM record changes. Contact links reflect current relationships, not historical ownership. Communications are not synced in this feed.</p>${activityRows(list(o.activity).slice(0, 5))}</section></div>`;
     } else if (state.page === "contacts") {
       const result = await api("reports/contacts" + queryString({q: state.query, ...state.filters, limit: 50, offset: state.offset}));
       if (token !== state.render) return;
       state.contacts = list(result.items);
       state.total = Number(result.total) || 0;
       html = head("Contacts", esc(state.report || "Filter contacts and their linked deal stages."), createButton("contact")) +
-        `<section class="card"><div class="toolbar filters"><input class="search" id="search" type="search" aria-label="Search contacts" placeholder="Search names, companies, or emails…" value="${esc(state.query)}">${filterSelect("stage", "Stage", [["", "All stages"], ...catalog.stages.map(s => [s.key, s.label + (s.archived ? " (archived)" : "")]), ...(catalog.stages.length ? [] : stages.map(s => [s,stageLabel(s)])), ["unassigned","Unassigned"]])}${filterSelect("contact_type","Contact type",[["","All contact types"],["lead","Lead"],["customer","Customer"],["partner","Partner"]])}${filterInput("company","Company")}${filterSelect("email","Email",[["","Any email"],["present","Email present"],["missing","Email missing"]])}${filterSelect("followup","Follow-up",[["","Any follow-up"],["missing","No open follow-up"],["overdue","Overdue follow-up"],["upcoming","Upcoming follow-up"]])}<button class="button" data-action="clear-filters">Clear filters</button></div><p class="subtitle report-count">${state.total} matching contacts · ${state.total ? state.offset + 1 : 0}–${Math.min(state.offset + state.contacts.length,state.total)} shown</p>${contactTable(state.contacts)}<div class="pagination"><button class="button" data-action="previous" ${state.offset === 0 ? "disabled" : ""}>Previous</button><button class="button" data-action="next" ${state.offset + 50 >= state.total ? "disabled" : ""}>Next</button></div></section>`;
+        `<section class="card"><div class="toolbar filters"><input class="search" id="search" type="search" aria-label="Search contacts" placeholder="Search names, companies, or emails…" value="${esc(state.query)}">${filterSelect("stage", "Stage", [["", "All stages"], ...catalog.stages.map(s => [s.key, s.label + (s.archived ? " (archived)" : "")]), ...(catalog.stages.length ? [] : stages.map(s => [s,stageLabel(s)])), ["unassigned","Unassigned"]])}${filterSelect("contact_type","Contact type",[["","All contact types"],["lead","Lead"],["customer","Customer"],["partner","Partner"]])}${filterInput("company","Legacy company text")}${filterSelect("email","Email",[["","Any email"],["present","Email present"],["missing","Email missing"]])}${filterSelect("followup","Follow-up",[["","Any follow-up"],["missing","No open follow-up"],["overdue","Overdue follow-up"],["upcoming","Upcoming follow-up"]])}<button class="button" data-action="clear-filters">Clear filters</button></div><p class="subtitle report-count">${state.total} matching contacts · ${state.total ? state.offset + 1 : 0}–${Math.min(state.offset + state.contacts.length,state.total)} shown</p>${contactTable(state.contacts)}<div class="pagination"><button class="button" data-action="previous" ${state.offset === 0 ? "disabled" : ""}>Previous</button><button class="button" data-action="next" ${state.offset + 50 >= state.total ? "disabled" : ""}>Next</button></div></section>`;
     } else if (state.page === "deals") {
       const deals = await api("deals" + queryString({q: state.query, stage: state.stage, company: state.filters.company, min_value: dollarCents(state.filters.min_value), max_value: dollarCents(state.filters.max_value)}));
       if (token !== state.render) return;
@@ -308,7 +309,7 @@ async function render() {
           "Turn promising conversations into lasting partnerships.",
           createButton("deal"),
         ) +
-        `<div class="toolbar board-toolbar"><input class="search" id="search" type="search" aria-label="Search deals" placeholder="Search opportunities…" value="${esc(state.query)}"><select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((s) => `<option value="${esc(s)}" ${state.stage === s ? "selected" : ""}>${esc(stageLabel(s))}</option>`).join("")}</select>${filterInput("company","Company")}${filterInput("min_value","Minimum value (USD)","number")}${filterInput("max_value","Maximum value (USD)","number")}</div><p class="subtitle">Showing up to 500 matching deals.</p><div class="board${state.stage ? " filtered" : ""}" role="region" aria-label="Deal stages" tabindex="0">${(state.stage
+        `<div class="toolbar board-toolbar"><input class="search" id="search" type="search" aria-label="Search deals" placeholder="Search opportunities…" value="${esc(state.query)}"><select id="stage-filter" aria-label="Filter by stage"><option value="">All stages</option>${stages.map((s) => `<option value="${esc(s)}" ${state.stage === s ? "selected" : ""}>${esc(stageLabel(s))}</option>`).join("")}</select>${filterInput("company","Legacy company text")}${filterInput("min_value","Minimum value (USD)","number")}${filterInput("max_value","Maximum value (USD)","number")}</div><p class="subtitle">Showing up to 500 matching deals.</p><div class="board${state.stage ? " filtered" : ""}" role="region" aria-label="Deal stages" tabindex="0">${(state.stage
           ? [state.stage]
           : stages
         )
@@ -341,13 +342,15 @@ async function render() {
               `<option value="${v}" ${state.taskFilter === v ? "selected" : ""}>${t}</option>`,
           )
           .join("")}</select></div>${taskRows(rows)}</section>`;
+    } else if (["companies", "events", "activities"].includes(state.page)) {
+      html = await relationshipPage();
     } else {
       const rows = list(await api("activity"));
       html =
-        head("Activity", "A shared history for your team and your agents.") +
-        `<section class="card"><div class="card-head"><h2>Workspace timeline</h2><span class="subtitle">${rows.length} events</span></div>${activityRows(rows)}</section>`;
+        head("Record history", "Administrative record changes, separate from relationship Activities.") +
+        `<section class="card"><div class="card-head"><h2>Workspace timeline</h2><span class="subtitle">${rows.length} changes</span></div>${activityRows(rows)}</section>`;
     }
-    if (token === state.render) root.innerHTML = html;
+    if (token === state.render) root.innerHTML = (relationshipAttempts.has(relationshipWorkspace) ? '<section class="error" role="alert">A relationship write has an unknown outcome. New writes are blocked.<button class="button" data-action="relationship-retry">Retry original request</button></section>' : '') + html;
   } catch (e) {
     if (token === state.render)
       root.innerHTML = `<div class="error" role="alert">${esc(e.message)}</div><div class="error-actions"><button class="button" data-action="retry">Try again</button><button class="button" data-action="reset-current-filters">Reset filters</button></div>`;
@@ -358,7 +361,7 @@ function route() {
   closeModal(false);
   clearTimeout(searchTimer);
   const raw = location.hash.slice(1) || "overview";
-  state.page = ["overview", "contacts", "deals", "tasks", "activity"].includes(
+  state.page = ["overview", "contacts", "deals", "tasks", "activity", "record-history", "companies", "events", "activities"].includes(
     raw,
   )
     ? raw
@@ -543,10 +546,12 @@ async function contactDetail(id) {
     const c = result.contact;
     showModal(
       modalHead(c.name) +
-        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}${customFieldDetails("contacts", c)}${contactActivity(list(result.activity), c.id)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
+        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}<section><h3>Company</h3>${c.company_id ? relationshipRecordButton("companies",{id:c.company_id,name:c.company_name || "Open linked Company"}) : `<p>Unlinked legacy company text: ${esc(c.company || "Not set")}</p>`}<button class="button" id="contact-company">Link or unlink Company</button><button class="button" id="contact-events">Events & Activities</button></section>${customFieldDetails("contacts", c)}${contactActivity(list(result.activity), c.id)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
     ); // Fresh detail records replace cached versions before later edits.
     state.deals = mergeRecords(state.deals, list(result.deals));
     state.tasks = mergeRecords(state.tasks, list(result.tasks));
+    $("#contact-company")?.addEventListener("click",()=>contactCompanyForm(c));
+    $("#contact-events")?.addEventListener("click",()=>contactEvents(c));
     $("#edit-contact").onclick = () => openForm("contact", c);
   } catch (e) {
     if (requestEpoch === modalEpoch) toast(e.message);
@@ -561,8 +566,9 @@ async function taskDetail(id) {
     if (task?.id !== id) throw new Error("The task could not be verified. Refresh and try again.");
     adoptCatalog(meta);
     const overdue = task.status === "open" && new Date(task.due_at) < new Date();
-    showModal(modalHead(task.title) + `<div class="detail-body"><dl class="detail-meta"><div><dt>Status</dt><dd>${badge(task.status)} ${overdue ? badge("overdue") : ""}</dd></div><div><dt>Due (your timezone)</dt><dd>${esc(new Date(task.due_at).toLocaleString())}</dd></div><div><dt>Priority</dt><dd>${esc(label(task.priority))}</dd></div><div><dt>Task assignee</dt><dd>Not recorded</dd></div><div><dt>Contact</dt><dd>${task.contact_id ? `<button class="name-button" data-action="contact" data-id="${esc(task.contact_id)}">Open linked contact</button>` : task.deal_id ? "Linked through deal" : "No linked contact"}</dd></div></dl>${task.notes ? `<div class="notes">${esc(task.notes)}</div>` : ""}${customFieldDetails("tasks", task)}<p class="subtitle">Review any separate saved agent assignments in Hermes Desktop. A task due date does not schedule agent work.</p></div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-task">Edit task</button></div>`);
+    showModal(modalHead(task.title) + `<div class="detail-body"><dl class="detail-meta"><div><dt>Status</dt><dd>${badge(task.status)} ${overdue ? badge("overdue") : ""}</dd></div><div><dt>Due (your timezone)</dt><dd>${esc(new Date(task.due_at).toLocaleString())}</dd></div><div><dt>Priority</dt><dd>${esc(label(task.priority))}</dd></div><div><dt>Task assignee</dt><dd>Not recorded</dd></div><div><dt>Contact</dt><dd>${task.contact_id ? `<button class="name-button" data-action="contact" data-id="${esc(task.contact_id)}">Open linked contact</button>` : task.deal_id ? "Linked through deal" : "No linked contact"}</dd></div></dl>${task.notes ? `<div class="notes">${esc(task.notes)}</div>` : ""}${task.event_id ? `<section><h3>Event</h3>${relationshipRecordButton("events",{id:task.event_id,title:task.event_title || "Open linked Event"})}<button class="button" id="task-unlink-event">Unlink Event</button></section>` : ""}${taskRelationshipContext(task)}${customFieldDetails("tasks", task)}<p class="subtitle">Review any separate saved agent assignments in Hermes Desktop. A task due date does not schedule agent work.</p></div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-task">Edit task</button></div>`);
     state.tasks = mergeRecords(state.tasks, [task]);
+    $("#task-unlink-event")?.addEventListener("click",()=>prepareEventUnlink(task));
     $("#edit-task").onclick = () => openForm("task", task);
   } catch (e) {
     if (requestEpoch === modalEpoch) toast(e.message);
@@ -592,6 +598,7 @@ async function toggleTask(id, button) {
   }
 }
 document.addEventListener("click", (e) => {
+  void relationshipClick(e);
   const b = e.target.closest("[data-action]");
   if (!b) return;
   const a = b.dataset.action;
@@ -615,6 +622,7 @@ document.addEventListener("click", (e) => {
 
 });
 document.addEventListener("input", (e) => {
+  if(e.target.dataset?.exactSearch) exactSearch(e.target);
   if (e.target.id !== "search") return;
   closeModal(false);
   state.render++;
@@ -682,5 +690,220 @@ async function initialize() {
     toast("Workspace metadata is unavailable. " + e.message);
   }
   route();
+}
+// Local relationships are exact-ID records. No external calendar or communication side effects.
+let relationshipWorkspace = null;
+const relationshipAttempts = new Map();
+function relationshipPath(path, params = {}) {
+  if (!relationshipWorkspace) throw new Error('Workspace identity unavailable. Refresh before continuing.');
+  return path + '?' + new URLSearchParams({ ...params, workspace_token: relationshipWorkspace });
+}
+function relationshipRead(path, params) { return api(relationshipPath(path, params)); }
+function confirmedRelationshipReceipt(path, method, body, result) {
+  const version = value => Number.isSafeInteger(value) && value > 0;
+  const id = value => typeof value === 'string' && value.trim().length > 0;
+  const record = value => Boolean(value && id(value.id) && version(value.version));
+  const atLeast = (actual, expected) => version(actual) && (!version(expected) || actual >= expected);
+  const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
+  if (!result || typeof result !== 'object') return false;
+  if (parts[0] === 'contacts' && parts.length === 3 && parts[2] === 'company' && method === 'PUT')
+    return result.contact_id === parts[1] && atLeast(result.contact_version, body.expected_contact_version) && Object.hasOwn(result, 'company_id') && result.company_id === body.company_id;
+  if (parts[0] === 'events' && parts.length === 3 && parts[2] === 'tasks' && method === 'POST')
+    return record(result.task) && result.task_id === result.task.id && record(result.event) && result.event.id === parts[1] && result.event_id === parts[1] && atLeast(result.event.version, body.expected_version);
+  if (parts[0] === 'tasks' && parts[2] === 'event') {
+    if (!record(result.task) || result.task_id !== parts[1] || result.task.id !== parts[1] || !atLeast(result.task.version, body.expected_task_version)) return false;
+    if (parts.length === 4 && parts[3] === 'unlink' && method === 'POST')
+      return result.event_id === null && Object.hasOwn(result, 'event') && ((result.event === null && result.task.version === body.expected_task_version) || (record(result.event) && result.event.id === body.event_id && atLeast(result.event.version, body.expected_version)));
+    if (parts.length === 3 && method === 'PUT')
+      return record(result.event) && result.event.id === body.event_id && result.event_id === body.event_id && atLeast(result.event.version, body.expected_version);
+    return false;
+  }
+  if (!['companies', 'events'].includes(parts[0]) || !record(result)) return false;
+  if (parts.length === 1) return method === 'POST';
+  return result.id === parts[1] && atLeast(result.version, body.expected_version) &&
+    ((parts.length === 2 && method === 'PATCH') || (parts.length === 3 && method === 'POST' &&
+      (parts[0] === 'companies' ? ['archive', 'restore'] : ['complete', 'cancel', 'reopen', 'needs-rescheduling', 'reschedule']).includes(parts[2])));
+}
+async function relationshipWrite(path, method, body) {
+  const scope = relationshipWorkspace;
+  const payload = JSON.stringify({ ...body, workspace_token: scope });
+  let attempt = relationshipAttempts.get(scope);
+  if (attempt && (attempt.path !== path || attempt.method !== method || attempt.payload !== payload)) throw new Error('An earlier write has an unknown outcome. Retry that original request before changing intent.');
+  if (attempt?.running) throw new Error('A write is already running.');
+  if (!attempt) { attempt = { path, method, payload, key: crypto.randomUUID() }; relationshipAttempts.set(scope, attempt); }
+  attempt.running = true;
+  try {
+    const result = await api(path, method, { ...JSON.parse(attempt.payload), idempotency_key: attempt.key });
+    if (!confirmedRelationshipReceipt(attempt.path, attempt.method, JSON.parse(attempt.payload), result)) throw new Error('Unconfirmed response');
+    relationshipAttempts.delete(scope);
+    return result;
+  } catch (error) {
+    if ([400, 404, 409, 422].includes(error.status)) relationshipAttempts.delete(scope);
+    else error.message += ' Outcome unknown. Retry the original unchanged request; its key is retained even if you close this form.';
+    throw error;
+  } finally { attempt.running = false; }
+}
+function relationshipPager(page, action, extra = '') {
+  return `<div class="form-actions"><span>${page.total} total · ${page.items.length ? page.offset + 1 : 0}–${page.offset + page.items.length} shown</span><button class="button" data-action="${action}" data-offset="${Math.max(0,page.offset-page.limit)}" ${extra} ${page.offset ? '' : 'disabled'}>Previous</button><button class="button" data-action="${action}" data-offset="${page.offset+page.limit}" ${extra} ${page.offset+page.items.length >= page.total ? 'disabled' : ''}>Next</button></div>`;
+}
+function relationshipRecordButton(kind, row) {
+  return `<button class="name-button" data-action="${kind === 'contacts' ? 'contact' : kind === 'tasks' ? 'task' : kind === 'deals' ? 'relationship-deal' : kind === 'companies' ? 'company' : 'event'}" data-id="${esc(row.id)}">${esc(row.name || row.title || row.id)}</button>`;
+}
+function taskRelationshipContext(task) {
+  if (!task.company_id && !task.event_id && !task.event_company_id) return '';
+  const company = (id,name) => id ? relationshipRecordButton('companies',{id,name:(name || 'Company')+' · ID '+id}) : 'Not linked';
+  return `<div class="task-relationship-context"><small>Current-contact Company: ${company(task.company_id,task.company_name)} · Basis: ${esc(task.company_link_basis || 'unlinked')}</small><small>Explicit Event Company: ${company(task.event_company_id,task.event_company_name)} · Basis: ${esc(task.event_link_basis || 'unlinked')}</small>${task.event_id ? `<small>Linked Event: ${relationshipRecordButton('events',{id:task.event_id,title:(task.event_title || 'Event')+' · ID '+task.event_id})}</small>` : ''}</div>`;
+}
+function eventRelatedLinks(row) {
+  return `<div class="event-related-links" role="group" aria-label="Related Event records">${['contact','deal','company'].map(kind=>row[kind+'_id'] ? relationshipRecordButton(kind === 'company' ? 'companies' : kind+'s',{id:row[kind+'_id'],name:'Open '+kind}) : '').join('')}</div>`;
+}
+function relationshipRows(page, kind) {
+  return page.items.length ? `<ul class="relationship-list">${page.items.map(row => `<li>${relationshipRecordButton(kind,row)}<small>${esc(row.domain || row.email || row.status || '')} · ID ${esc(row.id)}${row.archived_at ? ' · Archived' : ''}${(row.relationship_basis || row.event_link_basis || row.company_link_basis) ? ' · '+esc(row.relationship_basis || row.event_link_basis || row.company_link_basis) : ''}</small>${kind === 'tasks' ? taskRelationshipContext(row) : ''}${row.starts_at ? `<small>${esc(row.starts_at)} → ${esc(row.ends_at)} · ${esc(row.timezone)}</small>` : ''}</li>`).join('')}</ul>` : empty('No matching records.');
+}
+async function relationshipPage() {
+  const kind = state.page;
+  const params = { limit: 25, offset: state.offset, q: state.query };
+  if (kind === 'companies') params.include_archived = 'true';
+  if (kind === 'events') for (const filter of ['status','kind']) if (state.filters[filter]) params[filter] = state.filters[filter];
+  const page = await relationshipRead(kind === 'activities' ? 'relationship-activities' : kind, kind === 'activities' ? {limit:25,offset:state.offset} : params);
+  let body;
+  if (kind === 'activities') body = page.items.map(row => `<li>${row.record_type === 'event' ? relationshipRecordButton('events',{id:row.record_id,title:row.title}) : esc(row.title || row.summary || label(row.kind))}<small>${esc(row.happened_at)} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)} · ${esc(row.id)}</small>${row.contact_id ? relationshipRecordButton('contacts',{id:row.contact_id,name:'Open contact'}) : ''}</li>`).join('');
+  return head(label(kind),kind === 'activities' ? 'Completed local Events and self-reported contact logs. Not verified communications.' : kind === 'companies' ? 'Explicit organizations and their associated records.' : 'Local appointments and calls.',kind === 'activities' ? '' : `<button class="button primary" data-action="relationship-create" data-kind="${kind}">Add ${kind === 'companies' ? 'Company' : 'Event'}</button>`) + `<section class="card">${kind !== 'activities' ? `<input class="search" id="search" type="search" aria-label="Search ${kind}" placeholder="Search ${kind}" value="${esc(state.query)}">` : ''}${kind === 'events' ? filterSelect("status","Event status",[["","All statuses"],["scheduled","Scheduled"],["needs_rescheduling","Needs rescheduling"],["completed","Completed"],["cancelled","Cancelled"]])+filterSelect("kind","Event type",[["","All types"],["appointment","Appointment"],["call","Call"]]) : ""}${kind === 'activities' ? `<ul class="relationship-list">${body || '<li>No recorded interactions.</li>'}</ul>` : relationshipRows(page,kind)}${relationshipPager(page,'relationship-page')}</section>`;
+}
+const eventLocalHelp = 'Local record only. Saving does not invite attendees, place calls, send reminders, schedule agent work or sync a calendar. Related records are context, not verified attendees. Notes and outcomes are ordinary plaintext.';
+function relationshipForm(title, fields, submit, done) {
+  showModal(modalHead(title) + `<form id="relationship-form" class="detail-body"><div class="relationship-form-grid">${fields}</div><p role="alert" id="relationship-error" hidden></p><div class="form-actions"><button class="button" type="button" data-action="close">Cancel</button><button class="button primary" type="submit">Save</button></div></form>`);
+  const epoch = modalEpoch, scope = relationshipWorkspace;
+  const form = $('#relationship-form');
+  form.addEventListener('submit', async event => {
+    event.preventDefault(); if (form.dataset.saving || !form.reportValidity()) return;
+    if (scope !== relationshipWorkspace || epoch !== modalEpoch) return;
+    const values = Object.fromEntries(new FormData(form));
+    const controls = [...form.querySelectorAll('input,select,textarea,button')];
+    form.dataset.saving = 'true'; controls.forEach(control => control.disabled = true);
+    try {
+      const result = await submit(values);
+      if (scope !== relationshipWorkspace || modalEpoch !== epoch) return;
+      closeModal(); await render(); if (done) await done(result);
+    } catch(error) {
+      if (scope === relationshipWorkspace && modalEpoch === epoch) { $('#relationship-error').hidden = false; $('#relationship-error').textContent = error.message; }
+    } finally { delete form.dataset.saving; controls.forEach(control => control.disabled = false); }
+  });
+}
+function relationshipNotes(value = '') { return `<label class="field relationship-wide">Notes<textarea name="notes" rows="4">${esc(value)}</textarea></label>`; }
+function exactSelector(name, kind, value = '') {
+  return `<div class="exact-selector"><label class="field">${label(kind)} exact ID (optional)<input name="${name}" value="${esc(value || '')}" maxlength="36"></label><label class="field">Find ${label(kind)}<input type="search" data-exact-search="${kind}" data-exact-name="${name}" placeholder="Search, then choose an exact record"></label><div data-exact-results="${name}" aria-live="polite"></div></div>`;
+}
+function eventFields(row = {}) {
+  return `<p class="subtitle relationship-wide">${eventLocalHelp}</p>${field('title','Title',row.title || '', 'text','required maxlength="200"')}${select('kind','Type',['appointment','call'],row.kind || 'appointment',true)}${field('starts_at','Start (ISO date with Z or ±HH:MM)',row.starts_at || '', 'text','required placeholder="2026-11-12T10:00:00-05:00"')}${field('ends_at','End (ISO date with Z or ±HH:MM)',row.ends_at || '', 'text','required')}${field('timezone','IANA display timezone',row.timezone || 'Etc/UTC','text','required placeholder="America/New_York"')}<p class="subtitle">Times are preserved exactly until edited. The timezone names the display zone; it does not silently reinterpret the entered offset.</p>${exactSelector('contact_id','contacts',row.contact_id)}${exactSelector('deal_id','deals',row.deal_id)}${exactSelector('company_id','companies',row.company_id)}${relationshipNotes(row.notes)}`;
+}
+function eventPayload(values) {
+  for (const name of ['starts_at','ends_at']) if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?(Z|[+-]\d\d:\d\d)$/.test(values[name]) || !Number.isFinite(Date.parse(values[name]))) throw new Error('Enter valid start and end instants with an explicit offset.');
+  // Compare the backend's microsecond precision, without changing the submitted strings.
+  // Date.parse alone would round distinct instants in the same millisecond together.
+  const micros = value => BigInt(Math.floor(Date.parse(value) / 1000)) * 1000000n + BigInt((value.match(/\.(\d+)/)?.[1] || '').padEnd(6,'0').slice(0,6));
+  if (micros(values.ends_at) <= micros(values.starts_at)) throw new Error('End must follow start.');
+  try { new Intl.DateTimeFormat('en',{timeZone:values.timezone}).format(); } catch { throw new Error('Enter a valid IANA timezone.'); }
+  for (const name of ['contact_id','deal_id','company_id']) values[name] = values[name] || null;
+  return values;
+}
+function relationshipEditor(kind, row = {}, operation = '') {
+  const path = `${kind}${row.id ? '/'+encodeURIComponent(row.id) : ''}${operation ? '/'+operation : ''}`;
+  relationshipForm(`${row.id ? operation === 'reschedule' ? 'Reschedule' : 'Edit' : 'Add'} ${kind === 'companies' ? 'Company' : 'Event'}`,kind === 'companies' ? field('name','Company name',row.name || '','text','required maxlength="200"')+field('domain','Domain (unverified text)',row.domain || '')+relationshipNotes(row.notes) : eventFields(row),values => relationshipWrite(path,operation || !row.id ? 'POST' : 'PATCH',{data:kind === 'events' ? eventPayload(values) : values,...(row.id ? {expected_version:row.version} : {})}),result => relationshipDetail(kind,result.id || row.id));
+}
+async function relationshipDetail(kind,id,tab = 'contacts',offset = 0) {
+  const requestEpoch = ++modalEpoch, scope = relationshipWorkspace;
+  try {
+    const result = await relationshipRead(`${kind}/${encodeURIComponent(id)}`);
+    const row = kind === 'companies' ? result.company : result;
+    const path = kind === 'companies' ? `companies/${encodeURIComponent(id)}/records/${tab}` : `events/${encodeURIComponent(id)}/tasks`;
+    const page = await relationshipRead(path,{limit:25,offset});
+    if (requestEpoch !== modalEpoch || scope !== relationshipWorkspace) return;
+    const buttons = kind === 'companies' ? `<button class="button" data-rel-op="${row.archived_at ? 'restore' : 'archive'}">${row.archived_at ? 'Restore' : 'Archive'}</button>` : ['scheduled','needs_rescheduling'].includes(row.status) ? `${row.status === 'scheduled' ? '<button class="button" data-rel-op="needs-rescheduling">Needs rescheduling</button>' : ''}<button class="button" data-rel-op="reschedule">Reschedule</button><button class="button" data-rel-op="complete">Complete (self-reported)</button><button class="button" data-rel-op="cancel">Cancel Event</button>` : '<button class="button" data-rel-op="reopen">Reopen</button>';
+    showModal(modalHead(row.name || row.title)+`<div class="detail-body"><p>${esc(row.domain || row.status || '')} · ID ${esc(row.id)} · Version ${row.version}</p>${kind === 'events' ? `<p>${esc(row.starts_at)} → ${esc(row.ends_at)} · ${esc(row.timezone)}</p><p class="subtitle">Source: local${row.status === 'completed' ? ' · Self-reported completion, not verified attendance or a verified call' : ''}</p>${row.outcome_summary ? `<p>${esc(row.outcome_summary)}<small>Claimed: ${esc(row.outcome_happened_at)} · Recorded: ${esc(row.recorded_at)}</small></p>` : ''}<details><summary>About local Events</summary><p>${eventLocalHelp}</p></details>${eventRelatedLinks(row)}` : '<p class="subtitle">Current relationship rollup. Contacts use explicit Company links; deals follow their contact. Tasks can belong through their contact or linked Event. Events use their own Company link. A rename never overwrites legacy contact text.</p>'}${row.notes ? `<p class="notes">${esc(row.notes)}</p>` : ''}<div class="form-actions">${kind === 'companies' || ['scheduled','needs_rescheduling'].includes(row.status) ? '<button class="button" id="relationship-edit">Edit</button>' : ''}${buttons}</div>${kind === 'companies' ? `<div class="form-actions"><button class="button" id="company-activities">Relationship Activities</button>${['contacts','deals','tasks','events'].map(k=>`<button class="button" data-rel-tab="${k}" aria-pressed="${tab === k}">${label(k)} (${Number(result.counts[k] || 0)})</button>`).join('')}</div>` : '<h3>Associated tasks</h3><p class="subtitle">Task assignees are not recorded. Open the task and use the genuine assignment workflow in Hermes Desktop.</p><div class="form-actions"><button class="button" id="event-create-task">Create task</button><button class="button" id="event-link-task">Link existing task</button></div>'}${relationshipRows(page,kind === 'companies' ? tab : 'tasks')}${relationshipPager(page,'relationship-detail-page',`data-kind="${kind}" data-id="${esc(id)}" data-tab="${tab}"`)}</div>`);
+    $('#company-activities')?.addEventListener('click',()=>companyActivities(row));
+    $('#relationship-edit')?.addEventListener('click',()=>relationshipEditor(kind,row));
+    document.querySelectorAll('[data-rel-tab]').forEach(button=>button.addEventListener('click',()=>relationshipDetail(kind,id,button.dataset.relTab)));
+    document.querySelectorAll('[data-rel-op]').forEach(button=>button.addEventListener('click',()=>relationshipOperation(kind,row,button.dataset.relOp)));
+    $('#event-create-task')?.addEventListener('click',()=>eventTaskForm(row));
+    $('#event-link-task')?.addEventListener('click',()=>eventLinkTask(row));
+  } catch(error) { if (requestEpoch === modalEpoch) toast(error.message); }
+}
+function relationshipOperation(kind,row,operation) {
+  if (operation === 'reschedule') return relationshipEditor(kind,row,operation);
+  const complete = operation === 'complete';
+  const fields = complete ? '<p class="subtitle">You are recording your claim that this Event happened, not verified attendance.</p>'+field('outcome_happened_at','Claimed occurrence (explicit-offset instant)',new Date().toISOString(),'text','required')+field('outcome_summary','Outcome summary','','text','required maxlength="10000"') : ['archive','restore'].includes(operation) ? `<p>${label(operation)} this Company? Its existing links and history remain available.</p>` : field('reason','Reason','','text','required maxlength="2000"');
+  relationshipForm(label(operation),fields, values=>relationshipWrite(`${kind}/${encodeURIComponent(row.id)}/${operation}`,'POST',{expected_version:row.version,...(complete ? {data:values} : values)}),()=>relationshipDetail(kind,row.id));
+}
+function eventTaskForm(event) {
+  relationshipForm('Create Event task',field('title','Task title','','text','required')+field('due_at','Due (explicit-offset instant)','','text','required')+select('priority','Priority',['normal','high'],'normal')+exactSelector('contact_id','contacts',event.contact_id)+exactSelector('deal_id','deals',event.deal_id)+relationshipNotes()+`<p class="subtitle">Review the exact contact and deal IDs above, prefilled from this Event. Clear either ID for no direct context. Creates and links one task atomically. No agent is assigned and no research runs when you save. The explicit Event link remains independent of the selected contact and deal.</p>`,data=>relationshipWrite(`events/${encodeURIComponent(event.id)}/tasks`,'POST',{expected_version:event.version,data:{...data,status:'open',contact_id:data.contact_id || null,deal_id:data.deal_id || null}}),()=>relationshipDetail('events',event.id));
+}
+async function prepareEventUnlink(task) {
+  const epoch=++modalEpoch, scope=relationshipWorkspace;
+  try {
+    const event=await relationshipRead('events/'+encodeURIComponent(task.event_id));
+    if(epoch!==modalEpoch || scope!==relationshipWorkspace) return;
+    relationshipForm('Unlink Event',`<p>Remove the link from task ${esc(task.title)} (ID ${esc(task.id)}, version ${task.version}) to Event ${esc(event.title)} (ID ${esc(event.id)}, version ${event.version})? The task remains available.</p>`,()=>relationshipWrite('tasks/'+encodeURIComponent(task.id)+'/event/unlink','POST',{event_id:event.id,expected_version:event.version,expected_task_version:task.version}),()=>taskDetail(task.id));
+  } catch(error) { if(epoch===modalEpoch) toast(error.message); }
+}
+function eventLinkTask(event) {
+  const scope = relationshipWorkspace, openingEpoch = modalEpoch;
+  relationshipForm('Link exact task',exactSelector('task_id','tasks')+'<p class="subtitle">Select the exact task. Existing task context is retained. No agent work is scheduled.</p>',async values=>{
+    if (!values.task_id) throw new Error('Select a task ID.');
+    const task = await relationshipRead('tasks/'+encodeURIComponent(values.task_id));
+    if (scope !== relationshipWorkspace || modalEpoch !== openingEpoch+1) throw new Error('This task selector is no longer current.');
+    return relationshipWrite('tasks/'+encodeURIComponent(task.id)+'/event','PUT',{event_id:event.id,expected_version:event.version,expected_task_version:task.version});
+  },()=>relationshipDetail('events',event.id));
+}
+function contactCompanyForm(contact) {
+  relationshipForm('Link Company',exactSelector('company_id','companies',contact.company_id)+`<p class="subtitle">Choose an exact Company ID, or clear the ID to unlink. Legacy company text (${esc(contact.company || 'empty')}) remains unchanged. Names are never matched automatically.</p>`,values=>relationshipWrite('contacts/'+encodeURIComponent(contact.id)+'/company','PUT',{company_id:values.company_id || null,expected_contact_version:contact.version}),()=>contactDetail(contact.id));
+}
+let exactSearchSequence = 0;
+async function exactSearch(input,offset = 0) {
+  const seq = ++exactSearchSequence, epoch = modalEpoch, kind = input.dataset.exactSearch, name = input.dataset.exactName;
+  const container = document.querySelector(`[data-exact-results="${name}"]`);
+  try {
+    const page = await relationshipRead(kind === 'companies' ? kind : 'relationship-selectors/'+kind,{q:input.value,limit:25,offset});
+    if (seq !== exactSearchSequence || epoch !== modalEpoch) return;
+    const rows = Array.isArray(page) ? page : page.items;
+    container.innerHTML = rows.map(row=>`<button type="button" class="button" data-exact-id="${esc(row.id)}">${esc(row.name || row.title)} · ${esc(row.email || row.domain || row.status || '')} · ${esc(row.id)}</button>`).join('') || 'No matches';
+    container.querySelectorAll('[data-exact-id]').forEach(button=>button.addEventListener('click',()=>{ document.querySelector(`[name="${name}"]`).value = button.dataset.exactId; container.textContent = 'Selected exact ID: '+button.dataset.exactId; }));
+    if (!Array.isArray(page)) { const pager = document.createElement('div'); pager.innerHTML = `<button class="button" type="button" ${offset ? '' : 'disabled'}>Previous matches</button><button class="button" type="button" ${offset+rows.length>=page.total ? 'disabled' : ''}>Next matches</button>`; container.append(pager); const buttons = pager.querySelectorAll('button'); buttons[0].onclick=()=>exactSearch(input,Math.max(0,offset-25));buttons[1].onclick=()=>exactSearch(input,offset+25); }
+    else container.insertAdjacentHTML('beforeend','<small>Returned matches only; enter an exact ID if not listed.</small>');
+  } catch(error) { if(seq === exactSearchSequence && epoch === modalEpoch) container.textContent = error.message; }
+}
+async function relationshipClick(event) {
+  const button = event.target.closest('[data-action]'); if (!button) return;
+  const {action,id,kind,tab} = button.dataset;
+  if(action === 'relationship-retry') { const attempt=relationshipAttempts.get(relationshipWorkspace); if(attempt) try { await relationshipWrite(attempt.path,attempt.method,JSON.parse(attempt.payload)); toast('Original request confirmed.'); render(); } catch(error) { toast(error.message); } }
+  if(action === 'relationship-create') relationshipEditor(kind);
+  if(action === 'company' || action === 'event') relationshipDetail(action === 'company' ? 'companies' : 'events',id);
+  if(action === 'relationship-page') { state.offset = Number(button.dataset.offset); render(); }
+  if(action === 'relationship-detail-page') relationshipDetail(kind,id,tab,Number(button.dataset.offset));
+  if(action === 'relationship-deal') { const epoch=++modalEpoch; try { const row=await relationshipRead('deals/'+encodeURIComponent(id)); if(epoch===modalEpoch) openForm('deal',row); } catch(error) { if(epoch===modalEpoch) toast(error.message); } }
+}
+
+async function companyActivities(company,offset=0) {
+  const epoch=++modalEpoch;
+  try {
+    const page=await relationshipRead('relationship-activities',{company_id:company.id,limit:25,offset});
+    if(epoch!==modalEpoch) return;
+    showModal(modalHead(company.name+' · Activities')+`<div class="detail-body"><p class="subtitle">Completed Events use their explicit Company. Contact logs use the currently linked contact, not historical ownership. All are self-reported.</p><ul class="relationship-list">${page.items.map(row=>`<li>${esc(row.title)}<small>${esc(row.happened_at)} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)}</small>${row.record_type==='event' ? relationshipRecordButton('events',{id:row.record_id,title:'Open Event'}) : relationshipRecordButton('contacts',{id:row.contact_id,name:'Open contact'})}</li>`).join('') || '<li>No recorded interactions.</li>'}</ul><div class="form-actions"><button class="button" id="company-activities-prev" ${offset ? '' : 'disabled'}>Previous</button><span>${page.total} total</span><button class="button" id="company-activities-next" ${offset+page.items.length>=page.total ? 'disabled' : ''}>Next</button><button class="button" id="company-activities-back">Back to Company</button></div></div>`);
+    $('#company-activities-prev').onclick=()=>companyActivities(company,Math.max(0,offset-25));
+    $('#company-activities-next').onclick=()=>companyActivities(company,offset+25);
+    $('#company-activities-back').onclick=()=>relationshipDetail('companies',company.id);
+  } catch(error) { if(epoch===modalEpoch) toast(error.message); }
+}
+async function contactEvents(contact, offset = 0, feed = false) {
+  const epoch = ++modalEpoch;
+  try {
+    const page = await relationshipRead(feed ? 'relationship-activities' : 'events',{contact_id:contact.id,limit:25,offset});
+    if(epoch !== modalEpoch) return;
+    showModal(modalHead(contact.name + (feed ? ' · Activities' : ' · Events')) + `<div class="detail-body"><button class="button" id="contact-toggle-feed">${feed ? 'View Events' : 'View relationship Activities'}</button>${feed ? '<p class="subtitle">Self-reported interactions, not verified communications.</p><ul class="relationship-list">'+page.items.map(row=>`<li>${esc(row.title)}<small>${esc(row.happened_at)} · ${esc(row.provenance)} · ${esc(row.timestamp_basis)}</small>${row.record_type === 'event' ? relationshipRecordButton('events',{id:row.record_id,title:'Open Event'}) : ''}</li>`).join('')+'</ul>' : relationshipRows(page,'events')}<div class="form-actions"><button class="button" id="contact-events-prev" ${offset ? '' : 'disabled'}>Previous</button><span>${page.total} total</span><button class="button" id="contact-events-next" ${offset+page.items.length>=page.total ? 'disabled' : ''}>Next</button><button class="button" id="contact-events-back">Back to contact</button></div></div>`);
+    $('#contact-toggle-feed').onclick=()=>contactEvents(contact,0,!feed);
+    $('#contact-events-prev').onclick=()=>contactEvents(contact,Math.max(0,offset-25),feed);
+    $('#contact-events-next').onclick=()=>contactEvents(contact,offset+25,feed);
+    $('#contact-events-back').onclick=()=>contactDetail(contact.id);
+  } catch(error) { if(epoch === modalEpoch) toast(error.message); }
 }
 initialize();

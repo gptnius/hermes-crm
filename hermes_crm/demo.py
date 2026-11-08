@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from copy import copy
-from sqlalchemy import select, func
+from sqlalchemy import select
 from .domain import CRMError, contacts, deals, tasks, settings
 
 class _TransactionEngine:
@@ -22,13 +22,24 @@ def seed(crm):
     with crm.engine.begin() as connection:
         if crm.backend == 'sqlite':
             connection.exec_driver_sql('BEGIN IMMEDIATE')
-        else:
+        # Match relationship/core writers: catalog row before table/entity locks.
+        # On refusal this revision increment is rolled back with the transaction.
+        crm._catalog_lock(connection)
+        if crm.backend != 'sqlite':
             # Table names and schema are application-owned and identifier-quoted.
             schema = crm.engine.get_execution_options()['schema_translate_map'][None]
             preparer = connection.dialect.identifier_preparer
             names = ', '.join(preparer.quote_schema(schema) + '.' + preparer.quote(t.name)
                               for t in (contacts, deals, tasks))
             connection.exec_driver_sql('LOCK TABLE ' + names + ' IN EXCLUSIVE MODE')
+        from .relationship_schema import check_schema, companies, events
+        # Check with the original engine (which retains schema translation). Reads
+        # never initialize relationship storage. Count all profiles in this physical
+        # workspace, matching the legacy core-record emptiness check.
+        if check_schema(crm, connection) and any(
+                connection.execute(select(table.c.id).limit(1)).first() is not None
+                for table in (companies, events)):
+            raise CRMError('Demo seed refuses a non-empty workspace', 409)
         scoped = copy(crm)
         scoped.engine = _TransactionEngine(connection)
         _seed(scoped)
@@ -36,7 +47,7 @@ def seed(crm):
 
 def _seed(crm):
     with crm.engine.connect() as conn:
-        if any(conn.execute(select(func.count()).select_from(t)).scalar() for t in (contacts,deals,tasks)):
+        if any(conn.execute(select(t.c.id).limit(1)).first() is not None for t in (contacts,deals,tasks)):
             raise CRMError('Demo seed refuses a non-empty workspace', 409)
     people = [
         ('Maya Chen','maya','Northstar Studio','Founder','lead'),

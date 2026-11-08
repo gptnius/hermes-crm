@@ -92,8 +92,8 @@ function defer(endpoint) {
   assert(!detail.includes('Current contact:'));
   assert(run(`contactActivity([{summary:'Other record',linked_contact_id:'another',linked_contact_name:'Other contact',link_basis:'current_relationship'}], 'outside')`).includes('Current contact: Other contact'));
   assert(run(`activityRows([{summary:'Record',linked_contact_id:'outside',linked_contact_name:'Dashboard contact',link_basis:'current_relationship'}])`).includes('Current contact: Dashboard contact'));
-  assert(detail.indexOf('Recent CRM activity')<detail.indexOf('<h3>Tasks</h3>'));
-  assert(detail.includes('Older CRM activity (2 available)'));
+  assert(detail.indexOf('Record history')<detail.indexOf('<h3>Tasks</h3>'));
+  assert(detail.includes('Older Record history (2 available)'));
   assert(detail.includes('Audit summary 6'));
   assert(detail.includes('older history may not be included'));
   run('closeModal()');

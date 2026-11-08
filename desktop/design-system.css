@@ -170,3 +170,19 @@
 .hermes-crm-native .hc-upcoming-task .hc-task-title:disabled{color:var(--hc-disabled-ink)}
 .hermes-crm-native .hc-task-meta,.hermes-crm-native .hc-task-assignment{margin:4px 0 0;color:var(--hc-secondary);font-size:13px;line-height:18px;overflow-wrap:anywhere}
 .hermes-crm-native .hc-task-meta .hc-badge{margin:0 4px 4px 0}
+
+/* Explicit organization and local-event records share Workbench surfaces. */
+.hermes-crm-native .hc-relationships{min-width:0;overflow-wrap:anywhere}
+.hermes-crm-native .hc-relationships h3{margin:16px 0 8px}
+.hermes-crm-native .hc-relationship-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:20px;border:1px solid var(--hc-border);border-radius:8px;background:var(--hc-bg)}
+.hermes-crm-native .hc-relationship-form>h3,.hermes-crm-native .hc-relationship-form>p,.hermes-crm-native .hc-relationship-form>fieldset,.hermes-crm-native .hc-relationship-form>.hc-actions{grid-column:1/-1}
+.hermes-crm-native .hc-relationship-form label,.hermes-crm-native .hc-relationship-selector label{display:grid;gap:8px;min-width:0}
+.hermes-crm-native .hc-relationship-form :is(input,select,textarea){width:100%;min-width:0}
+.hermes-crm-native .hc-relationship-form textarea{min-height:96px;resize:vertical}
+.hermes-crm-native .hc-relationship-selector{min-width:0;border:1px solid var(--hc-border);border-radius:6px;padding:12px}
+.hermes-crm-native .hc-relationship-selector ul,.hermes-crm-native .hc-relationship-list{list-style:none;padding:0;margin:12px 0}
+.hermes-crm-native .hc-relationship-selector li,.hermes-crm-native .hc-relationship-list li{padding:8px 0;border-bottom:1px solid var(--hc-border)}
+.hermes-crm-native .hc-relationships button{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+.hermes-crm-native .hc-relationship-list small{display:block;color:var(--hc-secondary);margin-top:4px;white-space:pre-wrap}
+.hermes-crm-native .hc-relationships :is(button,input,select,textarea):focus-visible{outline:2px solid var(--hc-link);outline-offset:3px}
+@container(max-width:640px){.hermes-crm-native .hc-relationship-form{grid-template-columns:minmax(0,1fr);padding:12px}.hermes-crm-native .hc-relationships :is(button,input,select){min-height:44px}}

@@ -118,8 +118,9 @@ def test_api_and_tool_parity(crm,monkeypatch):
     ctx=Context();plugin.register(ctx)
     filters=dict(stage='qualified',contact_type='lead',followup='overdue',limit=1,offset=0)
     expected=crm.contact_report(**filters)
-    assert native.get('/reports/contacts',params=dict(filters,workspace_token=crm.workspace_token())).json()==expected
-    assert standalone.get('/api/reports/contacts',params=filters).json()==expected
+    human_expected=crm.contact_report(**filters,include_relationships=True)
+    assert native.get('/reports/contacts',params=dict(filters,workspace_token=crm.workspace_token())).json()==human_expected
+    assert standalone.get('/api/reports/contacts',params=filters).json()==human_expected
     agent_expected = dict(expected, items=[{key: value for key, value in item.items()
         if key not in {'notes', 'custom_fields'}} for item in expected['items']])
     assert json.loads(ctx.tools['crm_contact_report']['handler'](filters))['data']==agent_expected
@@ -137,9 +138,9 @@ def test_api_and_tool_parity(crm,monkeypatch):
         assert client.get(root+'/reports/contacts',params={'stage':'customer'}).status_code==400
         assert client.get(root+'/deals',params={'min_value':200,'max_value':100}).status_code==400
         assert client.get(root+'/tasks',params={'priority':'low'}).status_code==400
-        assert client.get(root+'/deals',params={'min_value':100,'max_value':100}).json()==crm.list('deals',min_value=100,max_value=100)
-        assert client.get(root+'/tasks',params={'priority':'high','due':'overdue'}).json()==crm.list('tasks',priority='high',due='overdue')
+        assert client.get(root+'/deals',params={'min_value':100,'max_value':100}).json()==crm.list('deals',min_value=100,max_value=100,include_relationships=True)
+        assert client.get(root+'/tasks',params={'priority':'high','due':'overdue'}).json()==crm.list('tasks',priority='high',due='overdue',include_relationships=True)
     assert not json.loads(ctx.tools['crm_contact_report']['handler']({'limit':True}))['ok']
     assert not json.loads(ctx.tools['crm_contact_report']['handler']({'unknown':True}))['ok']
-    assert len(ctx.tools)==42 and sum(t['toolset']=='crm_read' for t in ctx.tools.values())==8
+    assert len(ctx.tools)==66 and sum(t['toolset']=='crm_read' for t in ctx.tools.values())==8
     assert ctx.tools['crm_contact_create']['schema']['parameters']['properties']['lifecycle']['title']=='Contact type'

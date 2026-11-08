@@ -45,6 +45,30 @@ provides_tools:
   - crm_schema_field_create
   - crm_schema_field_update
   - crm_record_fields
+  - crm_company_list
+  - crm_company_get
+  - crm_company_records
+  - crm_contact_company_get
+  - crm_company_create
+  - crm_company_update
+  - crm_company_archive
+  - crm_company_restore
+  - crm_contact_company_set
+  - crm_event_list
+  - crm_event_get
+  - crm_event_create
+  - crm_event_update
+  - crm_event_complete
+  - crm_event_cancel
+  - crm_event_reopen
+  - crm_event_needs_rescheduling
+  - crm_relationship_activities
+  - crm_event_reschedule
+  - crm_event_tasks
+  - crm_event_task_create
+  - crm_event_task_link
+  - crm_event_task_unlink
+  - crm_event_revisions
 config_schema:
   protection_notes_keys:
     type: secret

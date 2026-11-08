@@ -33,9 +33,12 @@ with no live-account verification yet.
 
 **Native Hermes Desktop is the main experience.** It provides:
 
-- Contacts with name, email, company, job title, notes and Contact type
+- Contacts with name, email, legacy company text, job title, notes and Contact type
   (`lead`, `customer` or `partner`). Search and combine filters for linked deal
-  stage, Contact type, company, email presence and follow-up status.
+  stage, Contact type, legacy company text, email presence and follow-up status.
+- Explicit Company groups with reviewed contact links and related records;
+  local Events with statuses, notes and associated tasks. See the
+  [Companies and Events guide](COMPANIES_EVENTS.md).
 - Deals linked to contacts, with USD value, probability, expected close date,
   notes and six initial stages plus configurable stages with explicit outcomes.
 - Typed optional custom fields on contacts, deals and tasks, shared with agent
@@ -44,8 +47,9 @@ with no live-account verification yet.
   notes and optional contact/deal links.
 - A dashboard with pipeline totals, weighted value, stage drill-through and
   leads needing attention, plus saved reports and custom cards.
-- Contact details, related records, CRM activity, and a separate self-reported
-  contact log for meetings, calls, emails, chats and other interactions.
+- Contact details, related records, administrative Record history, and
+  relationship Activities from completed local Events and self-reported
+  contact logs for meetings, calls, emails, chats and other interactions.
 - A CRM companion beside an existing native conversation, reviewed copy/paste
   requests, explicit one-shot reminder scheduling, and future internal-work
   assignments with saved results and review states.
@@ -200,7 +204,9 @@ Starting it does not install or connect the native plugin.
 These steps use native Desktop labels. Use invented data in a test workspace.
 
 1. Open **Contacts → + Contact**. Enter `Demo Buyer`, `buyer@example.com`,
-   company `Example Company`, and Contact type **Lead**. Add any useful notes
+   legacy company text `Example Company`, and Contact type **Lead**. This text
+   does not create a Company group; link the contact to an explicit Company
+   separately using the [Companies guide](COMPANIES_EVENTS.md). Add any useful notes
    and save. Open the contact to see its details and related records.
 2. Choose **Create deal** on that contact. Give it a title such as
    `Example pilot`, enter **12000** in the USD value field, choose
@@ -243,21 +249,21 @@ silently treated as the business-task assignee. Saving, scheduling, reporting an
 completing the business task are different actions. Review task details and
 assignment history before assuming work will run or has finished.
 
-## Read recent activity
+## Read recent record history
 
-The dashboard's **Recent Activities** card shows the latest five available CRM
+The dashboard's **Recent record history** card shows the latest five available CRM
 changes. Choose a named contact link to open that record. The link uses the
 record's **current** relationship, not a guess from the visible contact list or
 an assertion about who was associated with an old event. If a record has no
 resolvable contact, its summary stays visible without a contact link.
 
 A contact overview puts its latest five available CRM changes before follow-ups.
-Expand **Older CRM activity** for the rest of the returned history. Workspace
-activity remains bounded at 100 rows; contact detail also retains the existing
+Expand **Older record history** for the rest of the returned history. Workspace
+record history remains bounded at 100 rows; contact detail also retains the existing
 related-record limits. Times are when the CRM audit event was recorded. Editing
 a record, completing a task or updating a protected note does not prove that an
 email was sent, a call occurred or a proposal was delivered. Protected-note text
-is not exposed in the activity summary.
+is not exposed in the record-history summary.
 
 **Logged contact** remains a separate self-reported history. Optional Gmail
 observations are separate provider metadata, subject to their own setup,
@@ -333,7 +339,7 @@ required by CRM.
 You can ask, for example:
 
 - “Create a CRM contact named Demo Buyer with email buyer@example.com and
-  company Example Company. Use request key guide-demo-buyer-1.”
+  legacy company text Example Company. Use request key guide-demo-buyer-1.”
 - “Find Demo Buyer and create a $12,000 qualified deal linked to that contact.
   Show me the saved deal and amount.”
 - “Show lead contacts with no open follow-up. Do not send messages or schedule
@@ -563,9 +569,10 @@ before configuring one.
   messaging, calendar sync, general migration imports, attachments or automatic outreach.
 - No multiple pipelines, required/unique/calculated fields, arbitrary SQL/joins/formulas, dashboard-global filters or
   historical conversion funnels. Report dates/day buckets use UTC.
-- Contact reports are server-paged, but legacy lists, deal/task views, related
-  records and form choices are bounded at 500 records; activity is bounded at
-  100. Deal-list totals cover returned records. Some coverage/aggregate queries
+- Contact reports and new Company/Event related lists and selectors are
+  server-paged. Legacy lists, deal/task views and their form choices are bounded
+  at 500 records; legacy record history is bounded at 100. Deal-list totals cover
+  returned records. Some coverage/aggregate queries
   scan complete local history and are not optimized for large workspaces.
 - Reports allow up to 100 rows per page and 100 grouping buckets. Partial or
   unsuitable chart results are labelled rather than presented as complete.
@@ -614,3 +621,13 @@ the [isolated-testing guidance](NATIVE_DESKTOP.md#isolated-testing-and-provider-
 The project uses the MIT license. Dependencies retain their own licenses; see
 [Licensing](LICENSING.md). HermesCRM is not affiliated with Nous Research,
 HubSpot or Salesforce.
+
+
+## Companies, Events and relationship history
+
+Company groups, explicit contact links, local Event statuses and associated tasks
+are documented in the [Companies and Events guide](COMPANIES_EVENTS.md). Existing
+company text is preserved without automatic merging. Activities describes
+relationship records; Record history describes administrative changes. Saving
+a local Event or linked task does not send invitations, place calls or execute
+agent research.

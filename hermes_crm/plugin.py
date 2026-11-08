@@ -101,6 +101,9 @@ def register(ctx):
     from .report_tools import register_report_tools
     register_report_tools(register_tool)
 
+    from .relationship_tools import register_relationship_tools
+    register_relationship_tools(register_tool)
+
     from .customization_tools import register_customization_tools
     register_customization_tools(register_tool)
 

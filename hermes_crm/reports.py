@@ -8,7 +8,8 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator, ValidationInfo
-from sqlalchemy import select, func, and_, or_, literal, cast, String, Float, Boolean, JSON, case
+from dataclasses import dataclass
+from sqlalchemy import select, false, func, and_, or_, literal, cast, String, Float, Boolean, JSON, case
 from .domain import TABLES, contacts, deals, tasks, STAGES, CRMError, now
 from .native_work import read_snapshot
 
@@ -36,6 +37,42 @@ FIELDS = {
     'status':field(choices=['open','done']), 'priority':field(choices=['normal','high']),
     'due_at':field('datetime'), 'created_at':field('datetime')}
 }
+FIELDS['companies'] = {**{k: field() for k in ('id', 'name', 'domain')},
+    'version': field('integer'), **{k: field('datetime') for k in ('created_at', 'updated_at', 'archived_at')}}
+FIELDS['events'] = {**{k: field() for k in ('id', 'title', 'contact_id', 'deal_id', 'company_id', 'company_name', 'timezone', 'source', 'outcome_provenance')},
+    'kind': field(choices=['appointment', 'call']),
+    'status': field(choices=['scheduled', 'needs_rescheduling', 'completed', 'cancelled'], note='Current local status, not proof of provider delivery.'),
+    'version': field('integer'), **{k: field('datetime') for k in ('starts_at', 'ends_at', 'outcome_happened_at', 'recorded_at', 'created_at', 'updated_at')}}
+for entity in ('contacts', 'deals', 'tasks'):
+    FIELDS[entity]['company_id'] = field(note='Explicit current primary Company identity; no name matching or legacy-text migration.')
+    FIELDS[entity]['company_name'] = field(note='Current linked Company name, distinct from stored legacy company text.')
+
+@dataclass(frozen=True)
+class ReportSource:
+    """Report-local sources never expand core records or custom-field support."""
+    table: Any
+    scoped: bool = False
+
+
+def report_sources():
+    from .relationship_schema import companies, events
+    return {**{k: ReportSource(v) for k, v in TABLES.items()},
+            'companies': ReportSource(companies, True), 'events': ReportSource(events, True)}
+
+
+def report_source(crm, conn, entity):
+    source = report_sources()[entity]
+    if not source.scoped:
+        return source.table
+    from .relationship_schema import check_schema
+    from .report_store import scope_for
+    exists = check_schema(crm, conn)
+    scope = scope_for(crm, connection=conn) if exists else None
+    if scope is None:
+        # No FROM reference to an absent table. Typed NULLs work on PostgreSQL too.
+        return select(*(cast(literal(None), c.type).label(c.name) for c in source.table.c)).where(false()).subquery('report_' + entity)
+    return select(source.table).where(source.table.c.scope == scope).subquery('report_' + entity)
+
 for fields in FIELDS.values():
     for name, info in fields.items(): info['label'] = name.replace('_',' ').capitalize()
 
@@ -54,7 +91,7 @@ class Measure(Strict):
 
 class ReportDefinition(Strict):
     schema_version: Literal[1] = 1
-    entity: Literal['contacts','deals','tasks']
+    entity: Literal['contacts','deals','tasks','companies','events']
     columns: list[str] = Field(default_factory=lambda:['id'], min_length=1, max_length=20)
     filter: dict[str, Any] | None = None
     sort: list[Sort] = Field(default_factory=list, max_length=3)
@@ -184,8 +221,8 @@ class ReportEngine:
                     limits=dict(columns=20,filter_depth=3,conditions=32,grouped_filter_depth=2,grouped_conditions=30,list_values=100,sorts=3,page_size=100,groups=100),
                     semantics='Live current-state reports, not historical snapshots. Archived fields and stages remain readable. Labels are current; identifiers are stable. Drilldowns rerun live; evaluation time freezes overdue predicates, not row membership.')
 
-    def _expressions(self, entity, timestamp, conn, schema):
-        table=TABLES[entity]
+    def _expressions(self, entity, timestamp, conn, schema, table=None):
+        table=table if table is not None else report_source(self.crm, conn, entity)
         expr={k:table.c[k] for k in FIELDS[entity] if k in table.c}
         if entity == 'contacts':
             expr['contact_type']=contacts.c.lifecycle
@@ -213,7 +250,9 @@ class ReportEngine:
                 inherited=select(deals.c.contact_id).where(deals.c.id==tasks.c.deal_id).correlate(tasks).scalar_subquery()
                 contact_id=func.coalesce(contact_id,inherited)
             expr['contact_name']=select(contacts.c.name).where(contacts.c.id==contact_id).correlate(table).scalar_subquery()
-        if schema['fields'][entity]:
+        if entity in ('contacts', 'deals', 'tasks', 'events'):
+            expr.update(self._company_expressions(entity, table, conn))
+        if schema['fields'].get(entity):
             from .customization import values_table
             for definition in schema['fields'][entity]:
                 key, kind = definition['key'], definition['type']
@@ -227,6 +266,29 @@ class ReportEngine:
                 expr['custom.' + key] = select(value).where(
                     values_table.c.kind == entity, values_table.c.record_id == table.c.id).correlate(table).scalar_subquery()
         return expr
+
+    def _company_expressions(self, entity, table, conn):
+        from .relationship_schema import companies, contact_companies, check_schema
+        from .report_store import scope_for
+        # Compilation-only callers may supply a dialect rather than a live connection.
+        if not hasattr(conn, 'execute'):
+            with read_snapshot(self.crm) as snapshot:
+                return self._company_expressions(entity, table, snapshot)
+        scope = scope_for(self.crm, connection=conn) if check_schema(self.crm, conn) else None
+        if scope is None:
+            return {name: cast(literal(None), String(160)) for name in ('company_id', 'company_name')}
+        if entity == 'events':
+            company_id = table.c.company_id
+        else:
+            contact_id = table.c.id if entity == 'contacts' else table.c.contact_id
+            if entity == 'tasks':
+                inherited = select(deals.c.contact_id).where(deals.c.id == table.c.deal_id).correlate(table).scalar_subquery()
+                contact_id = func.coalesce(contact_id, inherited)
+            company_id = select(contact_companies.c.company_id).where(
+                contact_companies.c.scope == scope, contact_companies.c.contact_id == contact_id).correlate(table).scalar_subquery()
+        company_name = select(companies.c.name).where(companies.c.scope == scope,
+            companies.c.id == company_id).correlate(table).scalar_subquery()
+        return dict(company_id=company_id, company_name=company_name)
 
     def _predicate(self,node,expr):
         if 'all' in node: return and_(*(self._predicate(c,expr) for c in node['all']))
@@ -264,8 +326,8 @@ class ReportEngine:
                 limit=limit,offset=offset,items=[],live=True,
                 field_labels={k:v['label'] for k,v in fields[definition.entity].items()},
                 choice_labels={k:v['choice_labels'] for k,v in fields[definition.entity].items() if 'choice_labels' in v})
-            table=TABLES[definition.entity]
-            expr=self._expressions(definition.entity,timestamp,conn, schema)
+            table=report_source(self.crm, conn, definition.entity)
+            expr=self._expressions(definition.entity,timestamp,conn, schema, table)
             predicate=self._predicate(definition.filter,expr) if definition.filter else literal(True)
             result['total']=conn.execute(select(func.count()).select_from(table).where(predicate)).scalar_one()
             # Aggregate a one-row-per-record relation, never a fanout join.

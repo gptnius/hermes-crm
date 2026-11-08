@@ -16,12 +16,13 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: preset stage/attention views plus a typed report builder, shared saved definitions, version-pinned table/KPI/bar/line/donut cards and live contributing-record drilldowns. See [flexible reports](docs/FLEXIBLE_REPORTS.md).
 - Upcoming Tasks: the earliest six open tasks, including visibly overdue work, with current linked-contact context and direct task links. Business-task ownership is not inferred from the creator, reminders or current Hermes profile; saved agent-work intent and its human owner remain separate from scheduling and execution.
-- Recent Activities: five recent CRM audit summaries on the dashboard, with verified current-contact links; contact overviews put recent changes before follow-ups and retain older available history. These are record changes, not proof of customer communication.
-- Logged contact: explicit self-reported contact events with corrections, kept separate from CRM edits and optional Gmail observations.
+- Record history: recent administrative changes retain verified current-contact links. Relationship Activities separately shows completed local Events and self-reported contact logs, not fabricated communication evidence.
+- Companies and Events: explicit Company groups, reviewed primary contact links, paged related records, local appointments/calls with Scheduled, Needs rescheduling, Completed and Cancelled states, versioned corrections and genuine associated tasks. No automatic name merging, invitations, calls or agent execution. See [setup and use](docs/COMPANIES_EVENTS.md).
+- Logged contact: explicit self-reported interactions with corrections, kept separate from CRM edits and optional Gmail observations.
 - Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.
 - Customization: versioned optional text/number/boolean/date/single-select fields on contacts, deals and tasks; native record forms and typed reports use the same catalog as agents. Archive retains definitions/values; used deal stages cannot be archived. See [custom fields and stages](docs/CUSTOMIZATION.md).
 - Follow-ups: timezone-aware due dates, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. A separate reviewed CRM confirmation can schedule, check or cancel that exact future assignment through the existing native conversation. Task-specific Preview/Copy remains available for manual native chat Send. See [assignment workflow](docs/ASSIGNMENT_UI.md).
-- Native Hermes: 42 tools across separate record, assigned-work, native-report and schema permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain schema-writing tools.
+- Native Hermes: 66 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
 - Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
@@ -37,7 +38,7 @@ This README is the priority index for future development. Planned capabilities
 below are not claims about the current release; detailed plans and verification
 remain linked here as work progresses.
 
-1. **Custom fields and stages, implemented in this increment.** Typed optional fields for contacts,
+1. **Custom fields and stages, first increment implemented.** Typed optional fields for contacts,
    deals and tasks; configurable deal stages with stable identities and explicit
    open/won/lost outcomes; shared native forms, agent tools and report metadata.
    Preserve existing records and saved definitions, validate migrations on SQLite
@@ -63,10 +64,24 @@ remain linked here as work progresses.
    automatic two-way synchronization are different capabilities, not synonyms
    for CSV import. No connector or live migration is included today.
 
+**Companies, Events and relationship history, first increment implemented.**
+Explicit Company groups and reviewed contact links preserve legacy text without
+automatic merging. Local appointment/call Events carry truthful status and
+provenance; Activities and administrative Record history remain separate. Shared
+UI/agent/report contracts passed SQLite/PostgreSQL checks and isolated rendered
+UI tests. Physical native-host and research/attachment workflow limits remain
+explicit in [verification](docs/VERIFICATION.md). See the
+[implementation plan](docs/COMPANIES_EVENTS_PLAN.md) and
+[usage guide](docs/COMPANIES_EVENTS.md).
+
 Other planned work remains explicitly separate:
 
 - **Agent work:** a supported safe immediate-execution path, stronger recovery
-  evidence, reviewed cadences and bounded research capabilities. No promise that
+  evidence, reviewed cadences and bounded research capabilities. Consultation
+  preparation should link a research task to its Event, Contact and Company,
+  then retain reviewed research notes or attachments with explicit provenance.
+  The links are implemented; research permissions, result-writing and attachments
+  still require their own development and verification. No promise that
   every task executes or that outages and unknown outcomes cannot occur. See
   [agent-work roadmap](docs/NEXT_RELEASE_PLAN.md).
 - **Reporting:** multiple pipelines, stage-transition history and actual outcome
@@ -178,6 +193,7 @@ python scripts/build_protection_panel.py --check
 python scripts/build_contact_transfer_panel.py --check
 python scripts/build_design_system.py --check
 python scripts/build_wordmark_component.py --check
+python scripts/build_relationship_panel.py --check
 node tests/native_workbench.mjs
 node tests/standalone_workbench.cjs
 node --experimental-vm-modules tests/desktop_contact_transfer.mjs
@@ -185,6 +201,8 @@ node --experimental-vm-modules tests/desktop_protection.mjs
 node --experimental-vm-modules tests/desktop_reports.mjs
 node --experimental-vm-modules tests/desktop_contact_log.mjs
 node --experimental-vm-modules tests/desktop_email_history.mjs
+node --experimental-vm-modules tests/desktop_relationships_react.mjs
+node tests/standalone_relationship_ui.cjs
 node --check hermes_crm/static/app.js
 ```
 
@@ -192,7 +210,7 @@ Tests use temporary synthetic data. See docs/VERIFICATION.md for exact tested en
 
 ## Deliberate limits
 
-This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, attachments, full CRM migrations or a background daemon. Contact reports use server pagination with filtered totals. Coverage and assignment history use server pages with exact evidence-item totals; their current implementation scans local history and is not optimized for large datasets. Legacy lists, deal/task list views and form choices are bounded at 500 records, and activity at 100; displayed deal-list totals cover returned records. This is a small-workspace prototype, not a large CRM data browser. Direct chat prompt submission remains disabled. CRM-confirmed future scheduling uses an authenticated user command, not model-tool approval hooks; it requires the matching existing main native chat and stable trusted host configuration. See [operation boundaries](docs/CRM_CONFIRMED_OPERATIONS.md). Native future assignments remain a bounded, separately tested path. Native saved report definitions and dashboard cards are implemented within the [documented report limits](docs/FLEXIBLE_REPORTS.md). CSV transfer is contact-only, create-only and bounded; it is not a full migration or restore. Multiple pipelines, required/unique/calculated fields, arbitrary joins/formulas, dashboard-global filters and historical funnel reports remain future work. Customization uses a versioned additive schema upgrade; it does not migrate another CRM or provide automatic backup/restore. Optional encrypted exports do not provide a supported restore workflow; keep existing tested backups and recovery keys. Back up an existing datastore before updating. No catalog PR, contest entry or production deployment is created by running the app.
+This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, attachments, full CRM migrations or a background daemon. Contact reports use server pagination with filtered totals. Coverage and assignment history use server pages with exact evidence-item totals; their current implementation scans local history and is not optimized for large datasets. Legacy lists, deal/task list views and their form choices are bounded at 500 records, and legacy record history at 100; displayed deal-list totals cover returned records. New Company/Event related lists and relationship selectors use server pagination rather than that legacy 500-row cap. This is a small-workspace prototype, not a large CRM data browser. Direct chat prompt submission remains disabled. CRM-confirmed future scheduling uses an authenticated user command, not model-tool approval hooks; it requires the matching existing main native chat and stable trusted host configuration. See [operation boundaries](docs/CRM_CONFIRMED_OPERATIONS.md). Native future assignments remain a bounded, separately tested path. Native saved report definitions and dashboard cards are implemented within the [documented report limits](docs/FLEXIBLE_REPORTS.md). CSV transfer is contact-only, create-only and bounded; it is not a full migration or restore. Multiple pipelines, required/unique/calculated fields, arbitrary joins/formulas, dashboard-global filters and historical funnel reports remain future work. Customization uses a versioned additive schema upgrade; it does not migrate another CRM or provide automatic backup/restore. Optional encrypted exports do not provide a supported restore workflow; keep existing tested backups and recovery keys. Back up an existing datastore before updating. No catalog PR, contest entry or production deployment is created by running the app.
 
 ## License
 

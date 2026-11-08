@@ -23,7 +23,12 @@ assert(!/backdrop-filter|linear-gradient|box-shadow|opacity:\s*0\./.test(css));
 assert(!html.includes('brandmark'));
 assert(html.includes('class="wordmark"'));
 assert(html.includes('name="color-scheme" content="light dark"'));
-assert.equal((html.match(/data-page=/g)||[]).length,5);
+const navigation = [...html.matchAll(/<a href="#([^"]+)" data-page="([^"]+)">([^<]+)<\/a>/g)].map(([, hash, page, title]) => ({hash, page, title}));
+assert.deepEqual(navigation, [
+  ['overview','Overview'], ['contacts','Contacts'], ['deals','Deals'], ['tasks','Tasks'],
+  ['companies','Companies'], ['events','Events'], ['activities','Activities'], ['activity','Record history'],
+].map(([page,title]) => ({hash:page,page,title})));
+assert.equal((html.match(/data-page=/g)||[]).length,8, 'All eight navigation links retain exact hash/page identities; legacy #activity is Record history');
 assert(js.includes('submit.setAttribute("aria-busy", "true")'));
 assert(js.includes('submit.removeAttribute("aria-busy")'));
 assert(!js.includes('stroke="#e6e8e7"'));

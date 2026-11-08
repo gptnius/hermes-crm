@@ -21,7 +21,7 @@ def test_schema_catalog_route_tool_isolation_and_manifest(adapters):
     assert not {'crm_schema_read', 'crm_schema_write'} & set(TOOLSETS)
     for name in SCHEMA_WRITE:
         assert a.ctx.tools[name]['toolset'] == 'crm_schema_write'
-    assert len(a.ctx.tools) == 42
+    assert len(a.ctx.tools) == 66
     assert 'enum' not in a.ctx.tools['crm_deal_list']['schema']['parameters']['properties']['stage']
     assert 'enum' not in a.ctx.tools['crm_contact_report']['schema']['parameters']['properties']['stage']
     for name in ['crm_contact_create', 'crm_deal_create', 'crm_task_update']:

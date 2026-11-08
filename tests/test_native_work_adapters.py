@@ -31,6 +31,10 @@ INTERACTION_WRITE = {'crm_contact_log', 'crm_contact_log_void'}
 DETAIL_READ = {'crm_record_fields'}
 SCHEMA_READ = {'crm_schema_catalog'}
 SCHEMA_WRITE = {'crm_schema_stage_create', 'crm_schema_stage_update', 'crm_schema_field_create', 'crm_schema_field_update'}
+CRM_COMPANY_READ = {'crm_company_records', 'crm_contact_company_get', 'crm_company_list', 'crm_company_get'}
+CRM_COMPANY_WRITE = {'crm_company_archive', 'crm_contact_company_set', 'crm_company_restore', 'crm_company_create', 'crm_company_update'}
+CRM_EVENT_READ = {'crm_event_revisions', 'crm_relationship_activities', 'crm_event_get', 'crm_event_tasks', 'crm_event_list'}
+CRM_EVENT_WRITE = {'crm_event_create', 'crm_event_task_create', 'crm_event_task_unlink', 'crm_event_reopen', 'crm_event_complete', 'crm_event_reschedule', 'crm_event_task_link', 'crm_event_cancel', 'crm_event_needs_rescheduling', 'crm_event_update'}
 SECRET_ERROR = 'postgresql://secret-user:secret-password@private.example/db'
 
 
@@ -136,7 +140,7 @@ def schedule_intent(adapters):
 
 def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
     ctx = adapters.ctx
-    expected = LEGACY_READ | LEGACY_WRITE | WORK_READ | WORK_SCHEDULE | WORK_REPORT | REPORT_READ | REPORT_WRITE | INTERACTION_READ | INTERACTION_WRITE | SCHEMA_READ | SCHEMA_WRITE | DETAIL_READ
+    expected = LEGACY_READ | LEGACY_WRITE | WORK_READ | WORK_SCHEDULE | WORK_REPORT | REPORT_READ | REPORT_WRITE | INTERACTION_READ | INTERACTION_WRITE | SCHEMA_READ | SCHEMA_WRITE | DETAIL_READ | CRM_COMPANY_READ | CRM_COMPANY_WRITE | CRM_EVENT_READ | CRM_EVENT_WRITE
     assert set(ctx.tools) == expected
     assert adapters.factory_calls == [] and ctx.calls == []
     for names, toolset in ((LEGACY_READ, 'crm_read'), (LEGACY_WRITE, 'crm_write'),
@@ -144,7 +148,9 @@ def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
                            (WORK_REPORT, 'crm_work_report'), (REPORT_READ, 'crm_reports'),
                            (REPORT_WRITE, 'crm_report_write'), (INTERACTION_READ, 'crm_interaction_read'),
                            (INTERACTION_WRITE, 'crm_interaction_write'), (SCHEMA_READ, 'crm_schema_read'),
-                           (SCHEMA_WRITE, 'crm_schema_write'), (DETAIL_READ, 'crm_detail_read')):
+                           (SCHEMA_WRITE, 'crm_schema_write'), (DETAIL_READ, 'crm_detail_read'),
+                           (CRM_COMPANY_READ, 'crm_company_read'), (CRM_COMPANY_WRITE, 'crm_company_write'),
+                           (CRM_EVENT_READ, 'crm_event_read'), (CRM_EVENT_WRITE, 'crm_event_write')):
         assert all(ctx.tools[name]['toolset'] == toolset for name in names)
     for name in WORK_READ | WORK_SCHEDULE | WORK_REPORT:
         params = ctx.tools[name]['schema']['parameters']
@@ -157,6 +163,7 @@ def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
     assert advertised == expected
     assert tuple(TOOLSETS) == ('crm_read', 'crm_work_read', 'crm_work_report', 'no_mcp')
     assert 'crm_work_schedule' not in TOOLSETS and 'crm_write' not in TOOLSETS
+    assert not set(('crm_company_read','crm_company_write','crm_event_read','crm_event_write')) & set(TOOLSETS)
 
 
 def test_create_is_intent_only_and_read_tools_share_the_same_store(adapters):

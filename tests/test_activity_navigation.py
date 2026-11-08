@@ -134,8 +134,12 @@ def test_single_bounded_query_same_supplied_transaction_and_portable_sql(crm, mo
         finally:
             event.remove(crm.engine, 'before_cursor_execute', capture)
         assert_link(rows[0], dict(c, name='Uncommitted name'))
-    assert len(calls) == 1
-    statement, compiled = calls[0]
+    # Additive Company/Event scope validation may inspect schema metadata, but
+    # record history itself remains one bounded query on the supplied snapshot.
+    assert all(sql.lstrip().upper().startswith(('SELECT', 'PRAGMA', 'WITH')) for sql, _ in calls)
+    history_queries = [(sql, compiled) for sql, compiled in calls if 'crm_activity' in sql]
+    assert len(history_queries) == 1
+    statement, compiled = history_queries[0]
     assert 'notes' not in statement and 'custom' not in statement
     for dialect in [sqlite.dialect(), postgresql.dialect()]:
         sql = str(compiled.statement.compile(dialect=dialect))

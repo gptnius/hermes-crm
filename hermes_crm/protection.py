@@ -116,9 +116,11 @@ def unseal(envelope, ring, purpose, context, maximum=MAX_EXPORT):
 def owned_tables():
     # Explicit module allowlist; never reflect arbitrary tables or export files.
     from . import domain, customization, execution, gmail_history, native_work, native_work_operations, report_interactions, report_store
+    from .relationship_schema import OWNED_TABLES
     return {t.name:t for module in (domain, customization, execution, gmail_history,
         native_work, native_work_operations, report_interactions, report_store)
-        for t in module.metadata.tables.values()} | {t.name:t for t in metadata.tables.values()}
+        for t in module.metadata.tables.values()} | {t.name:t for t in metadata.tables.values()} | {
+            t.name:t for t in OWNED_TABLES}  # Never export the private registry's legacy FK clones.
 
 
 class ProtectionStore:
@@ -234,10 +236,21 @@ class ProtectionStore:
             schema = self.crm.engine.get_execution_options().get('schema_translate_map', {}).get(None)
             self._exists(conn)
             inspector = inspect(conn)
+            from .relationship_schema import OWNED_TABLES, check_schema
+            from .relationship_queries import audit_scope_predicate
+            from .report_store import scope_for
+            relationship_names = {table.name for table in OWNED_TABLES}
+            check_schema(self.crm, conn)  # Reject partial/incompatible additive stores.
+            relationship_scope = scope_for(self.crm, connection=conn)
             for name, table in sorted(tables.items()):
                 if not inspector.has_table(name, schema=schema): continue
                 rows = []
-                for row in conn.execute(select(table)).mappings():
+                query = select(table)
+                if name in relationship_names and 'scope' in table.c:
+                    query = query.where(table.c.scope == relationship_scope)
+                elif name == 'crm_activity':
+                    query = query.where(audit_scope_predicate(self.crm, conn))
+                for row in conn.execute(query).mappings():
                     data = dict(row)
                     size += len(canonical(data)) + 1
                     if size > MAX_EXPORT - 65536: raise CRMError('Encrypted export exceeds size limit', 413)

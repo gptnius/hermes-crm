@@ -112,7 +112,7 @@ def register_report_tools(register):
 
     tool('crm_report_catalog', 'Describe supported report fields, types, units and semantics. No SQL, Gmail data or historical conversion claims.',
          Empty, 'crm_reports', lambda crm, a: ReportEngine(crm).catalog())
-    tool('crm_report_run', 'Preview a typed report over live contacts/deals/tasks. UTC dates; distinct records. Last logged contact is self-reported; next task can be overdue and is not execution proof. Chart drilldown definitions rerun live, not historical snapshots.',
+    tool('crm_report_run', 'Preview a typed report over live contacts/deals/tasks/Companies/local Events. UTC dates; distinct records. Last logged contact is self-reported; next task can be overdue and is not execution proof. Chart drilldown definitions rerun live, not historical snapshots.',
          Run, 'crm_reports', lambda crm, a: ReportEngine(crm).run(**a))
     tool('crm_report_list', 'List saved current-profile report definitions and versions, not email or external data.',
          Listing, 'crm_reports', lambda crm, a: ReportStore(crm).list(**a))

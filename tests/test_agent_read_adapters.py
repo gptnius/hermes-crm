@@ -25,7 +25,11 @@ def test_base_adapter_minimizes_without_changing_human_api(adapters):
         assert response['ok'], response
         assert 'ordinary sensitive' not in str(response)
         assert 'custom_fields' not in str(response)
-    assert a.client.get('/contacts/'+row['id']).json()['contact'] == row
+    human = a.client.get('/contacts/'+row['id']).json()['contact']
+    assert {key:human[key] for key in row} == row
+    assert {key:human[key] for key in set(human)-set(row)} == {
+        'company_id':None,'company_name':None,'company_archived':None,'company_link_basis':None}
+    assert not {'company_id','company_name','company_archived','company_link_basis'} & set(a.ctx.invoke('crm_contact_get',{'id':row['id']})['data'])
     result = a.ctx.invoke('crm_contact_update', {'id': row['id'], 'version': 1, 'company': 'Updated'})
     assert result['ok'] and result['data']['version'] == 2
     assert 'notes' not in result['data'] and 'custom_fields' not in result['data']

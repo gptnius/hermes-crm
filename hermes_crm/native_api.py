@@ -66,7 +66,8 @@ def service():
 
 
 def require_workspace(crm, supplied):
-    if supplied != crm.workspace_token():
+    current = crm.existing_workspace_token()
+    if current is None or supplied != current:
         raise CRMError('The workspace changed. Refresh and reopen the form before saving.', 409)
 
 
@@ -80,6 +81,10 @@ def metadata(crm):
 def meta():
     with service() as crm:
         return metadata(crm)
+
+
+from .relationship_api import build_router as build_relationship_router
+router.include_router(build_relationship_router(service, require_workspace, actor='desktop'))
 
 
 # Keep these fixed paths before the generic /{kind} routes. REST only prepares,
@@ -138,7 +143,7 @@ def activity():
 def contact_detail(record_id: str, workspace_token: str | None = None):
     with service() as crm:
         if workspace_token is not None: require_workspace(crm, workspace_token)
-        return crm.contact_detail(record_id)
+        return crm.contact_detail(record_id, include_relationships=True)
 
 
 @router.get('/reports/contacts')
@@ -152,7 +157,7 @@ def contact_report(request: Request, q: str = '', stage: str | None = None, cont
         # profile. Tolerate it here; only the host selects the active CRM workspace.
         validate_query(request.query_params, CONTACT_REPORT_FILTERS | {'workspace_token', 'profile'})
         return crm.contact_report(q=q, stage=stage, contact_type=contact_type, company=company,
-                                  email=email, followup=followup, limit=limit, offset=offset)
+                                  email=email, followup=followup, limit=limit, offset=offset, include_relationships=True)
 
 
 @router.get('/reports/coverage')
@@ -220,14 +225,14 @@ def listing(request: Request, kind: Literal['contacts', 'deals', 'tasks'], q: st
         validate_query(request.query_params, LIST_FILTERS | {'workspace_token', 'profile'})
         return crm.list(kind, q=q, stage=stage, status=status, contact_type=contact_type,
                         company=company, email=email, followup=followup, min_value=min_value,
-                        max_value=max_value, priority=priority, due=due)
+                        max_value=max_value, priority=priority, due=due, include_relationships=True)
 
 
 @router.get('/{kind}/{record_id}')
 def record(kind: Literal['deals', 'tasks'], record_id: str, workspace_token: str | None = None):
     with service() as crm:
         if workspace_token is not None: require_workspace(crm, workspace_token)
-        return crm.get(kind, record_id)
+        return crm.get(kind, record_id, include_relationships=True)
 
 
 @router.post('/demo')

@@ -360,7 +360,7 @@ auditRows[4].linked_contact_id = null;
 overview.activity = auditRows;
 activityRows.push(...auditRows);
 await click('Refresh');
-assert.match(text(), /Recent Activities/);
+assert.match(text(), /Recent record history/);
 assert.match(text(), /Audit summary 4/);
 assert.equal(root.root.findAll(node => node.type === "div" && /^Audit summary \d$/.test(flatten(node.children))).length, 5);
 assert.doesNotMatch(text(), /Audit summary 5/);
@@ -373,12 +373,12 @@ await click('Current contact: Ada Example');
 assert.ok(calls.some(call => call.path.startsWith('/contacts/outside?')));
 assert.match(text(), /Fresh outside contact/);
 assert.ok(text().indexOf('Recent CRM activity') < text().indexOf('Upcoming follow-ups'));
-assert.match(text(), /Older CRM activity \(2 available\)/);
+assert.match(text(), /Older record history \(2 available\)/);
 assert.match(text(), /older history may not be included/);
 assert.match(text(), /Audit summary 6/);
 assert.equal(writes.length, beforeActivityWrites);
 await click('Close');
-await click('View activity history');
+await click('View record history');
 assert.match(text(), /Audit summary 6/);
 overview.activity = [];
 activityRows.length = 0;
@@ -423,7 +423,7 @@ await click('Refresh');
 await click('Overview');
 // Every section uses a compact title; descriptions and routine help live in
 // an accessible information drawer instead of taking record viewport space.
-for (const title of ['Overview', 'Contacts', 'Pipeline', 'Tasks', 'Activity']) {
+for (const title of ['Overview', 'Contacts', 'Pipeline', 'Tasks', 'Record history']) {
   await click(title);
   assert.equal(flatten(root.root.findByType('h1').children), title);
   const header = root.root.findByProps({ className: 'hc-row hc-workspace-header' });
@@ -479,7 +479,7 @@ await act(async () => chart.unmount());
 // Presets clear unrelated filters and retain scoped transport and exact server totals.
 await click("Contacts");
 const control = name => root.root.findAll(node => node.props["aria-label"] === name && ["input", "select"].includes(node.type))[0];
-await act(async () => control("Company").props.onChange({ target: { value: "unrelated" } }));
+await act(async () => control("Legacy company text").props.onChange({ target: { value: "unrelated" } }));
 await flush();
 await click("Overview");
 await act(async () => root.root.findAllByType("button").find(node => node.props["aria-label"]?.startsWith("Lead:")).props.onClick());
@@ -506,7 +506,7 @@ assert.equal(reportParams.get("offset"), "0");
 assert.equal(reportParams.get("contact_type"), "partner");
 // Opening/cancelling an editor must not invalidate an unrelated pending report.
 delayReport = true;
-await act(async () => control("Company").props.onChange({ target: { value: "pending-editor" } }));
+await act(async () => control("Legacy company text").props.onChange({ target: { value: "pending-editor" } }));
 await flush();
 const editorPendingReport = releaseReport;
 await click("+ Contact");
@@ -517,11 +517,11 @@ assert.doesNotMatch(text(), /Loading matching records/);
 assert.match(text(), /Ada Example/);
 // A late filter response must not replace a newer filtered result.
 delayReport = true;
-await act(async () => control("Company").props.onChange({ target: { value: "old" } }));
+await act(async () => control("Legacy company text").props.onChange({ target: { value: "old" } }));
 await flush();
 const oldReport = releaseReport;
 delayReport = false;
-await act(async () => control("Company").props.onChange({ target: { value: "new" } }));
+await act(async () => control("Legacy company text").props.onChange({ target: { value: "new" } }));
 await flush();
 await act(async () => oldReport({ items: [{ ...contact, name: "Stale filtered person" }], total: 999 }));
 assert.doesNotMatch(text(), /Stale filtered person/);
@@ -588,7 +588,7 @@ await act(async () => {
     .find((node) => flatten(node.children).includes("Ada Example"))
     .props.onClick();
 });
-await click("Activity");
+await click("Record history");
 await act(async () => {
   releaseDetail({ contact, deals: [], tasks: [], activity: [] });
 });
@@ -1079,3 +1079,15 @@ assert.equal(epoch.listeners.size, 0);
 console.log(
   "PASS actual React 19.3.0 Strict Mode: zero/single/multiple charts, focus/hover/keyboard/drillthrough, server filter pagination/races and current-ID preservation, cohesive record workspace/related prefills, accessible drawer ref focus and keyboard boundaries, repeated cancel/save and mutation lock, retained client/backend validation input, honest read-only assignment history/manual+interval refresh/retained panel expansion/stale-error signals/latest-response guards, local-domain email edits/malformed input validation, name-only create, versioned edit/complete, exact scheduled timestamp, captured demo target, workspace token, stale detail navigation/cancellation, valid-input profile/source ABA remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
 );
+
+// A relationship save must not reopen a detail after navigation wins the refresh race.
+for (const change of ['navigation', 'workspace', 'client', 'unchanged']) {
+  let settle, live = true, opened = 0;
+  const view = { current: 3 }, workspace = { current: 'captured' };
+  const done = module.namespace.refreshDetailAfterRelationshipWrite(() => new Promise(resolve => settle = resolve), () => opened++, { current: () => live }, view, workspace, {kind:'contacts',row:{id:'contact'},workspaceToken:'captured'});
+  if (change === 'navigation') view.current++;
+  if (change === 'workspace') workspace.current = 'other';
+  if (change === 'client') live = false;
+  settle(true); await done; assert.equal(opened, change === 'unchanged' ? 1 : 0);
+}
+console.log('PASS relationship-save refresh does not resurrect closed, navigated or old-workspace details.');

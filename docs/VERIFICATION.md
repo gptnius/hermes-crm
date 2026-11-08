@@ -1,6 +1,106 @@
 # Verification report
 
-Updated November 7, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
+Updated November 8, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. The scheduler test used deterministic loopback model responses, not a real model. Real-model behavior, visible reminder presentation, restart recovery, broader accessibility/responsive coverage and hosted-service validation remain incomplete.
+
+## Companies, Events and linked tasks
+
+This increment adds explicit Company identities and primary contact associations,
+local Events, and atomic Event-task links. Company names/domains are not merge
+keys. Legacy contact company text and old create receipts remain unchanged.
+The seven new relationship tables initialize empty on an explicit write, use
+workspace/profile scope and reject incompatible, partial or newer schemas.
+Legacy table clones used only for foreign-key resolution are not owned or
+included as replacement tables in encrypted exports.
+
+Events distinguish Scheduled, Needs rescheduling, Completed and Cancelled.
+Completion records a nonfuture, self-reported occurrence and a separate recording
+time; it never implies a provider call, attendance, task completion or delivery.
+Immutable revisions preserve corrections. Activities includes completed Events
+and non-voided Contact Logs, while Record history retains administrative edits.
+Task membership discloses current-contact and explicit-Event Company context,
+with distinct counts and server pagination rather than silent name matching.
+
+Cloud verification: **1,244 Python tests passed, 609 optional cases skipped**,
+with two known dependency warnings. Native React/VM, relationship UI, standalone,
+design-contract and **25 bridge checks** passed, as did all **eight generator**
+checks, JavaScript syntax and whitespace checks. React/test-renderer was 19.3.0.
+Pinned-host-only source assertions and optional real nanostores checks were not
+available in the cloud and are not counted as new host verification.
+
+Independent backend and interface review cleared the implementation after fixes
+for exact unlink targets/versions, scoped read-only token validation, PostgreSQL
+foreign-key target identity, task-context review, stale navigation and shared
+pending state. Native and standalone mutation receipts require positive versions
+and operation-specific identities. **31 native and 30 standalone malformed or
+wrong-target receipt cases** retain the original unknown request/key rather than
+silently enabling another mutation. A confirmed unlink no-op retains the task
+version. Identical retries preserve the originally reviewed payload.
+
+New contracts cover absent-schema reads, old row/receipt preservation,
+duplicate identities, archives, scope isolation, literals in search, more than
+500 relationships, report/filter/drilldown reconciliation, explicit-offset DST
+and timestamp precision, version conflicts, rollback, no-op replay and encrypted
+export scoping. Threaded initialization/replay checks share a process lock;
+they do not independently prove cross-process PostgreSQL initialization behavior.
+
+Disposable PostgreSQL 17.11 ARM64 verification passed **684 mixed checks with
+zero failures or skips**: **106 focused contracts** and **578 existing
+portability regressions**. The focused set includes **22 starter-data guard
+cases (11 SQLite, 11 PostgreSQL)** plus **84 relationship cases**. The
+relationship set contains 23 local storage cases,
+15 PostgreSQL storage cases, 8 SQLite/8 PostgreSQL query cases, 6 SQLite/6
+PostgreSQL report cases, 8 local adapter cases and 5 SQLite/5 PostgreSQL core
+integration cases. Two report cases on each backend also assert SQL compilation.
+This is not a claim that all 684 cases were PostgreSQL-backed. The live checks
+include exact foreign-key schema-target rejection and same-process threaded
+initialization/replay. The existing regressions also include their disclosed
+SQLite/compiler variants.
+
+The final two fresh databases used temporary memory-backed storage and
+loopback-only ports; those and the two earlier containers were removed and
+independently confirmed absent. All 194 files in the backend-test snapshot
+matched the reviewed source ZIP plus guard delta before and after testing.
+The UI-only polish delta was verified separately as described below. Dependencies
+were Python 3.12.13, SQLAlchemy 2.1.8, psycopg 3.3.8, pytest 9.2.0, Pydantic 2.14.3
+and cryptography 50.0.2. Warnings were the known Starlette/httpx/raw-upload
+deprecations and the intentional malformed-primary-key fixture warning.
+
+Isolated rendering exercised the full native CRMRoot pane and standalone shell
+in light/dark themes at 1280, 640 and 390 pixels. The fixture captured **174
+initial views** and **48 targeted rerender views** after a small polish fix;
+representative actual pixels were inspected. Measured documents stayed within
+the viewport. Eight-item navigation scrolls within its own container at narrow
+widths, exposes the final Record history item and responds to DOM clicks.
+Standalone Event context links initially ran together; the reviewed fix gives
+them 44px-high targets, 16px horizontal gaps and an 8px wrapping gap at 390px.
+Legacy-company-text filter labels were also clarified without changing queries.
+
+**Ten synthetic DOM mutation scenarios** passed and were repeated after the UI
+delta: Company creation, rescheduling with exact offset/fractional precision,
+self-reported completion, associated-task creation and existing-task linking in
+both frontends. Four duplicate-name Company selection cases sent the selected
+exact second Company ID rather than inferring by name. These fixtures use
+in-memory endpoints, sandboxed hidden Electron and blocked HTTP(S), not a live
+Hermes backend. They verify rendered interaction wiring, not physical keyboard,
+native focus, host authentication or model execution. All five UI delta hashes
+and 188 untouched source files were verified; owned renderer processes exited.
+The active review app, real records, credentials and providers were untouched.
+
+The final optional-starter-data guard rejects Company-only and Event-only
+workspaces, including archived Companies and records under another profile in
+the same physical datastore. The shared catalog lock precedes core table locks.
+Refusal or invalid relationship schema rolls back the catalog revision and
+preserves full table/receipt snapshots. Successful empty seeding does not create
+relationship storage or a workspace token. Injected failure retains all-or-nothing
+behavior. The 684-check result above includes this reviewed guard and supersedes
+the earlier 662-check pre-guard result.
+
+The scheduled assignment lane remains CRM-read/report-only. The new Event/task
+links do not grant web research, terminal access, note-writing, attachments or
+external communication. Creating a linked task is not proof of assignment,
+scheduling or execution. Physical native keyboard/focus behavior, live provider
+integration, external calendar invitations and a complete research-to-attachment
+workflow remain separate verification and development gates.
 
 ## Navigation, contact rows and Upcoming Tasks
 

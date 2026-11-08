@@ -223,3 +223,20 @@ footer details { margin-top: 8px; }
 footer summary { cursor: pointer; min-height: 36px; padding: 8px 0; }
 footer details p { margin: 4px 0 8px; }
 footer .demo-label { white-space: normal; overflow-wrap: anywhere; }
+/* Relationship pages share the Workbench palette and compact record rhythm. */
+.relationship-list { list-style:none; margin:16px 0; padding:0; min-width:0; }
+.relationship-list li { padding:14px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+.relationship-list small, .detail-body p small { display:block; color:var(--muted); margin-top:6px; }
+.relationship-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.relationship-wide { grid-column:1/-1; }
+.relationship-form-grid .field, .exact-selector { min-width:0; }
+.relationship-form-grid :is(input,select,textarea) { width:100%; max-width:100%; }
+.exact-selector { padding:12px; border:1px solid var(--line); border-radius:4px; }
+.exact-selector [data-exact-results] { display:flex; flex-direction:column; gap:8px; max-height:240px; overflow:auto; overflow-wrap:anywhere; }
+.exact-selector button { text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.relationship-list .name-button, .detail-body .notes { overflow-wrap:anywhere; white-space:pre-wrap; }
+@media(max-width:640px) { .relationship-form-grid { grid-template-columns:minmax(0,1fr); } .relationship-form-grid :is(button,input,select) { min-height:44px; } }
+
+/* Separate Event record links at narrow widths without changing other record buttons. */
+.event-related-links { display:flex; flex-wrap:wrap; gap:8px 16px; margin-block:12px; }
+.event-related-links > .name-button { min-height:44px; min-width:44px; padding:8px; }

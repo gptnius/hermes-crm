@@ -1,5 +1,6 @@
 from __future__ import annotations
 import argparse
+from contextlib import contextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import JSONResponse, FileResponse
@@ -40,21 +41,33 @@ def create_app(crm=None):
     @app.exception_handler(Exception)
     async def unexpected_error(request, exc):
         return JSONResponse({'error':'The operation failed. No database credentials or internal paths are exposed.'},status_code=500)
+    # Relationship reads and writes share the fixed local workspace. This is
+    # not a public authentication boundary; existing same-origin rules apply.
+    @contextmanager
+    def relationship_service():
+        yield crm
+    def require_workspace(current, supplied):
+        token = current.existing_workspace_token()
+        if token is None or supplied != token:
+            raise CRMError('The workspace changed. Refresh and reopen the form before saving.', 409)
+    from .relationship_api import build_router as build_relationship_router
+    app.include_router(build_relationship_router(relationship_service, require_workspace, actor='web'), prefix='/api')
+
     @app.get('/api/meta')
-    def meta(): return crm.info()
+    def meta(): return dict(crm.info(), workspace_token=crm.workspace_token())
     @app.get('/api/overview')
     def overview(): return crm.overview(include_task_assignments=True)
     @app.get('/api/activity')
     def activities(): return crm.activities()
     @app.get('/api/contacts/{record_id}')
-    def contact_detail(record_id:str): return crm.contact_detail(record_id)
+    def contact_detail(record_id:str): return crm.contact_detail(record_id, include_relationships=True)
     @app.get('/api/reports/contacts')
     def contact_report(request: Request, q: str = '', stage: str | None = None, contact_type: str | None = None,
                        company: str = '', email: str = 'any', followup: str = 'any',
                        limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0, le=2_000_000_000)):
         validate_query(request.query_params, CONTACT_REPORT_FILTERS)
         return crm.contact_report(q=q, stage=stage, contact_type=contact_type, company=company,
-                                  email=email, followup=followup, limit=limit, offset=offset)
+                                  email=email, followup=followup, limit=limit, offset=offset, include_relationships=True)
     @app.get('/api/{kind}')
     def listing(request:Request, kind:str, q:str='', stage:str|None=None, status:str|None=None,
                 contact_type:str|None=None, company:str='', email:str='any', followup:str='any',
@@ -62,11 +75,11 @@ def create_app(crm=None):
         if kind not in ('contacts','deals','tasks'): raise CRMError('Endpoint not found',404)
         validate_query(request.query_params, LIST_FILTERS)
         return crm.list(kind,q=q,stage=stage,status=status,contact_type=contact_type,company=company,
-                        email=email,followup=followup,min_value=min_value,max_value=max_value,priority=priority,due=due)
+                        email=email,followup=followup,min_value=min_value,max_value=max_value,priority=priority,due=due,include_relationships=True)
     @app.get('/api/{kind}/{record_id}')
     def record(kind:str,record_id:str):
         if kind not in ('deals','tasks'): raise CRMError('Endpoint not found',404)
-        return crm.get(kind,record_id)
+        return crm.get(kind,record_id,include_relationships=True)
     @app.post('/api/{kind}',status_code=201)
     async def create(kind:str,request:Request):
         if kind not in ('contacts','deals','tasks'): raise CRMError('Endpoint not found',404)

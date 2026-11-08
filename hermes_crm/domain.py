@@ -206,6 +206,11 @@ class CRM(Customization):
             finally:
                 conn.rollback()
 
+    def existing_workspace_token(self):
+        """Read an existing marker; failed scope checks must not bootstrap writes."""
+        with self.engine.connect() as conn:
+            return conn.execute(select(settings.c.value).where(settings.c.key == 'workspace_id')).scalar()
+
     def workspace_token(self):
         """Opaque scope marker, not an authentication secret or a filesystem path."""
         with self.engine.connect() as conn:
@@ -232,8 +237,16 @@ class CRM(Customization):
         if row is None: raise CRMError('Record not found', 404)
         return dict(row, custom_fields=self._custom_values(conn,kind,record_id))
 
-    def get(self, kind, record_id):
-        with self._read_connection() as conn: return self._get(conn, kind, record_id)
+    def _relationship_records(self, conn, kind, records):
+        # Human read enrichment only. Raw mutation records and legacy retry
+        # payloads keep their original shape; base agent tools opt out.
+        from .relationship_queries import RelationshipQueries
+        return RelationshipQueries(self).project_records(kind, records, conn=conn)
+
+    def get(self, kind, record_id, *, include_relationships=False):
+        with self._read_connection() as conn:
+            row = self._get(conn, kind, record_id)
+            return self._relationship_records(conn, kind, [row])[0] if include_relationships else row
 
     def _audit(self, conn, kind, record, action, actor, detail=''):
         conn.execute(activity.insert().values(id=str(uuid.uuid4()), entity_type=kind, entity_id=record['id'],
@@ -391,7 +404,7 @@ class CRM(Customization):
                 deals.c.contact_id == contacts.c.id).correlate(contacts, tasks).exists())).correlate(contacts)
 
     def contact_report(self, q='', stage=None, contact_type=None, company='', email='any',
-                       followup='any', limit=50, offset=0):
+                       followup='any', limit=50, offset=0, *, include_relationships=False):
         self._integer(limit, 'limit', 1, 100)
         self._integer(offset, 'offset')
         with self._read_connection() as conn:
@@ -418,10 +431,11 @@ class CRM(Customization):
             for item in items:
                 item['deal_stages'] = [s for s in stage_keys if s in stages[item['id']]]
                 item['custom_fields'] = self._custom_values(conn,'contacts',item['id'])
+            if include_relationships: items = self._relationship_records(conn, 'contacts', items)
         return dict(items=items, total=total, limit=limit, offset=offset)
 
     def list(self, kind, q='', stage=None, status=None, *, contact_type=None, company='',
-             email='any', followup='any', min_value=None, max_value=None, priority=None, due='any', _conn=None):
+             email='any', followup='any', min_value=None, max_value=None, priority=None, due='any', _conn=None, include_relationships=False):
         with (nullcontext(_conn) if _conn is not None else self._read_connection()) as conn:
             if kind not in TABLES: raise CRMError('Invalid record kind')
             if kind == 'contacts':
@@ -461,13 +475,17 @@ class CRM(Customization):
                         stmt = stmt.where(tasks.c.status == 'open', tasks.c.due_at < now() if due == 'overdue' else tasks.c.due_at >= now())
             table = TABLES[kind]
             stmt = stmt.order_by(table.c.due_at.asc() if kind == 'tasks' else table.c.created_at.desc(), table.c.id.asc()).limit(500)
-            return [dict(row,custom_fields=self._custom_values(conn,kind,row['id'])) for row in conn.execute(stmt).mappings()]
+            rows = [dict(row,custom_fields=self._custom_values(conn,kind,row['id'])) for row in conn.execute(stmt).mappings()]
+            return self._relationship_records(conn, kind, rows) if include_relationships else rows
 
     def activities(self, entity_ids=None, _conn=None):
         # Navigation describes current relationships, never historical attribution.
         # Bound audit rows before joining; each join is to a primary key so counts
         # cannot fan out. Select only the contact ID/name, not private record data.
-        stmt = select(activity)
+        if _conn is None:
+            with self._read_connection() as conn: return self.activities(entity_ids, _conn=conn)
+        from .relationship_queries import audit_scope_predicate
+        stmt = select(activity).where(audit_scope_predicate(self, _conn))
         if entity_ids is not None: stmt = stmt.where(activity.c.entity_id.in_(entity_ids))
         recent = stmt.order_by(activity.c.created_at.desc(), activity.c.id.desc()).limit(100).subquery()
         task_deal = deals.alias('activity_task_deal')
@@ -489,7 +507,7 @@ class CRM(Customization):
             return [dict(row, link_basis='current_relationship' if row['linked_contact_id'] is not None else None)
                     for row in conn.execute(stmt).mappings()]
 
-    def contact_detail(self, contact_id):
+    def contact_detail(self, contact_id, *, include_relationships=False):
         from sqlalchemy import or_
         with self._read_connection() as conn:
             contact = self._get(conn,'contacts',contact_id)
@@ -505,6 +523,10 @@ class CRM(Customization):
                 for record in records: record['custom_fields']=self._custom_values(conn,kind,record['id'])
             deal_ids = {d['id'] for d in related_deals}
             ids = [contact_id, *deal_ids, *[t['id'] for t in related_tasks]]
+            if include_relationships:
+                contact = self._relationship_records(conn, 'contacts', [contact])[0]
+                related_deals = self._relationship_records(conn, 'deals', related_deals)
+                related_tasks = self._relationship_records(conn, 'tasks', related_tasks)
             return dict(contact=contact, deals=related_deals, tasks=related_tasks, activity=self.activities(ids,_conn=conn))
 
     def overview(self, _conn=None, *, include_task_assignments=False):
@@ -537,6 +559,7 @@ class CRM(Customization):
             if include_task_assignments:
                 from .upcoming_tasks import add_assignment_summaries
                 add_assignment_summaries(self, conn, upcoming_tasks)
+                upcoming_tasks = self._relationship_records(conn, 'tasks', upcoming_tasks)
         open_deals = [d for d in all_deals if outcomes.get(d['stage']) == 'open']
         open_tasks = [t for t in all_tasks if t['status']=='open']
         return dict(info, contacts=count, open_deals=len(open_deals), pipeline_value=sum(d['value'] for d in open_deals),
@@ -552,9 +575,9 @@ class CRM(Customization):
         with self._read_connection() as conn:
             return dict(meta=dict(self.info(conn), workspace_token=token),
                         overview=self.overview(_conn=conn, include_task_assignments=True),
-                        contacts=self.list('contacts', _conn=conn),
-                        deals=self.list('deals', _conn=conn),
-                        tasks=self.list('tasks', _conn=conn),
+                        contacts=self.list('contacts', _conn=conn, include_relationships=True),
+                        deals=self.list('deals', _conn=conn, include_relationships=True),
+                        tasks=self.list('tasks', _conn=conn, include_relationships=True),
                         activity=self.activities(_conn=conn))
 
     def schedule_followup(self, task_id, dispatch, actor='hermes', **context):
