@@ -79,8 +79,12 @@ continuity, practical Event date/time entry, clearer relationship pages and
 in-app dirty-form controls are implemented with integrity fixes. New contacts
 can be created atomically with an optional explicit Company link; contextual
 Company/Contact/opportunity actions prefill local Events without inferred links.
-See [contextual creation and recovery](docs/CONTEXTUAL_CREATION.md). Exact test
-scope and remaining checks are in [verification](docs/VERIFICATION.md). A usable
+See [contextual creation and recovery](docs/CONTEXTUAL_CREATION.md). Native agent
+work also supports direct reading of an exact selected assignment’s evidence
+and backward navigation when a later history page fails. These read-only
+improvements do not acknowledge a report or change execution permissions; see
+[assignment status and result reading](docs/ASSIGNMENT_UI.md). Exact test scope
+and remaining checks are in [verification](docs/VERIFICATION.md). A usable
 agent-result review step and integration gaps remain in the
 [workflow plan](docs/WORKFLOW_REVIEW.md), with unsettled metric, review and
 permission decisions explicitly parked.

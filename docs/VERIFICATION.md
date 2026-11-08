@@ -2,6 +2,62 @@
 
 Updated November 8, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Assignment evidence navigation and workflow audit
+
+The follow-up audit used public baseline
+`4179d507d0710ff7abb3a3e00f099622f39cd30b`. A focused synthetic backend slice
+passed **401 tests with 8 optional cases skipped**. A separate combined SQLite
+workflow exercised explicit Company/Contact/Event/task links, saved future
+assignment, schedule/check/report, Complete/Reopen, rejection of the old task
+version, completed one-shot inactivity and future-schedule cancellation. Its
+scheduler/model interfaces were doubles, not a new live-host execution test.
+No new backend state-machine defect was reproduced.
+
+Two native usability defects were reproduced and fixed: later-page loading/error
+hid Previous in the three evidence lists, and opening an exact older assignment
+from coverage omitted its report when outside the first history page. Shared
+read-only evidence now includes the selected result without changing review state
+or task completion. Known current-task version/status conflicts conservatively
+mark older source/report evidence stale; backend stale/unknown evidence is never
+upgraded. Local operation history also distinguishes loading from previously
+observed rows. Independent actual-React review cleared full-route drillthrough,
+Close, pagination recovery, late responses, profile changes, conservative labels
+and zero new write/command calls.
+
+Final cloud aggregate: **1,288 Python tests passed, 647 optional cases skipped**,
+with two known dependency warnings. Applicable native React/VM, standalone UI and
+contextual recovery suites, both design contracts, **25 bridge checks**, all
+**nine generator checks**, syntax and whitespace checks passed. Pinned-host source
+and optional real nanostores assertions were not available in the cloud. Backend
+runtime, Python tests and plugin manifest remain byte-identical to the prior
+**766-pass mixed PostgreSQL/SQLite snapshot**; no new PostgreSQL run is claimed
+for this UI-only increment. Schema, permissions and operation authority are
+unchanged.
+
+An isolated Mac Electron fixture rendered the actual native components with
+synthetic SDK/endpoints in all **six light/dark and 1280/640/390-pixel cases**.
+The older exact report remained visible across successful history pages, long
+unbroken text wrapped, and the report end/caveats remained reachable by scrolling.
+All three pagers preserved focusable Previous during loading/failure, disabled
+unsupported forward navigation and rejected delayed page-two replies after
+returning. Pending exact-record reads were suppressed after navigation/profile
+changes, and conflicting task observations downgraded stale report labels.
+
+**12 of 60 captured screenshots were actually inspected**, spanning every
+width/theme combination. No unintended clipping or horizontal page overflow was
+observed. Recorded renderer-error, network-attempt and mutation counts were zero;
+all three owned Electron launches exited. This is DOM focus/click and sampled
+pixel verification, not installed-host, OS keyboard or assistive-technology QA.
+The operation pager fixture used empty rows with a positive total: operation-row
+recovery contents were not rendered in this check. The rendered task conflict
+combined changed version/status; the separate cases are React fixture coverage,
+not independently rendered cases. No live scheduler/model run was added.
+
+No active app, real profile, credential, provider, message or production record
+was accessed. The durable report-review policy, Event-only coverage definition,
+immediate execution and research/mailbox permission decisions remain separate
+in the [workflow plan](WORKFLOW_REVIEW.md).
+
 ## Contextual contact and Event creation
 
 The new optional Primary Company selector creates a contact and its exact Company

@@ -256,3 +256,41 @@ for(const failure of ['catalog','runtime','info','route']){
   await e.click('Check native status');assert.equal(e.commands.length,1);await e.finish();
 }
 console.log('PASS explicit frozen-key preparation recovery after proven pre-POST failure; duplicate clicks, POST uncertainty, original-session binding and review-only Check retry fenced.');
+
+// Operation history keeps safe backward navigation during loading/failure and rejects abandoned reads.
+{
+  const e = await fixture(); e.historyTotal = 76; await e.mount();
+  const gate = deferred(); e.gates.history = gate;
+  await e.click('Next operations');
+  assert.equal(e.button('Previous operations').props.disabled, false);
+  assert.equal(e.button('Next operations').props.disabled, true);
+  delete e.gates.history; await e.click('Previous operations');
+  await e.change(() => gate.resolve());
+  assert.equal(e.button('Previous operations').props.disabled, true, 'Abandoned page cannot replace page zero');
+  e.historyFailure = true; await e.click('Next operations');
+  assert.match(e.text(), /Operation history could not be refreshed/);
+  assert.equal(e.button('Previous operations').props.disabled, false);
+  assert.equal(e.button('Next operations').props.disabled, true);
+  e.historyFailure = false; await e.click('Previous operations');
+  const refresh = deferred(); e.gates.history = refresh; await e.click('Refresh local operation history');
+  assert.equal(e.button('Next operations').props.disabled, true, 'Previous successful evidence cannot authorize Next during refresh');
+  e.historyFailure = true; delete e.gates.history; await e.change(() => refresh.resolve());
+  assert.equal(e.button('Next operations').props.disabled, true);
+  assert.equal(e.posts.length, 0); assert.equal(e.commands.length, 0); await e.finish();
+}
+console.log('PASS operation loading/error backward navigation, stale Next fence, abandoned page rejection and read-only recovery.');
+
+// Same-batch page ABA while a request waits must restart an invalidated operation-history read.
+{
+  const e = await fixture(); e.historyTotal = 76; await e.mount(); await e.click('Next operations');
+  const previous = e.button('Previous operations').props.onClick, next = e.button('Next operations').props.onClick;
+  const old = deferred(); e.gates.history = old; await e.click('Refresh local operation history');
+  const before = e.events.filter(event => event === 'history').length;
+  const latest = deferred(); e.gates.history = latest; await e.change(() => { previous(); next(); });
+  assert.ok(e.events.filter(event => event === 'history').length > before);
+  delete e.gates.history; await e.change(() => latest.resolve());
+  assert.equal(e.button('Next operations').props.disabled, false);
+  e.historyFailure = true; await e.change(() => old.resolve());
+  assert.doesNotMatch(e.text(), /Operation history could not be refreshed/);
+  assert.equal(e.posts.length, 0); assert.equal(e.commands.length, 0); await e.finish();
+}

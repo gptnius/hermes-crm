@@ -1,6 +1,7 @@
 # Workflow review and improvement plan
 
 Review baseline: public commit `80d6605774a2d53da008eb0f9810ee881437d282`.
+Follow-up assignment audit baseline: `4179d507d0710ff7abb3a3e00f099622f39cd30b`.
 The goal is a small set of understandable actions that carry a person from a
 new relationship to a clear next step, without confusing saved plans, agent
 claims, reviewed results and real-world delivery.
@@ -33,9 +34,10 @@ existing tests are not evidence that a new workflow passed.
 
 ## Verified findings and selected fixes
 
-WF-01 through WF-06, WF-08's clarity improvement and WF-09 are implemented in
-this increment. The verification report lists completed tests and remaining
-checks. WF-07 and the additional capabilities below remain design/backlog.
+WF-01 through WF-06, WF-08's clarity improvement and WF-09 are implemented.
+The follow-up audit's read-only evidence/navigation fixes WF-10 and WF-11 are
+also implemented. The verification report lists exact checks and limits; WF-07
+and the remaining capabilities below are still design/backlog.
 
 ### WF-01: record navigation loses the parent
 
@@ -154,6 +156,49 @@ physical or security isolation.
 operations and their event/report children during export. Preserve the active
 scope's exact data and existing encryption behavior. Encryption does not replace
 correct selection of the data being exported.
+
+### WF-10: a failed later evidence page hides Previous
+
+Assigned-work history, local-operation history and coverage put pagination inside
+successful page content. Loading or failing a later page can therefore remove
+Previous, trapping the user on a failing page until closing and reopening the
+record. Actual React components reproduced the problem with synthetic transport.
+
+**Implemented fix:** keep backward navigation available whenever
+the current offset is nonzero, independent of page availability. A forward step
+still requires current valid page evidence. Preserve request generations so a
+late failed/successful response cannot replace the page the user returned to.
+This is local CRM evidence navigation, not a scheduler query or operation retry.
+
+### WF-11: opening an exact assignment can hide its report
+
+Coverage can open an older exact assignment that is not on the first history
+page. The pinned card showed identifying metadata and actions, but omitted the
+report, instructions, criteria and observation evidence already returned for that
+assignment. Reading the result then required unrelated history pagination.
+
+**Implemented fix:** share the existing read-only evidence
+presentation between the exact selected card and history. Keep the selected
+assignment's report readable independent of the history page, without duplicate
+action controls or stale evidence being presented as a current check. Preserve
+all source, task, host-observation and report caveats. Opening or reading a report
+does not mark it reviewed, complete the task or run another action.
+
+## Follow-up assignment audit
+
+A fresh synthetic service workflow exercised explicit Company/Contact creation,
+an Event and linked task, saved future assignment, scheduler registration/check,
+authenticated report recording, business-task Complete/Reopen, old-version
+rejection, observed completed one-shot inactivity, a new current-version
+assignment and exact future-schedule cancellation. The model/scheduler interfaces
+were doubles; this is not a new live Hermes, research or delivery test.
+
+No new state-machine defect was reproduced. Reports did not complete business
+tasks; reopening did not restore an older assignment's authority. A completed,
+disabled one-shot was observed inactive without a pause attempt. Coverage retained
+report-review evidence and identified the reopened task without a current
+assignment. Existing result-review policy and Event-only coverage decisions
+remain parked below rather than being changed as a side effect of UX fixes.
 
 ## Additional workflow gaps to plan
 

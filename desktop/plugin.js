@@ -1135,8 +1135,10 @@ function WorkOperationPanel({ entry, fresh, busy, notice, confirm, retryPreparat
 }
 export function WorkOperationHistory({ client, workspaceToken, workspaceProfile, taskId, workCommandName, generation, onSelect, disabled }) {
   const [offset, setOffset] = useState(0), [reload, setReload] = useState(0), [page, setPage] = useState(null), [failure, setFailure] = useState(false);
+  const [revision, setRevision] = useState(0);
   const ticket = useRef(0), scope = JSON.stringify([workspaceToken, workspaceProfile, taskId, workCommandName, offset]);
   const currentPage = page?.scope === scope && page.client === client ? page : null;
+  const fresh = currentPage && page.reload === reload && page.generation === generation && page.revision === revision && page.ticket === ticket.current;
   useEffect(() => {
     let live = true; const serial = ++ticket.current; setFailure(false);
     client.request(`/work-operations?${new URLSearchParams({ workspace_token: workspaceToken, task_id: taskId, limit: '25', offset: String(offset) })}`)
@@ -1144,22 +1146,23 @@ export function WorkOperationHistory({ client, workspaceToken, workspaceProfile,
         if (!Array.isArray(value?.items) || !Number.isSafeInteger(value.total) || value.total < 0 || value.offset !== offset || value.limit !== 25 || value.task_id !== taskId || !Number.isFinite(Date.parse(value.observed_at)) || value.items.length > 25 || value.workspace_token !== workspaceToken || value.profile !== workspaceProfile)
           throw new Error('Unverified operation history');
         const items = value.items.map(row => validateWorkOperation(row, { workspaceToken, workspaceProfile, taskId, workCommandName }));
-        if (live && client.current() && serial === ticket.current) setPage({ scope, client, ...value, items });
+        if (live && client.current() && serial === ticket.current) setPage({ ...value, items, scope, client, reload, generation, revision, ticket: serial });
       }).catch(() => { if (live && client.current() && serial === ticket.current) setFailure(true); });
     return () => { live = false; };
-  }, [client, scope, reload, generation]);
-  function change(fn) { ticket.current++; fn(); }
+  }, [client, scope, reload, generation, revision]);
+  function change(fn) { ticket.current++; setRevision(value => value + 1); fn(); }
   return h('section', { className: 'hc-card', 'aria-label': 'CRM command operation history' },
     h('div', { className: 'hc-row' }, h('h3', null, 'CRM command operation history'), button('Refresh local operation history', () => change(() => setReload(v => v + 1)))),
     h('p', { className: 'hc-muted' }, 'Durable local evidence only. Refresh does not query the native scheduler or send a command. Unresolved operations remain visible across pages.'),
     failure && h('p', { role: 'status' }, 'Operation history could not be refreshed. This is not proof that no operation exists. Any displayed rows are earlier observations.'),
-    currentPage && h('div', null,
+    !fresh && !failure && h('p', { role: 'status' }, currentPage ? 'Refreshing saved operation history. Displayed rows are earlier observations.' : 'Loading saved operation history…'),
+    currentPage && h('div', { 'aria-busy': !fresh && !failure },
       h('p', null, `${currentPage.total} operations · ${currentPage.items.length ? offset + 1 : 0}–${offset + currentPage.items.length} shown · Read at ${exactTime(currentPage.observed_at)}`),
       currentPage.items.map(row => h('details', { key: row.id, className: 'hc-work-item' },
         h('summary', null, `${label(row.verb)} · ${label(row.state)} · ${row.id}`), h(WorkOperationEvidence, { row }),
-        button('Open operation recovery', () => { if (!disabled && client.current()) onSelect(row); }, { disabled }))),
+        button('Open operation recovery', () => { if (!disabled && client.current()) onSelect(row); }, { disabled })))),
       h('div', { className: 'hc-actions' }, button('Previous operations', () => change(() => setOffset(v => Math.max(0, v - 25))), { disabled: offset === 0 }),
-        button('Next operations', () => change(() => setOffset(v => v + 25)), { disabled: offset + currentPage.items.length >= currentPage.total }))));
+        button('Next operations', () => change(() => setOffset(v => v + 25)), { disabled: !fresh || offset + (currentPage?.items.length || 0) >= currentPage?.total })));
 }
 function captureWorkCommandBinding(ctx, identity) {
   const chat = captureChatBinding(ctx, identity), lifetime = lifetimes.get(ctx);
@@ -2210,7 +2213,56 @@ function WorkCommandActions({ work, task, onOperation, disabled }) {
     button('Check native status', event => onOperation('check', work, event), { disabled }),
     button('Review CRM cancellation', event => onOperation('cancel', work, event), { disabled }));
 }
-export function AssignedWork({ client, task, workspaceToken, snapshotGeneration, onPrepare, onOperation, disabled }) {
+// Read-only evidence shared by paginated history and exact coverage selection.
+function AssignmentEvidence({ work, task, stale = false }) {
+  const sourceTaskId = work.task_id || work.payload?.task_id;
+  const sameTask = Boolean(task?.id && sourceTaskId && task.id === sourceTaskId);
+  const taskStatus = sameTask && ["open", "done"].includes(task?.status) ? task.status : null;
+  const comparableVersion = sameTask && positiveVersion(task?.version) && positiveVersion(work.payload?.task_version);
+  const taskConflict = Boolean(task?.id && sourceTaskId && !sameTask) || (sameTask && typeof task.status === "string" && task.status !== "open") ||
+    (comparableVersion && task.version !== work.payload.task_version);
+  // Current props may revoke older saved freshness, but never upgrade a stale or unknown backend observation.
+  const sourceStale = work.source_task_current === false || taskConflict;
+  const sourceCurrent = work.source_task_current === true && !sourceStale;
+  const comparisonUnknown = !comparableVersion || !taskStatus;
+  const sourceDescription = sourceStale ? "Changed or completed since assignment; prior result is stale"
+    : sourceCurrent ? (stale ? "Current at last successful refresh; not reverified" : "Current at saved evidence read") +
+      (comparisonUnknown ? "; current task comparison unavailable" : "")
+    : "Source-task freshness not recorded; current status is unverified";
+  const businessStatus = taskStatus || (work.business_task_completed === true ? "done" : work.business_task_completed === false ? "open" : null);
+  const businessDescription = businessStatus ? (businessStatus === "done" ? "Done; completion does not cancel a host job" : "Open; report does not complete it") +
+    (taskStatus ? " (current task view)" : " (at assignment evidence read; current task state unavailable)")
+    : "Not recorded; current task state unavailable. Reports do not establish task completion.";
+  return h("div", null,
+    h(Properties, { rows: [
+      ["Human owner", work.payload?.human_owner], ["Requested run", exactTime(work.payload?.run_at)],
+      ["Assignment ID", work.id], ["Assignment version / generation", `${work.version} / ${work.generation}`],
+      ["Frozen task version", work.payload?.task_version], ["Native job ID", work.job_id],
+      ["Saved state", label(work.state)], ["Saved reason", label(work.reason)],
+      ["Source task", sourceDescription],
+      ["Business task", businessDescription],
+    ] }),
+    work.state === "scheduled" && h("p", null, "Schedule registered, execution unverified. This is not a live gateway or model availability check."),
+    work.state === "bound_paused" && h("p", null, Date.parse(work.payload?.run_at) <= Date.now() ? "Run time elapsed while paused; review required." : "Bound job paused; review required."),
+    ["create_unknown", "resume_unknown", "unknown"].includes(work.state) && h("p", null, "Scheduling outcome is unknown. Ask to check this exact assignment; do not create a replacement."),
+    ["cancelled", "superseded"].includes(work.state) && h("p", null, pauseEvidence(work)),
+    h("h3", null, "Frozen instructions"), h("p", { className: "hc-details" }, work.payload?.prompt || "Not recorded"),
+    h("h3", null, "Success criteria"), h("p", { className: "hc-details" }, work.payload?.success_criteria || "Not recorded"),
+    h("h3", null, "Agent reports"),
+    (work.reports || []).length ? work.reports.map(report => h("div", { key: report.id, className: "hc-notice" },
+      h("b", null, `Agent reported: ${label(report.outcome)}`),
+      h("p", null, `${sourceStale ? label("stale_source_task") : sourceCurrent ? label(report.review_status || "awaiting_human_review") : "Source-task freshness unknown"} · ${exactTime(report.created_at)}`),
+      h("p", { className: "hc-details" }, report.summary),
+      h("p", { className: "hc-record-meta" }, `Report ${report.id} · Native job ${report.identity?.job_id || work.job_id || "not recorded"} · Execution ${report.identity?.execution_id || "not recorded"} · ${label(report.provenance)}`),
+      h("small", { className: "hc-muted" }, "This report does not verify host terminal success, delivery or business-task completion.")))
+      : h("p", { className: "hc-muted" }, "No authenticated agent report recorded, even if the host was observed completed."),
+    h("h3", null, "Recorded observations"),
+    h("ol", { className: "hc-timeline" }, (work.events || []).map(event => h("li", { key: event.id },
+      h("b", null, event.kind === "job_observed" && event.evidence?.job_id === work.job_id
+        ? `Host observed ${label(event.evidence.state || "unknown")} · ${event.evidence.source || "recorded observation"}` : label(event.kind)),
+      h("p", { className: "hc-muted" }, exactTime(event.created_at))))));
+}
+export function AssignedWork({ client, task, workspaceToken, snapshotGeneration, onPrepare, onOperation, disabled, selectedWorkId }) {
   const [result, setResult] = useState(null), [failure, setFailure] = useState(null);
   const [reload, setReload] = useState(0), [offset, setOffset] = useState(0), [expanded, setExpanded] = useState({});
   const [revision, setRevision] = useState(0), requestGeneration = useRef(0);
@@ -2244,43 +2296,18 @@ export function AssignedWork({ client, task, workspaceToken, snapshotGeneration,
       history.length ? history.map(work => h("details", { className: "hc-work-item", key: work.id, open: Boolean(expanded[work.id]),
         onToggle: event => { const open = event.currentTarget.open; setExpanded(previous => previous[work.id] === open ? previous : { ...previous, [work.id]: open }); },
       }, h("summary", null, `${label(work.state)} · ${exactTime(work.payload?.run_at)}`),
-        h(Properties, { rows: [
-          ["Human owner", work.payload?.human_owner], ["Requested run", exactTime(work.payload?.run_at)],
-          ["Assignment ID", work.id], ["Assignment version / generation", `${work.version} / ${work.generation}`],
-          ["Frozen task version", work.payload?.task_version], ["Native job ID", work.job_id],
-          ["Saved state", label(work.state)], ["Saved reason", label(work.reason)],
-          ["Source task", work.source_task_current ? stale ? "Current at last successful refresh; not reverified" : "Current at saved evidence read" : "Changed or completed since assignment; prior result is stale"],
-          ["Business task", work.business_task_completed ? "Done; completion does not cancel a host job" : "Open; report does not complete it"],
-        ] }),
-        work.state === "scheduled" && h("p", null, "Schedule registered, execution unverified. This is not a live gateway or model availability check."),
-        work.state === "bound_paused" && h("p", null, Date.parse(work.payload?.run_at) <= Date.now() ? "Run time elapsed while paused; review required." : "Bound job paused; review required."),
-        ["create_unknown", "resume_unknown", "unknown"].includes(work.state) && h("p", null, "Scheduling outcome is unknown. Ask to check this exact assignment; do not create a replacement."),
-        ["cancelled", "superseded"].includes(work.state) && h("p", null, pauseEvidence(work)),
-        h("h3", null, "Frozen instructions"), h("p", { className: "hc-details" }, work.payload?.prompt || "Not recorded"),
-        h("h3", null, "Success criteria"), h("p", { className: "hc-details" }, work.payload?.success_criteria || "Not recorded"),
-        h("h3", null, "Agent reports"),
-        (work.reports || []).length ? work.reports.map(report => h("div", { key: report.id, className: "hc-notice" },
-          h("b", null, `Agent reported: ${label(report.outcome)}`),
-          h("p", null, `${label(work.source_task_current ? report.review_status || "awaiting_human_review" : "stale_source_task")} · ${exactTime(report.created_at)}`),
-          h("p", { className: "hc-details" }, report.summary),
-          h("p", { className: "hc-record-meta" }, `Report ${report.id} · Native job ${report.identity?.job_id || work.job_id || "not recorded"} · Execution ${report.identity?.execution_id || "not recorded"} · ${label(report.provenance)}`),
-          h("small", { className: "hc-muted" }, "This report does not verify host terminal success, delivery or business-task completion.")))
-          : h("p", { className: "hc-muted" }, "No authenticated agent report recorded, even if the host was observed completed."),
-        h("h3", null, "Recorded observations"),
-        h("ol", { className: "hc-timeline" }, (work.events || []).map(event => h("li", { key: event.id },
-          h("b", null, event.kind === "job_observed" && event.evidence?.job_id === work.job_id
-            ? `Host observed ${label(event.evidence.state || "unknown")} · ${event.evidence.source || "recorded observation"}` : label(event.kind)),
-          h("p", { className: "hc-muted" }, exactTime(event.created_at))))),
-        onOperation && h(WorkCommandActions, { work, task, onOperation, disabled }),
-        onPrepare && h("div", { className: "hc-actions" },
+        h(AssignmentEvidence, { work, task, stale }),
+        work.id !== selectedWorkId && onOperation && h(WorkCommandActions, { work, task, onOperation, disabled }),
+        work.id === selectedWorkId && h("p", { className: "hc-muted" }, "This assignment is selected above; use its selected-assignment controls."),
+        work.id !== selectedWorkId && onPrepare && h("div", { className: "hc-actions" },
           work.state === "pending" && work.reason === "not_scheduled" && work.source_task_current === true && task.status === "open" &&
             button("Ask to schedule saved assignment", () => onPrepare("schedule", work), { disabled }),
           button("Ask to check assignment", () => onPrepare("check", work), { disabled }),
           button("Ask to cancel future assignment", () => onPrepare("cancel", work), { disabled }))))
-        : h("p", { className: "hc-muted" }, result.page.total > 0 ? "No assignments on this page. Use Previous assignments to return to the saved history." : stale ? "The last successful history check found no assignments; this has not been reverified." : "No native assignments are recorded for this follow-up."),
+        : h("p", { className: "hc-muted" }, result.page.total > 0 ? "No assignments on this page. Use Previous assignments to return to the saved history." : stale ? "The last successful history check found no assignments; this has not been reverified." : "No native assignments are recorded for this follow-up.")),
       h("div", { className: "hc-actions" },
-        button("Previous assignments", () => changeHistory(() => setOffset(value => Math.max(0, value - 25))), { disabled: offset === 0 || refreshing }),
-        button("Next assignments", () => changeHistory(() => setOffset(value => value + 25)), { disabled: offset + history.length >= result.page.total || refreshing }))));
+        button("Previous assignments", () => changeHistory(() => setOffset(value => Math.max(0, value - 25))), { disabled: offset === 0 }),
+        button("Next assignments", () => changeHistory(() => setOffset(value => value + 25)), { disabled: !current(result) || offset + (history?.length || 0) >= result?.page.total })));
 }
 export function TaskWork({ ctx, identity, client, task, workspaceToken, workspaceProfile, workCommandName, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork, taskHeadingRef }) {
   const lifetime = lifetimes.get(ctx);
@@ -2355,9 +2382,9 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
         button("Prepare cancellation for saved assignment", () => prepare("cancel", savedWork), { disabled: blocked || saving || Boolean(prepared) }))),
     selectedWork && h("section", { className: "hc-notice", "aria-label": "Exact assignment selected from coverage" },
       h("h3", null, "Selected assignment from coverage"),
-      h("p", null, `Assignment ${selectedWork.id} · Version ${selectedWork.version} · Generation ${selectedWork.generation} · ${label(selectedWork.state)}`),
-      h("p", null, `Requested run: ${exactTime(selectedWork.payload?.run_at)} · Native job ${selectedWork.job_id || "not bound"}`),
-      h("p", null, "This exact assignment was read separately; it may not appear on the current history page. Preview will check it again."),
+      h("p", null, `Assignment ${selectedWork.id} · Version ${selectedWork.version} · Generation ${selectedWork.generation}`),
+      h(AssignmentEvidence, { work: selectedWork, task }),
+      h("p", null, "This exact assignment was read separately; it may not appear on the current history page. History refresh does not update this separate observation. Reopen the exact assignment for updated evidence. Preview will check it again."),
       h(WorkCommandActions, { work: selectedWork, task, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
       h("div", { className: "hc-actions" },
         selectedWork.state === "pending" && selectedWork.reason === "not_scheduled" && selectedWork.source_task_current === true && task.status === "open" &&
@@ -2368,7 +2395,7 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
       mode: prepared.mode, work: prepared.work, initialBinding: prepared.binding,
       close: () => { prepareLock.current = false; setPrepared(null); },
       openNativeChat: () => { if (prepared.binding.current()) openNativeChat(); else setNotice("The native conversation changed. Discard this preparation and select the intended main chat before opening it."); } }),
-    h(AssignedWork, { client, task, workspaceToken, snapshotGeneration: `${snapshotGeneration}:${savedGeneration}`, onPrepare: prepare, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
+    h(AssignedWork, { client, task, workspaceToken, selectedWorkId: selectedWork?.id, snapshotGeneration: `${snapshotGeneration}:${savedGeneration}`, onPrepare: prepare, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
     h(WorkOperationHistory, { client, workspaceToken, workspaceProfile, taskId: task.id, workCommandName, generation: `${snapshotGeneration}:${commands.generation}`,
       onSelect: commands.recover, disabled: blocked || saving || Boolean(prepared) }));
 }
@@ -2431,10 +2458,10 @@ export function CoverageQueue({ client, workspaceToken, snapshotGeneration, open
         h("div", { className: "hc-actions" },
           row.task && (row.assignment ? button("Open exact assignment", () => select("tasks", row.task.id, row.assignment.id), { disabled }) : button("Open follow-up", () => select("tasks", row.task.id), { disabled })),
           (row.contacts || []).map(contact => button(contact.name || contact.id, () => select("contacts", contact.id), { key: contact.id, disabled }))))))
-        : h("p", null, page.total > 0 ? "No evidence on this page. Return to the previous page or refresh." : "No matching coverage evidence in this server response."),
+        : h("p", null, page.total > 0 ? "No evidence on this page. Return to the previous page or refresh." : "No matching coverage evidence in this server response.")),
       h("div", { className: "hc-actions" },
-        button("Previous coverage page", () => change(() => setOffset(value => Math.max(0, value - 50))), { disabled: offset === 0 || refreshing }),
-        button("Next coverage page", () => change(() => setOffset(value => value + 50)), { disabled: offset + page.items.length >= page.total || refreshing }))));
+        button("Previous coverage page", () => change(() => setOffset(value => Math.max(0, value - 50))), { disabled: offset === 0 }),
+        button("Next coverage page", () => change(() => setOffset(value => value + 50)), { disabled: !current(result) || offset + (page?.items.length || 0) >= page?.total })));
 }
 
 export async function refreshDetailAfterRelationshipWrite(refresh, open, client, viewRequest, latestWorkspace, detail) {

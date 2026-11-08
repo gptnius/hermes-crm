@@ -2,6 +2,24 @@
 
 The native CRM can save future internal-work assignments, explicitly schedule/check/cancel them beside the existing Hermes conversation, and show paged coverage evidence. Saving is not scheduling; reviewing is not dispatch. CRM confirmation uses an authenticated native user command, separate from the model-tool approval path. Manual Preview/Copy into native chat remains available for conversational requests. There is no automatic prompt submission, email adapter or enabled Run now bridge.
 
+## Read the status before choosing an action
+
+- **Saved, not scheduled:** intent exists in CRM; no job has been registered.
+- **Scheduled:** job registration was observed, not successful execution.
+- **Agent reported completed:** an authenticated run supplied a result; read it
+  and decide separately whether the business task is complete.
+- **Business task Done:** the local task was completed. This is not report
+  approval, future-job cancellation or proof of delivery.
+- **Cancelled assignment:** local intent was invalidated. Check the separate
+  evidence about pausing future work; a running agent is not stopped by this.
+- **Unknown:** the outcome is not established. Recover/check the exact original
+  assignment or operation rather than creating a replacement blindly.
+
+Current source versions, recorded host observations and report outcomes can
+change independently. No durable **Mark reviewed** action is implemented yet.
+The scheduled lane performs internal CRM analysis only; it cannot research the
+web, create contacts, send email or attach a research file.
+
 ## Save a future assignment in CRM
 
 1. Open an existing open follow-up and choose **Save future assignment**. No open native conversation is required.
@@ -79,6 +97,29 @@ Filters expose:
 Several risk flags can apply to one row. Safely cancelled old work is not substituted for a newer assignment, and a green newer row does not erase a different unresolved job. Source freshness, business-task completion, saved assignment state, observed host state and reported outcome remain separate.
 
 **Refresh coverage evidence** and history refresh read only the local CRM database. They do not query the scheduler or verify that a gateway/model is currently available. Host observations retain their source and time. A failed refresh is not empty history and must not masquerade as new evidence.
+
+## Read an exact result without changing its status
+
+Use the coverage row's **Open exact assignment** to reach the saved evidence for
+that particular assignment, including its frozen instructions, success criteria,
+report and observations. The exact selected assignment is separate from the
+paged history; an older result must not require searching the first history page.
+Reports and host observations retain their timestamps and source-currentness
+warnings. The exact selected result is a separate observation; refreshing the
+paged history does not refresh it. Reopen that exact assignment for an updated
+read. Refreshing local evidence does not check the host scheduler.
+
+Reading a report is not acceptance, rejection or durable review acknowledgement.
+A report labelled completed is the agent's report outcome, not automatic
+completion of the business task or proof of external delivery. Decide separately
+whether to use the task's **Complete** action. Completion/reopening changes the
+task version and does not restore a prior assignment's authority or cancel an
+existing host job. Use the exact assignment's explicit check/cancellation flow
+when that schedule also needs attention.
+
+On a later evidence page, **Previous** remains usable while that page loads or
+fails. **Next** requires a current successful page. Neither action repeats an
+assignment write, schedule command or report submission.
 
 ## Storage, performance and verification limits
 

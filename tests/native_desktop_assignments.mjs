@@ -199,7 +199,7 @@ for (const change of [s => s.focusedSessionId.set('secondary'), s => s.focusedSe
 }
 // Paginated history is honest about errors, independent host/report/task facts and does no writes.
 {
-  const e = await fixture(); e.work.state = 'cancelled'; e.work.source_task_current = false; e.work.business_task_completed = true;
+  const e = await fixture(); e.work.state = 'cancelled'; e.work.source_task_current = false; e.work.business_task_completed = true; e.props.task.status = 'done'; e.task.status = 'done';
   e.work.reason = 'pause_outcome_unknown_running_run_not_cancelled'; e.work.job_id = 'job1';
   e.work.reports = [{ id: 'r1', outcome: 'blocked', summary: 'Missing current evidence', provenance: 'native_run_reported', created_at: '2026-11-05T10:00:00+00:00', identity: { job_id: 'job1', execution_id: 'run1' } }];
   e.historyPages = params => ({ items: [clone(e.work)], total: 701, limit: 25, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00+00:00' });
@@ -537,3 +537,92 @@ for (const targetState of ['connected', 'disconnected', 'task-done', 'profile-ab
   else { assert.notEqual(e.focusTargets.at(-1), launcher); assert.equal(e.focusTargets.at(-1).name, 'Save future assignment'); }
   assert.equal(e.writes.length, 0); await e.finish();
 }
+
+// A failed or pending later page never traps read-only navigation; late reads cannot replace newer pages.
+for (const coverage of [false, true]) {
+  const e = await fixture();
+  const component = coverage ? 'CoverageQueue' : 'AssignedWork';
+  const previous = coverage ? 'Previous coverage page' : 'Previous assignments';
+  const next = coverage ? 'Next coverage page' : 'Next assignments';
+  const page = offset => ({ items: [], total: 151, limit: coverage ? 50 : 25, offset, observed_at: '2026-11-06T13:00:00Z', workspace_token: e.token });
+  let pending = null, fail = false;
+  e[coverage ? 'coveragePages' : 'historyPages'] = params => {
+    const offset = Number(params.get('offset'));
+    if (offset && fail) throw Error('Private failed page');
+    return offset && pending ? pending.promise : page(offset);
+  };
+  await e.mount(component, { snapshotGeneration: 1, open() {} });
+  pending = deferred(); await e.click(next);
+  assert.equal(e.button(previous).props.disabled, false); assert.equal(e.button(next).props.disabled, true);
+  assert.match(e.text(), coverage ? /Loading coverage evidence/ : /Loading assigned-work history/);
+  await e.click(previous);
+  await e.change(() => pending.resolve({ ...page(coverage ? 50 : 25), total: 999 }));
+  assert.doesNotMatch(e.text(), /999/); assert.match(e.text(), /151/);
+  pending = null; fail = true; await e.click(next);
+  assert.equal(e.button(previous).props.disabled, false); assert.equal(e.button(next).props.disabled, true);
+  assert.doesNotMatch(e.text(), /Private failed page/);
+  fail = false; await e.click(previous); assert.match(e.text(), /151/);
+  assert.equal(e.writes.length, 0); assert.equal(e.copies.length, 0); await e.finish();
+}
+// Exact older evidence remains complete without a matching history row, including stale/cancelled caveats.
+{
+  const e = await fixture();
+  e.work.state = 'cancelled'; e.work.source_task_current = false; e.work.business_task_completed = true; e.props.task.status = 'done'; e.task.status = 'done';
+  e.work.reports = [{ id: 'older-report', outcome: 'blocked', summary: 'Unique older selected report', created_at: '2026-11-01T10:00:00Z', provenance: 'native_run_reported', identity: { execution_id: 'older-execution' } }];
+  e.work.events = [{ id: 'older-event', kind: 'intent_invalidated', version: 2, created_at: '2026-11-02T10:00:00Z' }];
+  e.coveragePages = params => ({ items: [{ id: 'assignment:a1', row_kind: 'assignment', task: clone(e.task), assignment: clone(e.work), contacts: [], risk_flags: [], next_action: 'review' }], total: 1, limit: 50, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00Z', workspace_token: e.token });
+  e.historyPages = params => ({ items: [], total: 700, limit: 25, offset: Number(params.get('offset')), observed_at: '2026-11-06T13:00:00Z' });
+  await e.mount('CRMRoot', { ctx: e.ctx, boundIdentity: e.identity }); await e.click('Tasks'); await e.click('Open exact assignment');
+  const selected = () => flatten(e.root().root.findByProps({ 'aria-label': 'Exact assignment selected from coverage' }).children);
+  for (const pattern of [/Unique older selected report/, /Review saved CRM only/, /Cite CRM evidence/, /older-execution/, /Intent Invalidated/, /Stale Source Task/, /pause is unverified/, /Done; completion does not cancel/, /does not verify host terminal success/]) assert.match(selected(), pattern);
+  await e.click('Refresh saved status'); assert.match(selected(), /Unique older selected report/);
+  e.historyError = true; await e.click('Refresh saved status'); assert.match(selected(), /Unique older selected report/);
+  await e.click('Close'); assert.doesNotMatch(e.text(), /Unique older selected report/);
+  e.workGate = deferred(); await e.click('Open exact assignment');
+  await e.change(() => e.state.profile.set('personal'));
+  await e.change(() => e.workGate.resolve(clone(e.work)));
+  assert.doesNotMatch(e.text(), /Unique older selected report/);
+  assert.equal(e.writes.length, 0); assert.equal(e.copies.length, 0); await e.finish();
+}
+// The shared renderer preserves expanded history across refresh, with one set of selected controls.
+{
+  const e = await fixture(); await e.mount('TaskWork', { selectedWork: clone(e.work), snapshotGeneration: 1 });
+  assert.equal(e.root().root.findAllByType('button').filter(node => flatten(node.children) === 'Check native status').length, 1);
+  const history = () => e.root().root.findAllByType('details').find(node => node.props.className === 'hc-work-item');
+  await e.change(() => history().props.onToggle({ currentTarget: { open: true } }));
+  await e.click('Refresh saved status'); assert.equal(history().props.open, true);
+  assert.match(e.text(), /use its selected-assignment controls/); assert.equal(e.writes.length, 0); await e.finish();
+}
+console.log('PASS exact selected evidence and loading/failure pagination recovery; old-page and profile races; no writes; expanded history and nonduplicate controls.');
+
+// Current task evidence can revoke saved freshness, never upgrade stale/unknown saved observations.
+for (const selected of [false, true]) {
+  for (const scenario of ['done-newer', 'open-newer', 'done-same', 'saved-stale', 'saved-unknown', 'missing-current-fields', 'missing-saved-fields']) {
+    const e = await fixture();
+    e.work.business_task_completed = false;
+    e.work.reports = [{ id: 'freshness-report', outcome: 'completed', summary: 'Historical review evidence', created_at: '2026-11-01T10:00:00Z', review_status: 'awaiting_human_review' }];
+    const task = clone(e.task);
+    if (scenario.endsWith('newer')) task.version++;
+    if (scenario.startsWith('done')) task.status = 'done';
+    if (scenario === 'saved-stale') e.work.source_task_current = false;
+    if (scenario === 'saved-unknown') delete e.work.source_task_current;
+    if (scenario.startsWith('missing')) { delete task.status; delete task.version; }
+    if (scenario === 'missing-saved-fields') { delete e.work.source_task_current; delete e.work.business_task_completed; }
+    await e.mount(selected ? 'TaskWork' : 'AssignedWork', { task, selectedWork: selected ? clone(e.work) : undefined, snapshotGeneration: 1 });
+    const evidence = selected ? flatten(e.root().root.findByProps({ 'aria-label': 'Exact assignment selected from coverage' }).children) : e.text();
+    assert.match(evidence, /Historical review evidence/);
+    if (['done-newer', 'open-newer', 'done-same', 'saved-stale'].includes(scenario)) {
+      assert.match(evidence, /Stale Source Task/); assert.doesNotMatch(evidence, /Current at saved evidence read|Awaiting Human Review/);
+    }
+    if (scenario.startsWith('done')) {
+      assert.match(evidence, /Done; completion does not cancel a host job \(current task view\)/);
+      assert.doesNotMatch(evidence, /Open; report does not complete it/);
+    }
+    if (scenario === 'open-newer') assert.match(evidence, /Open; report does not complete it \(current task view\)/);
+    if (scenario === 'missing-current-fields') assert.match(evidence, /current task comparison unavailable[\s\S]*at assignment evidence read; current task state unavailable/);
+    if (scenario === 'missing-saved-fields') { assert.match(evidence, /Source-task freshness unknown/); assert.match(evidence, /Not recorded; current task state unavailable/); }
+    if (scenario === 'saved-unknown') { assert.match(evidence, /Source-task freshness unknown/); assert.doesNotMatch(evidence, /Current at saved evidence read|Awaiting Human Review/); }
+    assert.equal(e.writes.length, 0); assert.equal(e.copies.length, 0); await e.finish();
+  }
+}
+console.log('PASS selected/history task freshness conservatively revoked by current version or status, never upgraded from stale/unknown, with explicit missing-data provenance.');
