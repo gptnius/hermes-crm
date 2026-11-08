@@ -15,14 +15,14 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 - Native conversation companion: open CRM beside an existing verified main Hermes chat; copy a validated minimal record reference in one click, with an optional hideable preview, for manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: preset stage/attention views plus a typed report builder, shared saved definitions, version-pinned table/KPI/bar/line/donut cards and live contributing-record drilldowns. See [flexible reports](docs/FLEXIBLE_REPORTS.md).
-- Upcoming Tasks: the earliest six open tasks, including visibly overdue work, with current linked-contact context and direct task links. Business-task ownership is not inferred from the creator, reminders or current Hermes profile; saved agent-work intent and its human owner remain separate from scheduling and execution.
+- Upcoming Tasks: the earliest six open tasks, including visibly overdue work, with current linked-contact context and direct task links. Task human owners are explicit labels, never inferred from creators, reminders or the current Hermes profile. Saved agent-work intent and its human owner remain separate from task ownership, scheduling and execution.
 - Record history: recent administrative changes retain verified current-contact links. Relationship Activities separately shows completed local Events and self-reported contact logs, not fabricated communication evidence.
 - Companies and Events: explicit Company groups, reviewed primary contact links, paged related records, local appointments/calls with Scheduled, Needs rescheduling, Completed and Cancelled states, versioned corrections and genuine associated tasks. No automatic name merging, invitations, calls or agent execution. See [setup and use](docs/COMPANIES_EVENTS.md).
 - Logged contact: explicit self-reported interactions with corrections, kept separate from CRM edits and optional Gmail observations.
 - Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.
 - Customization: versioned optional text/number/boolean/date/single-select fields on contacts, deals and tasks; native record forms and typed reports use the same catalog as agents. Archive retains definitions/values; used deal stages cannot be archived. See [custom fields and stages](docs/CUSTOMIZATION.md).
-- Follow-ups: timezone-aware due dates, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. A separate reviewed CRM confirmation can schedule, check or cancel that exact future assignment through the existing native conversation. Task-specific Preview/Copy remains available for manual native chat Send. See [assignment workflow](docs/ASSIGNMENT_UI.md).
-- Native Hermes: 67 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
+- Follow-ups: timezone-aware due dates, optional human owners with an explicit workspace policy, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. A separate reviewed CRM confirmation can schedule, check or cancel that exact future assignment through the existing native conversation. Task-specific Preview/Copy remains available for manual native chat Send. See [assignment workflow](docs/ASSIGNMENT_UI.md).
+- Native Hermes: 68 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
 - Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
@@ -89,7 +89,7 @@ agent-result review step and integration gaps remain in the
 [workflow plan](docs/WORKFLOW_REVIEW.md), with unsettled metric, review and
 permission decisions explicitly parked.
 
-Other planned work remains explicitly separate:
+Additional work and remaining limits:
 
 - **Agent work:** a supported safe immediate-execution path, stronger recovery
   evidence, reviewed cadences and bounded research capabilities. Consultation
@@ -104,11 +104,13 @@ Other planned work remains explicitly separate:
   storage destinations and scoped recovery. Uploading a record file does not
   automatically send it to the agent. No attachment upload/store is implemented
   yet; see the [file implementation plan](docs/ATTACHMENTS_PLAN.md).
-- **Task accountability, planned:** tasks already require due dates. Add optional
-  human accountability separately from the agent executor, with required-owner
-  and visible-default policies enabled only for a selected workspace. Personal
-  defaults and legacy ownerless records need explicit choices; no owners are
-  inferred or backfilled. See the [ownership plan](docs/TASK_OWNERSHIP_PLAN.md).
+- **Task accountability, first increment implemented:** tasks require due dates
+  and support a separate human owner label. Optional workspace settings can
+  require owners for new tasks and task-detail edits, including completion, and
+  offer a visible default. No owner is inferred or backfilled. Scheduler and
+  relationship-only maintenance are exempt; older writers/direct SQL are not
+  constrained. Personal settings remain an explicit choice. See
+  [task ownership and limits](docs/TASK_OWNERSHIP.md).
 - **Reporting:** multiple pipelines, stage-transition history and actual outcome
   dates before historical funnels; broader date controls, dashboard-wide filter
   semantics and scale testing. Advanced formulas, arbitrary joins and custom

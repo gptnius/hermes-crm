@@ -66,6 +66,8 @@ export function initializeLifetime(ctx) {
     // Keep an uncertain local save across panel remounts and route ABA. Never
     // store this in browser storage or infer that a missing history row is safe
     // to replace. A second pane shares the same per-task write lock and key.
+    taskOwnerPolicyAttempts: new Map(),
+    taskEditAttempts: new Map(),
     reportAttempts: new Map(),
     protectionAttempts: new Map(),
     contactTransferAttempts: new Map(),
@@ -251,6 +253,42 @@ function taskAssignmentLines(task) {
   return lines;
 }
 
+export const taskOwnerText = task => `Task owner (human): ${task.owner_label || "Not recorded"}`;
+export function taskOwnerPolicy(data) {
+  const policy = data?.meta?.task_owner_policy;
+  if (policy === undefined) return {version:0,required:false,default_owner_label:null};
+  if (!policy || !Number.isSafeInteger(policy.version) || policy.version < 0 || typeof policy.required !== "boolean" || !(policy.default_owner_label === null || (typeof policy.default_owner_label === "string" && policy.default_owner_label.trim() && policy.default_owner_label.length <= 160))) return null;
+  return policy;
+}
+// Receipts confirm the submitted business record, not merely a plausible ID.
+export function confirmedTaskReceipt(path, options, result) {
+  const submitted = options?.body?.data;
+  if (!submitted || !validId(result?.id) || result.version !== (options.method === "POST" ? 1 : submitted.version + 1) || (path !== "/tasks" && result.id !== decodeURIComponent(path.slice(7)))) return false;
+  const micros = value => {
+    if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/.test(value)) throw new Error("Invalid task timestamp");
+    const match = /^(\d{4})-\d\d-\d\dT(\d\d):(\d\d):(\d\d)(?:\.\d{1,6})?(?:Z|[+-](\d\d):(\d\d))$/.exec(value);
+    if (+match[1] < 1 || +match[2] > 23 || +match[3] > 59 || +match[4] > 59 || +(match[5] || 0) > 23 || +(match[6] || 0) > 59 || new Date(value.slice(0,10)+"T00:00:00Z").toISOString().slice(0,10) !== value.slice(0,10)) throw new Error("Invalid task timestamp");
+    const ms = Date.parse(value); if (!Number.isFinite(ms)) throw new Error("Invalid task timestamp");
+    return BigInt(Math.floor(ms / 1000)) * 1000000n + BigInt((value.match(/\.(\d+)/)?.[1] || "").padEnd(6,"0"));
+  };
+  try {
+    if (typeof result.title !== "string" || !result.title.trim() || result.title.length > 200 || !["open","done"].includes(result.status) || !["normal","high"].includes(result.priority) || typeof result.notes !== "string" || result.notes.length > 10000 || ![null,"explicit","default"].includes(result.owner_source) || !(result.owner_label === null || (typeof result.owner_label === "string" && result.owner_label.trim() && result.owner_label.length <= 160)) || (result.owner_label && !["explicit","default"].includes(result.owner_source)) || (result.owner_source === "default" && !result.owner_label)) return false;
+    micros(result.due_at);
+    for (const key of ["title","contact_id","deal_id","due_at","priority","status","notes","owner_label"]) {
+      if (!Object.hasOwn(submitted,key)) continue;
+      let expected = typeof submitted[key] === "string" ? submitted[key].trim() : submitted[key];
+      if (["contact_id","deal_id"].includes(key)) expected ||= null;
+      if (key === "due_at") { if (micros(result[key]) !== micros(expected)) return false; }
+      else if (result[key] !== expected) return false;
+    }
+    if (Object.hasOwn(submitted,"owner_label") && result.owner_source !== (submitted.owner_source || "explicit")) return false;
+    if (submitted.custom_fields) for (const [key,value] of Object.entries(submitted.custom_fields)) {
+      if (value === null) {if (result.custom_fields?.[key] != null) return false;}
+      else if (JSON.stringify(result.custom_fields?.[key]) !== JSON.stringify(value)) return false;
+    }
+    return true;
+  } catch { return false; }
+}
 function UpcomingTask({ task, open, disabled }) {
   const overdue = task.status === "open" && new Date(task.due_at) < new Date();
   return h("article", { className: "hc-upcoming-task" },
@@ -260,7 +298,7 @@ function UpcomingTask({ task, open, disabled }) {
         ? button(`Contact: ${task.contact_name}`, () => open("contacts", task.linked_contact_id), { className: "hc-link-button", disabled })
         : task.contact_id || task.deal_id ? "Contact: Unavailable" : "Contact: No linked contact"),
     h("div", { className: "hc-task-meta" }, `Due ${date(task.due_at)} · ${label(task.priority)} priority`, overdue && badge("overdue")),
-    h("div", { className: "hc-task-assignment" }, "Task assignee: Not recorded"),
+    h("div", { className: "hc-task-assignment" }, taskOwnerText(task)),
     taskAssignmentLines(task).map((line, index) => h("div", { className: "hc-task-assignment", key: index }, line)));
 }
 
@@ -280,7 +318,7 @@ export function routeIdentity(ctx) {
 // app-profile routes, even if someone copied a database and its workspace token.
 export function analyticsOperationStore(ctx, identity, kind) {
   const route = JSON.parse(identity);
-  const stores = lifetimes.get(ctx)[kind === "reports" ? "reportAttempts" : kind === "relationships" ? "relationshipAttempts" : "contactLogAttempts"];
+  const stores = lifetimes.get(ctx)[kind === "ownership" ? "taskOwnerPolicyAttempts" : kind === "reports" ? "reportAttempts" : kind === "relationships" ? "relationshipAttempts" : "contactLogAttempts"];
   const key = JSON.stringify(route.slice(0, 2));
   if (!stores.has(key)) stores.set(key, new Map());
   return stores.get(key);
@@ -1375,7 +1413,7 @@ export function StageChart({ stages, onStage, catalog }) {
     h("p", { role: "status", className: "hc-chart-hint" }, active ? describe(active) : "Hover or focus for details. Select a stage to view its contacts.")
   );
 }
-const EMPTY_FILTERS = { contact_type: "", company: "", email: "", followup: "", priority: "", due: "", min_value: "", max_value: "" };
+const EMPTY_FILTERS = { contact_type: "", company: "", email: "", followup: "", priority: "", due: "", owner: "", owner_label: "", min_value: "", max_value: "" };
 export function dollarFilter(value) {
   if (value === "") return "";
   if (!/^\d+(?:\.\d{1,2})?$/.test(value)) throw new Error("Enter non-negative dollar amounts with at most two decimal places.");
@@ -1411,7 +1449,9 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   const [offset, setOffset] = useState(saved.offset ?? 0);
   const [filterGeneration, setFilterGeneration] = useState(0);
   const [editor, setEditor] = useState(null);
-  const navigationLock = useRef(false); navigationLock.current = Boolean(editor) || relationshipEditing;
+  const [ownerSettings, setOwnerSettings] = useState(null);
+  const latestEditor = useRef(editor); latestEditor.current = editor;
+  const navigationLock = useRef(false); navigationLock.current = Boolean(editor) || Boolean(ownerSettings) || relationshipEditing;
   const [detail, setDetail] = useState(saved.detail ?? null);
   const [detailLoading, setDetailLoading] = useState(false);
   // Navigation stores identities, never cached write authority. Each return reads anew.
@@ -1425,7 +1465,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     if (trailWorkspace.current !== data?.meta.workspace_token) {
       trailWorkspace.current = data?.meta.workspace_token;
       rememberTrail([]); viewRequest.current++;
-      setRelationshipTarget(null); setRelationshipLists({}); setDetail(null); setEditor(null); setDetailLoading(false);
+      setRelationshipTarget(null); setRelationshipLists({}); setDetail(null); setEditor(null); setOwnerSettings(null); setDetailLoading(false);
     }
   }, [data?.meta.workspace_token]);
   const [notice, setNotice] = useState("");
@@ -1498,7 +1538,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     if (["deals", "contacts"].includes(kind) && stage) params.set("stage", stage);
     if (kind === "tasks" && status !== "all") params.set("status", status);
     const names = kind === "contacts" ? ["contact_type", "company", "email", "followup"]
-      : kind === "deals" ? ["company", "min_value", "max_value"] : ["priority", "due"];
+      : kind === "deals" ? ["company", "min_value", "max_value"] : ["priority", "due", "owner", "owner_label"];
     if (kind === "contacts") { params.set("limit", "50"); params.set("offset", String(offset)); }
     const stop = ctx.setTimeout(async () => {
       try {
@@ -1539,12 +1579,27 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   }
   async function write(path, options, recordEditor = null, returnRecord = null) {
     if (mutationLock.current || !client.current()) return false;
+    const taskStore = path.startsWith("/tasks") && options.method !== "GET" ? lifetime.taskEditAttempts : null;
+    const taskKey = JSON.stringify([JSON.parse(identity).slice(0,2), options.body?.workspace_token, path]);
+    let taskAttempt = taskStore?.get(taskKey);
+    if (taskAttempt?.state === "pending") { setError("This task already has a save in progress in another CRM view. Wait for that outcome before saving again."); return false; }
+    if (taskAttempt?.state === "rejected") {
+      if (recordEditor?.rejectedReview !== taskAttempt) { setError("The earlier request was rejected. Review the current task and ownership policy before saving a corrected draft."); return false; }
+      taskAttempt = null; // The explicit fresh review authorizes a new request, never replay of the rejected key.
+    }
+    if (taskStore) {
+      if (taskAttempt) options = JSON.parse(taskAttempt.payload);
+      else { options = {...options, body:{...options.body, idempotency_key:options.body.idempotency_key || crypto.randomUUID()}}; taskAttempt = {payload:JSON.stringify(options), recordEditor, state:"pending"}; taskStore.set(taskKey, taskAttempt); }
+      taskAttempt.state = "pending";
+    }
     mutationLock.current = true;
     setBusy(true);
     setError("");
     try {
       const viewTicket = viewRequest.current;
       const result = await client.request(path, options);
+      if (taskAttempt && !confirmedTaskReceipt(path, options, result)) throw new Error("Task save receipt did not match the reviewed fields and expected version. Retry the original request.");
+      if (taskStore) taskStore.delete(taskKey);
       if (!client.current() || viewTicket !== viewRequest.current || options.body?.workspace_token !== latestWorkspace.current) return false;
       if (recordEditor && !recordEditor.row && !validId(result?.id))
         throw new Error("The created record ID was not confirmed. Retry the original request with its retained key.");
@@ -1559,9 +1614,14 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       else if (returnRecord) await open(returnRecord.kind, returnRecord.id, returnRecord.assignmentId ?? null, { replace: true, afterSave: true });
       return true;
     } catch (e) {
+      if (taskAttempt) {
+        taskAttempt.state = "unknown";
+        if (Number.isInteger(e.status) && e.status >= 400 && e.status < 500 && ![408,425,429].includes(e.status)) { taskAttempt.state = "rejected"; }
+      }
+      if (taskAttempt?.state === "rejected" && client.current()) setEditor(previous => previous && previous.revision === viewRequest.current && previous.workspaceToken === options.body.workspace_token && previous.kind === "tasks" ? {...previous, taskAttempt, rejectedReview:null} : previous);
       if (client.current())
         setError(
-          `${e.message} If the request may have reached the backend, refresh before trying again. Creates retain their retry key.`,
+          taskAttempt?.state === "rejected" ? `${e.message} Task save was rejected. Your draft is retained. Review the current task and ownership policy before saving a corrected request.` : taskAttempt ? `${e.message} Task save is unconfirmed. Repeat the same action to retry its exact original fields and key, or reopen Edit to review the pending request. No completion is assumed.` : `${e.message} If the request may have reached the backend, refresh before trying again. Creates retain their retry key.`,
         );
       return false;
     } finally {
@@ -1634,6 +1694,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     if (recovering) { kind = pending.path === '/relationship-contacts' ? 'contacts' : 'events'; initial = original.data || {}; }
     setEditor({
       kind, recovering,
+      taskAttempt: kind === "tasks" ? lifetime.taskEditAttempts.get(JSON.stringify([JSON.parse(identity).slice(0,2),workspaceToken,`/tasks${row ? "/"+encodeURIComponent(row.id) : ""}`])) : null,
       company: recovering ? (original.company_id ? {id:original.company_id, version:original.expected_company_version} : null) : null,
       createContext: recovering ? (pending.context || {trail:[],listPage:kind}) : creationContext(),
       row,
@@ -1646,6 +1707,35 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     });
     setDetailLoading(false);
     setError("");
+  }
+  async function reviewRejectedTask(capturedEditor) {
+    const attempt = capturedEditor.taskAttempt;
+    if (latestEditor.current?.key !== capturedEditor.key || !attempt || attempt.state !== "rejected" || mutationLock.current || !client.current() || capturedEditor.revision !== viewRequest.current || capturedEditor.workspaceToken !== latestWorkspace.current) return;
+    mutationLock.current = true; setBusy(true); setError("");
+    try {
+      const policy = await client.request(`/task-owner-policy?${new URLSearchParams({workspace_token:capturedEditor.workspaceToken})}`);
+      const row = capturedEditor.row ? await client.request(`/tasks/${encodeURIComponent(capturedEditor.row.id)}?${new URLSearchParams({workspace_token:capturedEditor.workspaceToken})}`) : null;
+      if (!client.current() || capturedEditor.revision !== viewRequest.current || capturedEditor.workspaceToken !== latestWorkspace.current) return;
+      if (latestEditor.current?.key !== capturedEditor.key || attempt.state !== "rejected" || lifetime.taskEditAttempts.get(JSON.stringify([JSON.parse(identity).slice(0,2),capturedEditor.workspaceToken,`/tasks${capturedEditor.row ? "/"+encodeURIComponent(capturedEditor.row.id) : ""}`])) !== attempt) return;
+      if (!taskOwnerPolicy({meta:{task_owner_policy:policy}}) || (capturedEditor.row && (!row || row.id !== capturedEditor.row.id || !positiveVersion(row.version) || !row.due_at))) throw new Error("Current task or ownership policy could not be verified. The rejected draft is retained.");
+      setData(previous => previous?.meta.workspace_token === capturedEditor.workspaceToken ? {...previous,meta:{...previous.meta,task_owner_policy:policy}} : previous);
+      setEditor(previous => previous?.key === capturedEditor.key ? {...previous,row,key:crypto.randomUUID(),rejectedReview:attempt,reviewedPolicy:policy} : previous);
+      setError("The current task and policy are shown with your retained draft. Review differences, correct the draft if needed, then explicitly Save record with a new request key.");
+    } catch(error) {if(client.current() && capturedEditor.revision === viewRequest.current) setError(error.message);}
+    finally {mutationLock.current = false;if(client.current()) setBusy(false);}
+  }
+  function completeTask(task, workspaceToken, returnRecord = null) {
+    if (disabled || viewRevision !== viewRequest.current || workspaceToken !== latestWorkspace.current) return false;
+    const pendingTask = lifetime.taskEditAttempts.get(JSON.stringify([JSON.parse(identity).slice(0,2), workspaceToken, `/tasks/${encodeURIComponent(task.id)}`]));
+    if (pendingTask?.recordEditor || pendingTask?.state === "rejected") {edit("tasks",task,workspaceToken);setError("An earlier task edit is unconfirmed. Save record retries its original fields and key; it will not add a new completion request.");return false;}
+    const policy = taskOwnerPolicy(data);
+    if (!policy) { setError("Task ownership policy is unavailable. Refresh before editing this task."); return false; }
+    if (policy.required && !task.owner_label) {
+      edit("tasks", task, workspaceToken);
+      setError("Choose a human task owner before completing or reopening this task. Review Status and save deliberately.");
+      return false;
+    }
+    return write(`/tasks/${encodeURIComponent(task.id)}`, {method:"PATCH",body:{workspace_token:workspaceToken,data:{version:task.version,status:task.status === "done" ? "open" : "done",owner_policy_version:policy.version}}},null,returnRecord);
   }
   function startRelatedCreate(kind, sourceKind, source) {
     if (navigationLock.current || disabled || mutationLock.current || !client.current() || viewRevision !== viewRequest.current || !validId(source?.id) || source.archived_at) return;
@@ -1727,7 +1817,11 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
   const disabled = busy || loading || !data || !client.current();
   return h(
     Shell,
-    { rootRef: shellRef, overlay: transfer && data ? h(ContactTransferDrawer, {
+    { rootRef: shellRef, overlay: ownerSettings && data ? h(TaskOwnerPolicyPanel, {
+      key:ownerSettings.key, Drawer, client, workspaceToken:ownerSettings.workspaceToken,
+      current:()=>latestWorkspace.current === ownerSettings.workspaceToken && viewRequest.current === ownerSettings.revision,
+      operationStore:analyticsOperationStore(ctx,identity,"ownership"),cancel:()=>setOwnerSettings(null),onSaved:refresh,returnFocus:ownerSettings.returnFocus,
+    }) : transfer && data ? h(ContactTransferDrawer, {
       key: transfer.key, Drawer, client, workspaceToken: transfer.workspaceToken, filters: transfer.filters,
       current: () => latestWorkspace.current === transfer.workspaceToken && viewRequest.current === transfer.revision,
       invalidated: !client.current() || latestWorkspace.current !== transfer.workspaceToken || viewRequest.current !== transfer.revision,
@@ -1740,12 +1834,12 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       captureDownload: typeof sdk.captureGatewayFileDownload === "function" ? sdk.captureGatewayFileDownload : undefined,
       operationStore: lifetime.protectionAttempts, cancel: () => setProtection(null), returnFocus: protection.returnFocus,
     }) : customize && data ? h(Customization, { key: customize.key, Drawer, catalog: workspaceCatalog(data), client, workspaceToken: customize.workspaceToken, current: () => latestWorkspace.current === customize.workspaceToken && viewRequest.current === customize.revision, onSaved: refresh, cancel: () => setCustomize(null), returnFocus: customize.returnFocus }) : editor && data ? (editor.kind === 'events' ? h(RelatedEventEditor, {key: editor.key, editor, client, busy: disabled, error, operationStore: analyticsOperationStore(ctx, identity, "relationships"), cancel: () => { if (editor.revision === viewRequest.current && client.current() && editor.workspaceToken === latestWorkspace.current) { setEditor(null); setError(''); } }, save: (values, session) => saveRelated(values, session, editor)}) : h(Editor, {
-      key: editor.key, editor, data, busy: disabled, error, relationshipClient: client, operationStore: analyticsOperationStore(ctx, identity, "relationships"),
+      key: editor.key, editor, data, busy: disabled, error, reviewRejected:()=>reviewRejectedTask(editor), relationshipClient: client, operationStore: analyticsOperationStore(ctx, identity, "relationships"),
       cancel: () => { if (editor.revision === viewRequest.current && client.current() && editor.workspaceToken === latestWorkspace.current) { setEditor(null); setError(""); } },
       save: (values, session) => session ? saveRelated(values, session, editor) : editor.revision !== viewRequest.current || editor.workspaceToken !== latestWorkspace.current ? false : write(
         `/${editor.kind}${editor.row ? "/" + encodeURIComponent(editor.row.id) : ""}`,
         { method: editor.row ? "PATCH" : "POST", body: {
-          ...(editor.row ? { data: { ...values, version: editor.row.version } } : createPayload(values, editor.key)),
+          ...(editor.row ? { data: { ...values, version: editor.row.version }, ...(editor.kind === "tasks" ? {idempotency_key:editor.key} : {}) } : createPayload(values, editor.key)),
           workspace_token: editor.workspaceToken,
         } }, editor,
       ),
@@ -1800,6 +1894,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
         "div",
         { className: "hc-actions" },
         h("span", { className: "hc-scope" }, `${profile} · ${connection || "local"}`),
+        page === "tasks" && button("Task ownership", () => {if(disabled || navigationLock.current) return; setOwnerSettings({key:crypto.randomUUID(),workspaceToken:data.meta.workspace_token,revision:viewRequest.current,returnFocus:shellRef.current?.ownerDocument.activeElement});}, {disabled:disabled || navigationLock.current,"aria-haspopup":"dialog"}),
         ["contacts", "pipeline", "tasks"].includes(page) && button(
           `+ ${page === "contacts" ? "Contact" : page === "pipeline" ? "Deal" : "Follow-up"}`,
           () => edit(page === "pipeline" ? "deals" : page),
@@ -1845,10 +1940,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
           detail, data, disabled: disabled || (Boolean(editor) || relationshipEditing), client, onSaved: () => refreshDetailAfterRelationshipWrite(refresh, open, client, viewRequest, latestWorkspace, detail), snapshotGeneration, ctx, identity, viewRequest, openNativeChat, companion,
           close: closeDetail,
           backLabel: recordTrail.length > 1 ? `Back to ${label(recordTrail.at(-2).kind)}` : `Back to ${label(listPage.current)}`,
-          complete: () => viewRevision !== viewRequest.current || detail.workspaceToken !== latestWorkspace.current ? false : write(`/tasks/${encodeURIComponent(detail.row.id)}`, {
-            method: "PATCH", body: { workspace_token: detail.workspaceToken,
-              data: { version: detail.row.version, status: detail.row.status === "done" ? "open" : "done" } },
-          }, null, { kind: "tasks", id: detail.row.id, assignmentId: detail.assignment?.id ?? null }),
+          complete: () => completeTask(detail.row, detail.workspaceToken, {kind:"tasks",id:detail.row.id,assignmentId:detail.assignment?.id ?? null}),
           protect: () => setProtection({ key: crypto.randomUUID(), workspaceToken: detail.workspaceToken, revision: viewRequest.current, returnFocus: shellRef.current?.ownerDocument.activeElement, record: { kind: detail.kind, id: (detail.row.contact || detail.row).id } }),
           edit: () => edit(detail.kind, detail.row.contact || detail.row, detail.workspaceToken),
           open, startRelatedCreate,
@@ -1922,7 +2014,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                 ),
                 h("p", { className: "hc-muted" }, "Earliest open tasks, including overdue."),
                 h("details", { className: "hc-task-assignment" }, h("summary", null, "About task assignments"),
-                  h("p", null, "Task assignees are not stored. Agent-work owners are separate. Agent work shows saved intent, not a live execution check.")),
+                  h("p", null, "Task owners record human accountability. Agent-work owners and Hermes execution are separate. Agent work shows saved intent, not a live execution check.")),
                 overview.tasks.length
                   ? h("div", { className: "hc-upcoming-list" }, overview.tasks.map(task => h(UpcomingTask, { key: task.id, task, open, disabled })))
                   : h(
@@ -2012,10 +2104,11 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
             h("div", { className: "hc-actions" },
               (page === "contacts" ? [["contact_type", "Contact type", ["lead", "customer", "partner"]],
                 ["email", "Email", ["present", "missing"]], ["followup", "Follow-up", ["missing", "overdue", "upcoming"]]]
-                : page === "tasks" ? [["priority", "Priority", ["normal", "high"]], ["due", "Due", ["overdue", "upcoming"]]] : [])
+                : page === "tasks" ? [["priority", "Priority", ["normal", "high"]], ["due", "Due", ["overdue", "upcoming"]], ["owner", "Task owner", ["present", "missing"]]] : [])
                 .map(([name, title, options]) => h("label", { key: name }, title,
                   h("select", { value: filters[name], "aria-label": title, onChange: e => changeFilter(name, e.target.value) },
                     h("option", { value: "" }, `Any ${title.toLowerCase()}`), options.map(value => h("option", { key: value, value }, label(value)))))),
+              page === "tasks" && h("label", null, "Exact owner label", h("input", {value:filters.owner_label || "", "aria-label":"Exact owner label",maxLength:160,onChange:e=>changeFilter("owner_label",e.target.value)})),
               ["contacts", "pipeline"].includes(page) && h("label", null, "Legacy company text",
                 h("input", { value: filters.company, "aria-label": "Legacy company text", maxLength: 200, onChange: e => changeFilter("company", e.target.value) })),
               page === "pipeline" && ["min_value", "max_value"].map(name => h("label", { key: name }, name === "min_value" ? "Minimum value (USD)" : "Maximum value (USD)",
@@ -2118,23 +2211,14 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
                           { className: "hc-muted" },
                           `${date(t.due_at)} · ${label(t.priority)} · ${t.contact_name || "Unlinked"}`,
                         ),
+                        h("p", {className:"hc-muted"}, taskOwnerText(t)),
                         badge(`Reminder: ${t.schedule_status}`),
                       ),
                       () => open("tasks", t.id),
                     ),
                     button(
                       t.status === "done" ? "Reopen" : "Complete",
-                      () =>
-                        write(`/tasks/${encodeURIComponent(t.id)}`, {
-                          method: "PATCH",
-                          body: {
-                            data: {
-                              version: t.version,
-                              status: t.status === "done" ? "open" : "done",
-                            },
-                            workspace_token: data.meta.workspace_token,
-                          },
-                        }),
+                      () => completeTask(t, data.meta.workspace_token),
                       { disabled },
                     ),
                   ),
@@ -2487,7 +2571,7 @@ function Detail({ detail, data, disabled, client, onSaved, snapshotGeneration, c
   const linkedButton = (kind, id, name) => id ? button(name || `Open linked ${kind === "contacts" ? "contact" : "deal"}`, () => open(kind, id), { disabled }) : "Not linked";
   const facts = isContact ? [["Email", row.email], ["Legacy company text (unlinked)", row.company], ["Job title", row.title], ["Contact type", label(row.lifecycle)]]
     : isDeal ? [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)], ["Deal value", money(row.value)], ["Stage", stageLabel(data, row.stage)], ["Probability", `${row.probability}%`], ["Expected close", row.close_date || "Not set"]]
-    : [["Due", h("time", { dateTime: row.due_at, title: row.due_at }, date(row.due_at))], ["Priority", label(row.priority)], ["Status", label(row.status)], ["Reminder registration", label(row.schedule_status)], ["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)], ["Deal", linkedButton("deals", row.deal_id, linkedDeal?.title)]];
+    : [["Task owner (human)", row.owner_label || "Not recorded"], ["Owner source", row.owner_source || "Not recorded"], ["Due", h("time", { dateTime: row.due_at, title: row.due_at }, date(row.due_at))], ["Priority", label(row.priority)], ["Status", label(row.status)], ["Reminder registration", label(row.schedule_status)], ["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)], ["Deal", linkedButton("deals", row.deal_id, linkedDeal?.title)]];
   return h("section", { className: "hc-record", "aria-label": "Record details" },
     h("nav", { "aria-label": "Record navigation" }, button(backLabel, close, { disabled }),
       h("span", { "aria-current": "page" }, ` / ${title}`)),
@@ -2529,7 +2613,7 @@ function Detail({ detail, data, disabled, client, onSaved, snapshotGeneration, c
           h("p", { className: "hc-record-meta" }, isContact ? "Up to 100 recent CRM changes for this contact and its currently linked records; older history may not be included." : "Matching changes from the latest 100 workspace activity records.")),
         (isContact || isDeal) && h(RecordSection, { title: "Upcoming follow-ups", action: badge(upcoming.length) },
           upcoming.length ? h("div", { className: "hc-related" }, upcoming.map(task => button(
-            h("div", null, h("b", null, task.title), h("small", null, `${date(task.due_at)} · ${label(task.priority)}`),
+            h("div", null, h("b", null, task.title), h("small", null, `${date(task.due_at)} · ${label(task.priority)}`), h("small", null, taskOwnerText(task)),
               h("small", null, `Reminder registration: ${label(task.schedule_status)}`)),
             () => open("tasks", task.id), { key: task.id, disabled })))
             : h("p", { className: "hc-muted" }, "No open follow-ups in the available records. Create one to record the next step.")),
@@ -2600,8 +2684,11 @@ function RelatedEventEditor({editor, client, busy, error, operationStore, cancel
     h(RelationshipForm, {kind:'events', row:null, initialValues:original, cancelRef, session, busy, pending:!!session.pending(), submit: data => save({data}, session), cancel}));
 }
 
-function Editor({ editor, data, busy, error, save, cancel, relationshipClient, operationStore }) {
+export function Editor({ editor, data, busy, error, save, cancel, reviewRejected, relationshipClient, operationStore }) {
   const { kind, row } = editor;
+  const ownerPolicy = useRef(editor.reviewedPolicy || taskOwnerPolicy(data)).current;
+  const [ownerSource, setOwnerSource] = useState(editor.taskAttempt ? JSON.parse(editor.taskAttempt.payload).body.data.owner_source || "explicit" : "explicit");
+  const ownerPolicyChanged = JSON.stringify(ownerPolicy) !== JSON.stringify(taskOwnerPolicy(data));
   const sessionRef = useRef(null);
   if (!sessionRef.current && relationshipClient) sessionRef.current = relationshipSession(relationshipClient, editor.workspaceToken, () => active.current, operationStore);
   const session = sessionRef.current;
@@ -2614,19 +2701,23 @@ function Editor({ editor, data, busy, error, save, cancel, relationshipClient, o
   const [values, setValues] = useState(() => {
     const keys = kind === "contacts" ? ["name", "email", "company", "title", "lifecycle", "notes"]
       : kind === "deals" ? ["title", "contact_id", "value", "stage", "probability", "close_date", "notes"]
-        : ["title", "contact_id", "deal_id", "due_at", "priority", "status", "notes"];
+        : ["title", "contact_id", "deal_id", "due_at", "priority", "status", "notes", "owner_label"];
     const defaults = { lifecycle: "lead", stage: "lead", probability: stageDefinitions(data).find(stage => stage.key === (editor.initial?.stage || "lead"))?.probability ?? 10, priority: "normal", status: "open", value: 0, ...editor.initial, ...recovery?.data };
+    const taskDraft = editor.taskAttempt ? JSON.parse(editor.taskAttempt.payload).body.data : null;
     return Object.fromEntries(keys.map(key => [key,
+      taskDraft && key !== "due_at" && Object.hasOwn(taskDraft,key) ? taskDraft[key] ?? "" :
       key === "value" ? String((row?.value || 0) / 100)
+        : key === "due_at" && taskDraft?.due_at ? new Date(new Date(taskDraft.due_at).getTime() - new Date(taskDraft.due_at).getTimezoneOffset() * 60000).toISOString().slice(0, 16)
         : key === "due_at" && row?.due_at ? new Date(new Date(row.due_at).getTime() - new Date(row.due_at).getTimezoneOffset() * 60000).toISOString().slice(0, 16)
           : (row?.[key] ?? defaults[key] ?? "")]));
   });
   const initialValues = useRef(JSON.stringify(values));
   const [discard, setDiscard] = useState(false);
   const initialDueInput = useRef(values.due_at);
-  const [customValues, setCustomValues] = useState(row?.custom_fields || recovery?.data?.custom_fields || editor.initial?.custom_fields || {});
-  const [customChanges, setCustomChanges] = useState(recovery?.data?.custom_fields || editor.initial?.custom_fields || {});
-  const [frozen, setFrozen] = useState(null);
+  const initialExactDue = useRef(editor.taskAttempt ? JSON.parse(editor.taskAttempt.payload).body.data.due_at || row?.due_at : row?.due_at);
+  const [customValues, setCustomValues] = useState(editor.taskAttempt ? {...row?.custom_fields,...JSON.parse(editor.taskAttempt.payload).body.data.custom_fields} : row?.custom_fields || recovery?.data?.custom_fields || editor.initial?.custom_fields || {});
+  const [customChanges, setCustomChanges] = useState(editor.taskAttempt ? JSON.parse(editor.taskAttempt.payload).body.data.custom_fields || {} : recovery?.data?.custom_fields || editor.initial?.custom_fields || {});
+  const [frozen, setFrozen] = useState(editor.taskAttempt && !editor.rejectedReview ? JSON.parse(editor.taskAttempt.payload).body.data : null);
   const fields = workspaceCatalog(data)?.fields[kind] || [];
   const stages = stageDefinitions(data);
   const [validation, setValidation] = useState("");
@@ -2643,6 +2734,7 @@ function Editor({ editor, data, busy, error, save, cancel, relationshipClient, o
   }
   function update(key, value) {
     if (!active.current || busy || frozen || pending) return;
+    if (key === "owner_label") setOwnerSource("explicit");
     setValues(old => ({ ...old, [key]: value,
       ...(key === "stage" ? { probability: stages.find(stage => stage.key === value)?.probability ?? 0 } : {}),
     }));
@@ -2654,7 +2746,7 @@ function Editor({ editor, data, busy, error, save, cancel, relationshipClient, o
   }
   const selectOptions = items => items.map(value => [value, label(value)]);
   const field = (key, title, type = "text", options = null, hint = "", wide = false) => {
-    const required = key === "name" || key === "due_at" || (key === "title" && kind !== "contacts") || (key === "contact_id" && kind === "deals");
+    const required = (key === "owner_label" && ownerPolicy?.required) || key === "name" || key === "due_at" || (key === "title" && kind !== "contacts") || (key === "contact_id" && kind === "deals");
     const props = { name: key, value: values[key], onChange: e => update(key, e.target.value), required, disabled: busy || !!frozen || !!pending || (key === "probability" && stages.find(stage => stage.key === values.stage)?.outcome !== "open"),
       "aria-invalid": invalidField === key ? true : undefined,
       "aria-describedby": invalidField === key ? `${editor.key}-validation` : hint ? `${editor.key}-${key}-hint` : undefined };
@@ -2675,10 +2767,10 @@ function Editor({ editor, data, busy, error, save, cancel, relationshipClient, o
   };
   async function submit(event) {
     event.preventDefault();
-    if (!active.current || busy) return;
+    if (!active.current || busy || (editor.taskAttempt?.state === "rejected" && !editor.rejectedReview)) return;
     setValidation(""); setInvalidField("");
     if (pending) { if (pending.state === 'unknown') await save(null, session); return; }
-    if (frozen) { if (!row) await save(frozen); return; }
+    if (frozen) { if (!row || kind === "tasks") await save(frozen); return; }
     const payload = { ...values, ...(Object.keys(customChanges).length ? { custom_fields: customChanges } : {}) };
     const titleKey = kind === "contacts" ? "name" : "title";
     if (!String(payload[titleKey]).trim()) return fail(titleKey, kind === "contacts" ? "Enter the contact’s full name." : "Enter a title for this record.");
@@ -2694,8 +2786,15 @@ function Editor({ editor, data, busy, error, save, cancel, relationshipClient, o
       payload.currency = "USD"; payload.close_date ||= null;
     }
     if (kind === "tasks") {
+      if (!ownerPolicy || ownerPolicyChanged) return fail("owner_label", "Task ownership policy changed or is unavailable. Close and reopen this form to review it before saving.");
+      payload.owner_label = payload.owner_label.trim() || null;
+      if (ownerPolicy.required && !payload.owner_label) return fail("owner_label", "Choose a human task owner. Existing ownerless tasks require a deliberate selection before any edit, including completion.");
+      if (ownerSource === "default" && payload.owner_label !== ownerPolicy.default_owner_label) return fail("owner_label", "The configured default changed. Enter an explicit owner or deliberately select the current displayed default.");
+      payload.owner_policy_version = ownerPolicy.version;
+      payload.owner_source = ownerSource;
+      if (row?.owner_label && payload.owner_label === row.owner_label && ownerSource !== "default") { delete payload.owner_label; delete payload.owner_source; }
       if (!payload.due_at || Number.isNaN(new Date(payload.due_at).getTime())) return fail("due_at", "Choose a valid local due date and time.");
-      payload.due_at = row?.due_at && payload.due_at === initialDueInput.current ? row.due_at : new Date(payload.due_at).toISOString();
+      payload.due_at = initialExactDue.current && payload.due_at === initialDueInput.current ? initialExactDue.current : new Date(payload.due_at).toISOString();
       payload.contact_id ||= null; payload.deal_id ||= null;
     }
     if (!row && kind === 'contacts' && session) {
@@ -2719,10 +2818,17 @@ function Editor({ editor, data, busy, error, save, cancel, relationshipClient, o
   }, h("form", { className: "hc-editor", ref: formRef, onSubmit: submit, "aria-label": `${row ? "Edit" : "Create"} ${kind}`, "aria-busy": busy },
     h("div", { className: "hc-editor-body" },
       h(RelationshipPendingCreate, {attempt:pending}),
+      editor.taskAttempt?.state === "rejected" && !editor.rejectedReview && h("section", {className:"hc-notice",role:"alert"}, h("p",null,"This request was rejected. Its original draft is retained across closing and navigation. It cannot be resubmitted until you review current task and ownership policy versions."), button("Review current task and policy",()=>{if(active.current && !busy) reviewRejected?.();},{disabled:busy || !reviewRejected})),
+      editor.rejectedReview && h("section", {className:"hc-notice","aria-label":"Fresh task and policy review"}, h("h3",null,"Current saved record and retained draft"), h("p",null,`Policy version ${ownerPolicy?.version}. ${row ? `Current task version ${row.version}.` : "New task; no existing record."} The fields below retain your rejected draft. Saving creates a new request; nothing was submitted by this review.`), row && h(Properties,{rows:[["Current title",row.title],["Current due",row.due_at],["Current owner",row.owner_label || "Not recorded"],["Current status",row.status],["Current notes",row.notes || "Not set"]]})),
       discard && h("section", { role: "alert", "aria-label": "Unsaved changes" },
-        h("p", null, frozen ? "This save is unconfirmed. Discarding loses the original retry form; refresh and verify the record before creating it again." : "Discard unsaved changes?"),
+        h("p", null, kind === "tasks" && (frozen || editor.taskAttempt) ? "Close this form? The original request or rejected draft stays available when you reopen this task. Unsaved corrections after a fresh review will be discarded." : frozen ? "This save is unconfirmed. Discarding loses the original retry form; refresh and verify the record before creating it again." : "Discard unsaved changes?"),
         button(frozen ? "Keep retry form" : "Keep editing", () => setDiscard(false), { disabled: busy }),
         button("Discard changes", discardChanges, { disabled: busy })),
+      kind === "tasks" && section("Task accountability", [field("owner_label", "Task owner (human)", "text", null, "Human accountability label, not a verified identity or access permission. Separate from Hermes executor and each assignment’s frozen owner.", true),
+        ownerPolicy?.default_owner_label && button(`Use configured default: ${ownerPolicy.default_owner_label}`, () => { if (!active.current || busy || frozen || pending || ownerPolicyChanged) return; update("owner_label", ownerPolicy.default_owner_label); setOwnerSource("default"); }, {key:"default-owner", disabled:busy || !!frozen || !!pending || ownerPolicyChanged}),
+        h("p", {key:"policy", className:"hc-muted"}, ownerPolicy ? `Reviewed ownership policy version ${ownerPolicy.version} · ${ownerPolicy.required ? "Owner required" : "Owner optional"}${ownerSource === "default" ? " · Configured default selected" : ""}. Owner changes may make saved assignments stale; due dates and assignment execution stay unchanged.` : "Ownership policy unavailable. Reopen after refreshing."),
+        row && !row.owner_label && ownerPolicy?.required && h("p", {key:"legacy",role:"status"}, "This task has no owner. Enter an owner or deliberately select the displayed default before saving."),
+        ownerPolicyChanged && h("p", {key:"changed",role:"alert"}, "Ownership policy changed. Close and reopen to review current policy; this draft will not silently adopt it.")]),
       kind === "contacts" ? [
         section("Contact details", [field("name", "Full name"), field("email", "Email", "email", null, "Optional. Saving an email does not send a message or sync a mailbox.", true), field("company", "Legacy company text (unlinked)"), field("title", "Job title")]),
         section("Relationship", [field("lifecycle", "Contact type", "text", selectOptions(["lead", "customer", "partner"]), "Contact type is separate from the stage of any linked deal.", true)]),
@@ -2735,13 +2841,13 @@ function Editor({ editor, data, busy, error, save, cancel, relationshipClient, o
       company && h('p', null, `Reviewed Company: ${company.id} · Version ${company.version}`),
       pending?.state === 'unknown' && h('p', {role:'status'}, 'Outcome unknown. Save retries the original request, including its original Company and fields. Closing does not discard this pending operation.'),
       fields.some(field => !field.archived) && section("Custom fields", [h(CustomFieldInputs, { key: "custom-fields", fields, values: customValues, disabled: busy || !!frozen || !!pending, update: (key, value) => { if (!active.current || busy || frozen || pending) return; setCustomValues(old => ({ ...old, [key]: value })); setCustomChanges(old => ({ ...old, [key]: value })); } })], "Optional. Clearing an edited field removes its value; untouched fields are preserved."),
-      frozen && h("p", { role: "status" }, row ? "This save was not confirmed. Close, refresh and reopen the record before editing again." : "Values are frozen. Save again retries the exact original request."),
+      frozen && h("p", { role: "status" }, kind === "tasks" && editor.taskAttempt?.state === "rejected" ? "The request was rejected. Review current task and policy versions before correcting this retained draft." : row && kind !== "tasks" ? "This save was not confirmed. Close, refresh and reopen the record before editing again." : "Values are frozen. Save again retries the exact original request."),
       section("Notes", [field("notes", "Notes", "text", null, "Context stored on this CRM record.")])),
     h("footer", { className: "hc-editor-footer" },
       (validation || error) && h("div", { id: `${editor.key}-validation`, role: "alert", className: "hc-notice" }, validation || error),
       h("div", { className: "hc-row" }, h("small", { className: "hc-muted" }, row ? "Changes are checked against the saved version." : "Saved to this agent’s CRM."),
         h("div", { className: "hc-actions" }, button("Cancel", dismiss, { disabled: busy }),
-          h("button", { type: "submit", className: "hc-primary", disabled: busy || (!!frozen && !!row) }, busy ? "Saving…" : "Save record"))))));
+          h("button", { type: "submit", className: "hc-primary", disabled: busy || (editor.taskAttempt?.state === "rejected" && !editor.rejectedReview) || (!!frozen && !!row && kind !== "tasks") }, busy ? "Saving…" : "Save record"))))));
 }
 
 export default {
@@ -3994,7 +4100,7 @@ export function confirmedRelationshipReceipt(path, method, body, result) {
   if (parts[0] === 'contacts' && parts.length === 3 && parts[2] === 'company' && method === 'PUT')
     return result.contact_id === parts[1] && atLeast(result.contact_version, body.expected_contact_version) && Object.hasOwn(result, 'company_id') && result.company_id === body.company_id;
   if (parts[0] === 'events' && parts.length === 3 && parts[2] === 'tasks' && method === 'POST')
-    return record(result.task) && result.task_id === result.task.id && record(result.event) && result.event.id === parts[1] && result.event_id === parts[1] && atLeast(result.event.version, body.expected_version);
+    return record(result.task) && (!Object.hasOwn(body.data || {}, 'owner_label') || result.task.owner_label === body.data.owner_label) && result.task_id === result.task.id && record(result.event) && result.event.id === parts[1] && result.event_id === parts[1] && atLeast(result.event.version, body.expected_version);
   if (parts[0] === 'tasks' && parts[2] === 'event') {
     if (!record(result.task) || result.task_id !== parts[1] || result.task.id !== parts[1] || !atLeast(result.task.version, body.expected_task_version)) return false;
     if (parts.length === 4 && parts[3] === 'unlink' && method === 'POST')
@@ -4093,6 +4199,7 @@ export function RelationshipRows({ session, path, params = {}, open, revision = 
       h('small', null, [row.email, row.domain, row.status && relLabel(row.status), row.starts_at && relReadable(row.starts_at,row.timezone), row.happened_at && relReadable(row.happened_at), relLabel(row.timestamp_basis), relLabel(row.relationship_basis || row.association_basis)].filter(Boolean).join(' · ')),
       h('details', null, h('summary', null, 'Record details'), h('small', null, `ID: ${row.id}`), ...['starts_at','ends_at','happened_at'].filter(key=>row[key]).map(key=>h('small',{key},`${relLabel(key)}: ${row[key]}`))),
       (kind === 'tasks' || row.event_id) && h('div', { className: 'hc-relationship-bases' }, h('small', null, `Current-contact Company: ${row.company_name || 'None'}${row.company_id ? ' · ' + row.company_id : ''} · Basis: ${relLabel(row.company_link_basis) || 'not linked'}`), h('small', null, `Explicit Event Company: ${row.event_company_name || 'None'}${row.event_company_id ? ' · ' + row.event_company_id : ''} · Event: ${row.event_title || row.event_id || 'not linked'} · Basis: ${relLabel(row.event_link_basis) || 'not linked'}`)),
+      kind === 'tasks' && h('small', null, `Task owner (human): ${row.owner_label || 'Not recorded'} · Due: ${relReadable(row.due_at)}`),
       row.provenance && h('small', null, `Provenance: ${row.provenance}`),
       row.source && h('small', null, `Source: ${row.source} · Self-reported; not verified attendance or delivery`)))),
     h(RelationshipPager, { page, offset, change: setOffset, disabled })));
@@ -4131,7 +4238,18 @@ export function RelationshipForm({ kind, row, initialValues = null, action, sess
   const originalZone = useRef((row || initialValues)?.timezone || 'UTC').current;
   const [zone, setZone] = useState(originalZone), [walls, setWalls] = useState(()=>Object.fromEntries(fields.filter(key=>key.endsWith('_at')).map(key=>[key, values[key] ? relWall(values[key],originalZone) : '']))), [choices,setChoices] = useState({});
   const [discard,setDiscard] = useState(false);
-  const dirty = JSON.stringify(values)!==JSON.stringify(original) || zone!==originalZone || Object.entries(walls).some(([key,value])=>value!==(original[key] ? relWall(original[key],originalZone) : '')) || Object.values(choices).some(Boolean);
+  const [ownerPolicy,setOwnerPolicy] = useState(null), [ownerLabel,setOwnerLabel] = useState(''), [ownerSource,setOwnerSource] = useState('explicit'), [ownerPolicyError,setOwnerPolicyError] = useState('');
+  useEffect(() => {
+    if (action !== 'task') return;
+    let live = true;
+    session.read('/task-owner-policy').then(policy => {
+      if (!live) return;
+      if (!policy || !Number.isSafeInteger(policy.version) || policy.version < 0 || typeof policy.required !== 'boolean' || !(policy.default_owner_label === null || (typeof policy.default_owner_label === 'string' && policy.default_owner_label.trim() && policy.default_owner_label.length <= 160))) throw new Error('Task ownership policy could not be verified. Close and reopen the task form.');
+      setOwnerPolicy(policy);
+    }).catch(error => {if(live) setOwnerPolicyError(error.message);});
+    return () => {live = false;};
+  }, [session,action]);
+  const dirty = !!ownerLabel || JSON.stringify(values)!==JSON.stringify(original) || zone!==originalZone || Object.entries(walls).some(([key,value])=>value!==(original[key] ? relWall(original[key],originalZone) : '')) || Object.values(choices).some(Boolean);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const requestCancel = () => { if (!active.current || busy) return; if (dirty) setDiscard(true); else cancel(); };
@@ -4145,6 +4263,13 @@ export function RelationshipForm({ kind, row, initialValues = null, action, sess
     if (data.timezone) new Intl.DateTimeFormat('en', { timeZone: data.timezone }).format();
     if (data.starts_at && data.ends_at && relMicros(data.ends_at) <= relMicros(data.starts_at)) throw new Error('End must follow start.');
     if (data.outcome_happened_at && relMicros(data.outcome_happened_at) > BigInt(Date.now()) * 1000n) throw new Error('Claimed occurrence cannot be in the future.');
+    if (action === 'task') {
+      if (!ownerPolicy) throw new Error('Task ownership policy is not available. Close and reopen this form before saving.');
+      data.owner_label = ownerLabel.trim() || null;
+      if (ownerPolicy.required && !data.owner_label) throw new Error('Choose a human task owner before saving.');
+      data.owner_source = ownerSource;
+      data.owner_policy_version = ownerPolicy.version;
+    }
     submit(data);
   } catch (error) { setError(error.message); } }, onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); e.stopPropagation?.(); requestCancel(); } } },
     h('h3', null, `${relLabel(action || (row ? 'Edit' : 'Create'))} ${action === 'task' ? 'associated task' : kind === 'companies' ? 'Company' : 'Event'}`),
@@ -4152,9 +4277,14 @@ export function RelationshipForm({ kind, row, initialValues = null, action, sess
     action === 'task' && h('p', { className: 'hc-muted' }, 'Review the exact contact and deal context prefilled from this Event below, or clear each selection for an Event-only task. No Company is inferred. The explicit Event link remains separate from the task’s direct contact or deal context.'),
     fields.some(key=>key.endsWith('_at')) && h('label', null, 'Timezone for entered times', h('input', {value:zone, required:true, disabled:busy || pending, placeholder:'America/New_York', onChange:e=>{setZone(e.target.value); setChoices({}); if(fields.includes('timezone')) change('timezone',e.target.value);}}), h('small', null, 'Changing the zone reinterprets the entered wall times. New or changed times must use years 1900–2100; unchanged original times are preserved. Review each preview before saving.')),
     fields.filter(key=>key!=='timezone').map((key, index) => key.endsWith('_at') ? h(RelationshipTime, {key,name:key,value:walls[key],zone,original:original[key],originalZone,choice:choices[key] || '',change:value=>{setWalls(previous=>({...previous,[key]:value}));setChoices(previous=>({...previous,[key]:''}));},choose:value=>setChoices(previous=>({...previous,[key]:value})),disabled:busy || pending}) : h('label', { key }, relLabel(key), key === 'kind' ? h('select', { value: values[key], disabled: busy || pending, onChange: e => change(key, e.target.value) }, h('option', { value: 'appointment' }, 'Appointment'), h('option', { value: 'call' }, 'Call')) : h(['notes', 'reason', 'outcome_summary'].includes(key) ? 'textarea' : 'input', { ref: index === 0 ? first : undefined, value: values[key], disabled: busy || pending, required: !['domain', 'notes'].includes(key), onChange: e => change(key, e.target.value) }))),
+    action === 'task' && h('fieldset', {className:'hc-form-section',disabled:busy || pending}, h('legend',null,'Task accountability'),
+      h('label',null,'Task owner (human)',h('input',{name:'owner_label',value:ownerLabel,maxLength:160,required:ownerPolicy?.required || false,disabled:busy || pending || !ownerPolicy,onChange:e=>{if(active.current && !busy && !pending){setOwnerLabel(e.target.value);setOwnerSource('explicit');}}})),
+      ownerPolicy?.default_owner_label && relButton(`Use configured default: ${ownerPolicy.default_owner_label}`,()=>{if(active.current && !busy && !pending){setOwnerLabel(ownerPolicy.default_owner_label);setOwnerSource('default');}},busy || pending),
+      h('p',null,ownerPolicy ? `Reviewed policy version ${ownerPolicy.version} · ${ownerPolicy.required ? 'Owner required' : 'Owner optional'}${ownerSource === 'default' ? ' · Configured default selected' : ''}` : ownerPolicyError || 'Loading ownership policy…'),
+      h('small',null,'Human accountability label, not verified identity or access permission. Separate from Hermes executor and assignment owners. Saving this task does not schedule execution.')),
     action === 'task' && !values.contact_id && !values.deal_id && h('p', {className:'hc-notice'}, 'An Event-only task does not count as a contact follow-up. Link a contact or deal if this task is intended for contact follow-up.'),
     kind === 'events' && (!action || action === 'task') && (action === 'task' ? ['contacts', 'deals'] : ['contacts', 'deals', 'companies']).map(entity => { const key = entity === 'companies' ? 'company_id' : `${entity.slice(0, -1)}_id`; return h(RelationshipSelector, { key, session, kind: entity, label: `Related ${entity}`, value: values[key], disabled: busy || pending, onChange: id => change(key, id) }); }),
-    error && h('p', { role: 'alert' }, error), h('div', { className: 'hc-actions' }, h('button', { type: 'submit', disabled: busy || pending, className: 'hc-primary' }, busy ? 'Saving…' : 'Save'), relButton('Cancel', requestCancel, busy)), discard && h('div', {className:'hc-discard-choice',role:'alert'}, h('p', null, 'Discard unsaved changes?'), relButton('Keep editing', ()=>setDiscard(false)), relButton('Discard changes', cancel, busy)));
+    error && h('p', { role: 'alert' }, error), h('div', { className: 'hc-actions' }, h('button', { type: 'submit', disabled: busy || pending || (action === 'task' && !ownerPolicy), className: 'hc-primary' }, busy ? 'Saving…' : 'Save'), relButton('Cancel', requestCancel, busy)), discard && h('div', {className:'hc-discard-choice',role:'alert'}, h('p', null, 'Discard unsaved changes?'), relButton('Keep editing', ()=>setDiscard(false)), relButton('Discard changes', cancel, busy)));
 }
 export function Relationships({ client, workspaceToken, page = 'companies', initial = null, startRelatedCreate, onCreated, onCreateRejected, createContext = null, open, onSaved, onEditingChange, navigateRecord, onBack, initialListState = {}, onListStateChange, disabled = false, operationStore = null }) {
   const sessionRef = useRef(null);
@@ -4246,3 +4376,300 @@ export function TaskEventRelationship({ client, workspaceToken, task, open, disa
     event ? h('div', null, h('p', null, `Unlink from ${event.title} · ${event.id} · Event version ${event.version} · Task version ${task.version}? This keeps both records.`), relButton('Unlink from reviewed Event', () => unlink(), locked), relButton('Cancel unlink', () => setEvent(null), busy)) : relButton('Review Event unlink', review, locked));
 }
 // END GENERATED RELATIONSHIPS PANEL
+
+// BEGIN GENERATED TASK OWNERSHIP PANEL
+// The caller's store is scoped to a native connection/profile. Tokens partition
+// workspaces inside it. Never persist these operations in browser/global storage.
+const taskOwnerPolicyStores = new WeakMap();
+const taskOwnerPolicyStoreMeta = new WeakMap();
+const taskOwnerPolicyObjectIds = new WeakMap();
+let taskOwnerPolicyObjectSequence = 0;
+function taskOwnerPolicyObjectId(object) {
+  if (!object) return 0;
+  if (!taskOwnerPolicyObjectIds.has(object)) taskOwnerPolicyObjectIds.set(object, ++taskOwnerPolicyObjectSequence);
+  return taskOwnerPolicyObjectIds.get(object);
+}
+function taskOwnerPolicyValue(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      !Number.isSafeInteger(value.version) || value.version < 0 ||
+      typeof value.required !== 'boolean' ||
+      !(value.default_owner_label === null || (typeof value.default_owner_label === 'string' && value.default_owner_label.trim() && value.default_owner_label.length <= 160)) ||
+      value.legacy_edit_rule !== 'owner_required_on_edit') throw new Error('The current task owner policy could not be verified. Refresh before editing.');
+  return Object.freeze({ version: value.version, required: value.required, default_owner_label: value.default_owner_label, legacy_edit_rule: value.legacy_edit_rule });
+}
+function taskOwnerPolicyDraft(value) {
+  if (!value || typeof value.required !== 'boolean' || !(value.default_owner_label == null || typeof value.default_owner_label === 'string')) throw new Error('Choose whether task owners are required and enter a valid default owner label.');
+  const label = (value.default_owner_label || '').trim();
+  if (label.length > 160) throw new Error('The default owner label must be 160 characters or fewer.');
+  return Object.freeze({ required: value.required, default_owner_label: label || null });
+}
+function taskOwnerPolicySame(left, right) {
+  return !!left && !!right && left.version === right.version && left.required === right.required && left.default_owner_label === right.default_owner_label && left.legacy_edit_rule === right.legacy_edit_rule;
+}
+
+export function taskOwnerPolicySession(client, workspaceToken, current = () => true, operationStore = null) {
+  const store = operationStore || taskOwnerPolicyStores.get(client) || new Map();
+  if (!operationStore) taskOwnerPolicyStores.set(client, store);
+  if (!taskOwnerPolicyStoreMeta.has(store)) taskOwnerPolicyStoreMeta.set(store, { listeners: new Set(), scopes: new Map() });
+  const shared = taskOwnerPolicyStoreMeta.get(store);
+  if (!shared.scopes.has(workspaceToken)) shared.scopes.set(workspaceToken, { epoch: 0, draft: null, receipt: null, rejection: null });
+  const meta = shared.scopes.get(workspaceToken);
+  let alive = true, revoked = false, lifetime = 0, readSequence = 0, reviewed = null;
+  const valid = () => {
+    if (!alive || revoked) return false;
+    if (!client.current() || !current()) { revoked = true; reviewed = null; return false; }
+    return typeof workspaceToken === 'string' && workspaceToken.length > 0;
+  };
+  const notify = () => {
+    meta.epoch++;
+    for (const listener of shared.listeners) {
+      // An observer cannot turn a confirmed write into an unknown outcome.
+      try { listener(); } catch { /* Each panel owns its rendering errors. */ }
+    }
+  };
+  const invalidateReview = () => { reviewed = null; readSequence++; };
+  async function read() {
+    if (!valid()) return null;
+    const sequence = ++readSequence, generation = lifetime, epoch = meta.epoch;
+    reviewed = null;
+    try {
+      const value = await client.request(`/task-owner-policy?${new URLSearchParams({ workspace_token: workspaceToken })}`);
+      if (!valid() || generation !== lifetime || sequence !== readSequence || epoch !== meta.epoch) return null;
+      return taskOwnerPolicyValue(value);
+    } catch (error) {
+      if (!valid() || generation !== lifetime || sequence !== readSequence || epoch !== meta.epoch) return null;
+      throw error;
+    }
+  }
+  async function perform(attempt) {
+    const generation = lifetime;
+    attempt.state = 'running';
+    notify();
+    let result;
+    try {
+      const response = await client.request(attempt.path, { method: 'PATCH', body: JSON.parse(attempt.payload) });
+      result = taskOwnerPolicyValue(response);
+      const sent = JSON.parse(attempt.payload).data;
+      if (result.version !== sent.version + 1 || result.required !== sent.required || result.default_owner_label !== sent.default_owner_label) throw new Error('The save receipt did not match the reviewed policy.');
+    } catch (error) {
+      if (store.get(workspaceToken) !== attempt) return null;
+      const status = Number(error.status ?? error.statusCode);
+      if ([400, 404, 409, 422].includes(status)) {
+        store.delete(workspaceToken);
+        meta.draft = taskOwnerPolicyDraft(JSON.parse(attempt.payload).data);
+        meta.rejection = Object.freeze({ status, message: 'The policy save was rejected. Your draft is retained. Refresh the current policy, then review your changes again before saving.' });
+        notify();
+        if (valid() && generation === lifetime) throw Object.assign(new Error(meta.rejection.message), { status, rejected: true });
+        return null;
+      }
+      attempt.state = 'unknown';
+      notify();
+      if (valid() && generation === lifetime) throw new Error('Save outcome unknown. The original request is retained. Retry only that exact request before making another policy change.');
+      return null;
+    }
+    if (store.get(workspaceToken) === attempt) {
+      store.delete(workspaceToken);
+      meta.receipt = result;
+      meta.draft = null;
+      meta.rejection = null;
+      notify();
+    }
+    return valid() && generation === lifetime ? result : null;
+  }
+  return {
+    valid,
+    activate() { alive = true; lifetime++; invalidateReview(); },
+    close() { alive = false; lifetime++; invalidateReview(); },
+    subscribe(listener) { shared.listeners.add(listener); return () => shared.listeners.delete(listener); },
+    pending: () => store.get(workspaceToken) || null,
+    snapshot: () => ({ ...meta }),
+    invalidateReview,
+    read,
+    async review(draft, expectedPolicy) {
+      if (!valid() || store.has(workspaceToken)) return null;
+      const values = taskOwnerPolicyDraft(draft);
+      const policy = await read();
+      if (!policy || store.has(workspaceToken)) return null;
+      if (!expectedPolicy || !taskOwnerPolicySame(policy, expectedPolicy)) return Object.freeze({ changed: true, policy });
+      if (policy.version >= Number.MAX_SAFE_INTEGER) throw new Error('This policy version cannot be safely updated.');
+      reviewed = Object.freeze({ policy, data: Object.freeze({ version: policy.version, ...values }), epoch: meta.epoch, lifetime });
+      return reviewed;
+    },
+    write(review) {
+      if (!valid() || store.has(workspaceToken) || !review || review !== reviewed || review.epoch !== meta.epoch || review.lifetime !== lifetime) return Promise.resolve(null);
+      const payload = JSON.stringify({ workspace_token: workspaceToken, idempotency_key: crypto.randomUUID(), data: review.data });
+      const attempt = { state: 'running' };
+      Object.defineProperties(attempt, { path: { value: '/task-owner-policy', enumerable: true }, payload: { value: payload, enumerable: true } });
+      Object.seal(attempt);
+      reviewed = null;
+      meta.draft = taskOwnerPolicyDraft(review.data);
+      meta.rejection = null;
+      store.set(workspaceToken, attempt);
+      return perform(attempt);
+    },
+    retry() {
+      const attempt = store.get(workspaceToken);
+      return valid() && attempt?.state === 'unknown' ? perform(attempt) : Promise.resolve(null);
+    },
+    discardDraft() {
+      if (store.has(workspaceToken)) return;
+      meta.draft = null; meta.rejection = null; reviewed = null;
+    },
+  };
+}
+
+// A changed connection, profile store, or workspace gets a fresh React lifetime.
+// Old event handlers and async work still reference the closed original session.
+export function TaskOwnerPolicyPanel(props) {
+  const key = JSON.stringify([taskOwnerPolicyObjectId(props.client), taskOwnerPolicyObjectId(props.operationStore), props.workspaceToken]);
+  return h(TaskOwnerPolicyView, { ...props, key });
+}
+function TaskOwnerPolicyView({ Drawer, client, workspaceToken, current = () => true, operationStore, cancel, onSaved, returnFocus }) {
+  const currentRef = useRef(current), savedRef = useRef(onSaved);
+  currentRef.current = current; savedRef.current = onSaved;
+  const sessionRef = useRef(null);
+  if (!sessionRef.current) sessionRef.current = taskOwnerPolicySession(client, workspaceToken, () => currentRef.current(), operationStore);
+  const session = sessionRef.current;
+  const [policy, setPolicy] = useState(null), [draft, setDraft] = useState(() => session.snapshot().draft);
+  const [review, setReview] = useState(null), [loading, setLoading] = useState(false);
+  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [discard, setDiscard] = useState(false);
+  const [refreshNeeded, setRefreshNeeded] = useState(false), [, setGeneration] = useState(0);
+  const localLock = useRef(false), mounted = useRef(false), loadId = useRef(0);
+  const seen = useRef(session.snapshot()), refreshLock = useRef(false);
+  const active = () => mounted.current && session.valid();
+  async function refreshSaved(receipt) {
+    if (!active() || refreshLock.current) return;
+    refreshLock.current = true;
+    try {
+      const refreshed = savedRef.current ? await savedRef.current(receipt) : true;
+      if (!active() || session.snapshot().receipt !== receipt) return;
+      if (refreshed === false) throw new Error('Record refresh failed.');
+      setRefreshNeeded(false);
+      setNotice(`Task owner policy saved as version ${receipt.version}.`);
+    } catch {
+      if (active() && session.snapshot().receipt === receipt) {
+        setRefreshNeeded(true);
+        setNotice('The policy was saved, but the CRM view could not be refreshed. Refresh the saved view. This does not resend the policy change.');
+      }
+    } finally { refreshLock.current = false; }
+  }
+  async function load() {
+    if (!active() || localLock.current || session.pending()) return;
+    localLock.current = true;
+    const id = ++loadId.current;
+    setLoading(true); setReview(null); setError('');
+    try {
+      const value = await session.read();
+      if (!active() || id !== loadId.current) return;
+      if (!value) { setError('The policy changed while loading. Refresh it before reviewing your changes.'); return; }
+      setPolicy(value);
+      setDraft(old => old || taskOwnerPolicyDraft(value));
+      if (policy && !taskOwnerPolicySame(policy, value)) setNotice('The policy changed. Your draft is retained. Review it against the current policy before saving.');
+    } catch {
+      if (active() && id === loadId.current) setError('The current policy could not be loaded. No changes were sent. Refresh the policy to try again.');
+    } finally {
+      if (id === loadId.current) { localLock.current = false; if (active()) setLoading(false); }
+    }
+  }
+  useEffect(() => {
+    mounted.current = true; session.activate();
+    const unsubscribe = session.subscribe(() => {
+      if (!active()) return;
+      const state = session.snapshot();
+      setGeneration(value => value + 1);
+      if (state.epoch !== seen.current.epoch) { setReview(null); session.invalidateReview(); }
+      if (state.receipt && state.receipt !== seen.current.receipt) {
+        setPolicy(state.receipt); setDraft(taskOwnerPolicyDraft(state.receipt)); setError('');
+        setNotice(`Task owner policy saved as version ${state.receipt.version}.`);
+        void refreshSaved(state.receipt);
+      }
+      if (state.rejection && state.rejection !== seen.current.rejection) {
+        setPolicy(null); setDraft(state.draft); setError(state.rejection.message); setNotice('');
+      }
+      seen.current = state;
+    });
+    if (session.snapshot().rejection) setError(session.snapshot().rejection.message);
+    if (!session.pending()) void load();
+    return () => { mounted.current = false; loadId.current++; localLock.current = false; session.close(); unsubscribe(); };
+  }, [session]);
+  function change(key, value) {
+    if (!active() || localLock.current || session.pending() || refreshNeeded) return;
+    session.invalidateReview(); setReview(null); setError(''); setNotice('');
+    setDraft(old => ({ ...old, [key]: value }));
+  }
+  async function prepare(event) {
+    event?.preventDefault();
+    if (!active() || localLock.current || session.pending() || !policy || !draft || refreshNeeded) return;
+    localLock.current = true; setLoading(true); setReview(null); setError(''); setNotice('');
+    try {
+      const value = await session.review(draft, policy);
+      if (!active()) return;
+      if (!value) { setError('The policy changed while reviewing. Refresh and review it again.'); return; }
+      setPolicy(value.policy);
+      if (value.changed) setNotice('The current policy changed since it was loaded. Your draft is retained. Review changes again against this version.');
+      else setReview(value);
+    } catch (cause) { if (active()) setError(cause.message); }
+    finally { localLock.current = false; if (active()) setLoading(false); }
+  }
+  async function save() {
+    if (!active() || localLock.current || session.pending() || !review || refreshNeeded) return;
+    setError(''); setNotice('');
+    try { await session.write(review); }
+    catch (cause) { if (active()) setError(cause.message); }
+  }
+  async function retry() {
+    if (!active() || localLock.current) return;
+    setError('');
+    try { await session.retry(); }
+    catch (cause) { if (active()) setError(cause.message); }
+  }
+  const pending = session.pending(), valid = active();
+  const locked = !valid || loading || !!pending || refreshNeeded;
+  const dirty = !!draft && (!policy || draft.required !== policy.required || (draft.default_owner_label || '') !== (policy.default_owner_label || ''));
+  function dismiss() {
+    if (pending || dirty) { setDiscard(true); return; }
+    close();
+  }
+  function close() {
+    session.discardDraft(); mounted.current = false; session.close(); cancel();
+  }
+  const button = (text, action, disabled = false, props = {}) => h('button', { type: 'button', onClick: action, disabled, ...props }, text);
+  const frozen = pending ? JSON.parse(pending.payload).data : null;
+  const preview = review?.data || frozen;
+  return h(Drawer, { title: 'Task owner policy', subtitle: 'Set human accountability for tasks in this workspace.', busy: false, cancel: dismiss, returnFocus },
+    h('div', { className: 'hc-editor-body' },
+      h('p', { className: 'hc-muted' }, 'An owner label records human accountability. It is not an access-control permission, verified identity, or agent executor.'),
+      h('p', { className: 'hc-notice' }, 'When owners are required, new tasks and task-detail edits need an owner, including completion and reopening. Existing ownerless tasks require a deliberate owner choice for those edits. Scheduler bookkeeping and relationship-only maintenance do not require owners. This policy does not backfill tasks or apply a default silently.'),
+      policy && h('section', { className: 'hc-form-section', 'aria-label': 'Current task owner policy' },
+        h('h3', null, `Current policy · Version ${policy.version}`),
+        h('p', null, `Owners: ${policy.required ? 'Required' : 'Optional'} · Default owner: ${policy.default_owner_label || 'Not set'}`)),
+      !policy && !pending && h('p', { role: 'status' }, loading ? 'Loading current policy…' : 'Load the current policy before reviewing changes.'),
+      draft && h('form', { onSubmit: prepare, 'aria-label': 'Task owner policy editor' },
+        h('fieldset', { className: 'hc-form-section', disabled: locked },
+          h('legend', null, 'Workspace task ownership'),
+          h('div', { className: 'hc-fields' },
+            h('label', { className: 'hc-wide' }, h('span', null, 'Require an owner for new tasks and task-detail edits'),
+              h('input', { type: 'checkbox', name: 'owner_required', checked: draft.required, disabled: locked, onChange: event => change('required', event.target.checked) })),
+            h('label', { className: 'hc-wide' }, h('span', null, 'Default human owner label (optional)'),
+              h('input', { type: 'text', name: 'default_owner_label', value: draft.default_owner_label || '', maxLength: 160, disabled: locked, onChange: event => change('default_owner_label', event.target.value) }),
+              h('small', { className: 'hc-field-hint' }, 'Up to 160 characters. Leave blank to remove the default. Task forms must explicitly review and choose the default.')))),
+        h('div', { className: 'hc-actions' }, h('button', { type: 'submit', disabled: locked || !policy }, loading ? 'Checking current policy…' : 'Review changes'))),
+      preview && h('section', { className: 'hc-notice', 'aria-label': 'Reviewed policy changes' },
+        h('h3', null, frozen ? 'Original pending policy change' : 'Review before saving'),
+        h('p', null, `Policy version ${preview.version} → ${preview.version + 1}`),
+        h('p', null, `Owners will be ${preview.required ? 'required' : 'optional'}. Default owner: ${preview.default_owner_label || 'Not set'}.`),
+        h('p', null, 'Existing task owners stay unchanged. When this policy is required, ownerless legacy tasks need a deliberate owner choice on their next task-detail edit, completion, or reopening. Scheduler bookkeeping and relationship-only maintenance remain unaffected.'),
+        frozen ? h('p', null, pending.state === 'running' ? 'The original save is still running. Closing does not cancel it.' : 'The save outcome is unknown. The original key and reviewed fields are retained across closing and reopening.')
+          : button('Save reviewed policy', save, locked, { className: 'hc-primary' })),
+      error && h('p', { className: 'hc-notice', role: 'alert' }, error),
+      notice && h('p', { className: 'hc-notice', role: 'status' }, notice),
+      h('div', { className: 'hc-actions' },
+        button('Refresh current policy', load, !valid || loading || !!pending),
+        pending?.state === 'unknown' && button('Retry exact policy save', retry, !valid || loading),
+        refreshNeeded && button('Refresh saved view', () => refreshSaved(session.snapshot().receipt), !valid),
+        button('Close', dismiss)),
+      discard && h('section', { className: 'hc-notice', role: 'alert', 'aria-label': 'Confirm policy dismissal' },
+        h('p', null, pending ? 'Close this panel and keep the original pending request? Reopen Task owner policy to recover it. Closing does not cancel or repeat the save.' : 'Discard unsaved policy changes?'),
+        h('div', { className: 'hc-actions' }, button('Keep editing', () => setDiscard(false)), button(pending ? 'Close and keep pending request' : 'Discard changes', close)))));
+}
+// END GENERATED TASK OWNERSHIP PANEL

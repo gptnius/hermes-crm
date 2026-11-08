@@ -2,6 +2,66 @@
 
 Updated November 8, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Optional task ownership and policy (November 8, 2026)
+
+The ownership increment uses public planning baseline
+`1ba38a0b4a732dae840e97b269d42502b893594b` (tree
+`1caeda8e419f2c573d20b4fc8dcfda2902e6fd9a`). It adds human task-accountability
+labels and an explicitly configured workspace policy, not user accounts or
+execution permissions. No personal policy/default, backfill, real task, native
+application, provider, key or credential was changed during these tests.
+
+Final cloud Python aggregate: **1,314 passed, 662 optional cases skipped**, with
+two known dependency warnings. New backend contracts cover optional and required
+owners, explicit defaults, stale policy/task versions, legacy completion rules,
+Event task enforcement, receipt replay, preserved legacy rows/receipts, rollback,
+profile-scoped reads/exports and unchanged assignment snapshots. Reads remain
+non-initializing. The policy deliberately excludes scheduler bookkeeping and
+relationship-only maintenance; older binaries/direct SQL are not constrained.
+
+Disposable PostgreSQL 17.11 ARM64 verification passed **806 mixed checks with
+zero failures or skips** on the frozen backend plus the reviewed two-file test
+delta. The focused 39 comprised **22 SQLite contracts, two local API/tool adapter
+cases and 15 PostgreSQL cases**. The remaining 767 included prior portability
+coverage and SQLite/compiler checks; these are not 806 exclusively PostgreSQL-
+backed cases. Two initial test failures were corrected without runtime changes:
+the legacy task projection now expects nullable owner fields while preserving
+exact raw-row/receipt assertions, and activity-query detection checks the compiled
+Table identity instead of matching a schema-name substring. All four owned
+fresh tmpfs-only loopback containers were removed and independently confirmed
+absent. This does not establish managed Supabase, hosted-service or cross-process
+concurrency behavior.
+
+Independent native and standalone reviews reproduced and corrected policy-route,
+malformed-policy, rejected-draft and receipt-validation defects. Retained unknown
+requests use the original fields/key. Definitive rejection keeps a recoverable
+draft; fresh task/policy review and explicit corrected Save are required. Tests
+cover dismissal/navigation, changed scope, no automatic resubmission and strict
+receipt checks, including exact version, explicit owner clearing and microsecond-
+equivalent timestamps. Actual in-process FastAPI SQLite receipts were fed to the
+shipped native and standalone JavaScript validators. These are real application
+route tests with synthetic records, not live Hermes authentication/model tests.
+
+The **21 non-render JavaScript module entrypoints** completed: 20 ran passing
+suites, while the exact-host work-command contract skipped because pinned source
+was unavailable. Two other optional assertions (chat pinned-source contract and
+Hermes CSS compatibility) also skipped. **11 supported CommonJS entrypoints**,
+**ten generator checks**, JavaScript syntax and whitespace checks passed. React
+tests used actual React/react-test-renderer 19.3.0 with synthetic SDK transports.
+Existing bridge, relationship, report, protection, transfer and Workbench
+contracts were included; no new live-host verification is claimed. A separate
+Playwright layout fixture could not
+launch because the browser executable was absent; that layout test did not pass
+and no bypass or browser installation was attempted.
+
+Physical native task-owner forms, visual light/dark/responsive inspection and
+assistive-technology behavior remain **unverified for this increment**. No live
+app activation or user-policy setting is implied. In-app draft recovery is not a
+durable offline draft store; task API/tool keys remain optional, and unkeyed
+uncertain writes have no receipt-replay guarantee. Encrypted content export
+includes the four ownership tables but remains neither a complete backup nor a
+tested restore workflow. See [task ownership and boundaries](TASK_OWNERSHIP.md).
+
 ## Assignment evidence navigation and workflow audit
 
 The follow-up audit used public baseline

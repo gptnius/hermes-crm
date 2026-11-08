@@ -45,6 +45,7 @@ provides_tools:
   - crm_schema_field_create
   - crm_schema_field_update
   - crm_record_fields
+  - crm_task_owner_policy
   - crm_company_list
   - crm_company_get
   - crm_company_records

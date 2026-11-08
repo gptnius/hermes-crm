@@ -62,7 +62,7 @@ class CRMError(Exception):
 
 CONTACT_REPORT_FILTERS = {'q', 'stage', 'contact_type', 'company', 'email', 'followup', 'limit', 'offset'}
 LIST_FILTERS = {'q', 'stage', 'status', 'contact_type', 'company', 'email', 'followup',
-                'min_value', 'max_value', 'priority', 'due'}
+                'min_value', 'max_value', 'priority', 'due', 'owner', 'owner_label'}
 
 
 def validate_query(params, allowed):
@@ -122,6 +122,9 @@ class TaskInput(StrictModel):
     contact_id: str | None = Field(default=None, max_length=36)
     deal_id: str | None = Field(default=None, max_length=36)
     due_at: str
+    owner_label: str | None = Field(default=None, min_length=1, max_length=160)
+    owner_policy_version: int | None = Field(default=None, strict=True, ge=0)
+    owner_source: Literal['explicit','default'] = 'explicit'
     priority: Literal['normal','high'] = 'normal'
     status: Literal['open','done'] = 'open'
     notes: str = Field(default='', max_length=10000)
@@ -237,12 +240,18 @@ class CRM(Customization):
         with (nullcontext(conn) if conn is not None else self._read_connection()) as conn:
             demo = conn.execute(select(settings.c.value).where(settings.c.key == 'demo')).scalar() == 'true'
             catalog = self.catalog(conn)
-        return dict(stages=[s['key'] for s in catalog['stages'] if not s['archived']], catalog=catalog, backend=self.backend, profile=self.profile, demo=demo)
+            from .task_ownership import TaskOwnership
+            task_owner_policy = TaskOwnership(self).policy(conn)
+        return dict(stages=[s['key'] for s in catalog['stages'] if not s['archived']], catalog=catalog, task_owner_policy=task_owner_policy, backend=self.backend, profile=self.profile, demo=demo)
 
     def _get(self, conn, kind, record_id):
         row = conn.execute(select(TABLES[kind]).where(TABLES[kind].c.id == record_id)).mappings().first()
         if row is None: raise CRMError('Record not found', 404)
-        return dict(row, custom_fields=self._custom_values(conn,kind,record_id))
+        record = dict(row, custom_fields=self._custom_values(conn,kind,record_id))
+        if kind == 'tasks':
+            from .task_ownership import TaskOwnership
+            TaskOwnership(self).enrich(conn, [record])
+        return record
 
     def _relationship_records(self, conn, kind, records):
         # Human read enrichment only. Raw mutation records and legacy retry
@@ -277,6 +286,10 @@ class CRM(Customization):
         catalog, custom-value and audit invariants remain here.
         """
         values = dict(values)
+        owner = None
+        if kind == 'tasks':
+            from .task_ownership import TaskOwnership
+            owner = TaskOwnership(self).prepare(conn, values)
         custom_values = self._validate_custom(conn, kind, custom_patch)
         if kind == 'deals': self._deal_stage(conn, values, default_probability)
         self._references(conn, kind, values)
@@ -284,6 +297,9 @@ class CRM(Customization):
         record = dict(id=str(uuid.uuid4()), version=1, created_at=timestamp, updated_at=timestamp, **values)
         conn.execute(TABLES[kind].insert().values(**record))
         self._save_custom(conn, kind, record['id'], custom_values)
+        if kind == 'tasks':
+            TaskOwnership(self).save(conn, record['id'], owner)
+            TaskOwnership(self).enrich(conn, [record])
         record['custom_fields'] = custom_values
         self._audit(conn, kind, record, 'created', actor)
         return record
@@ -294,29 +310,46 @@ class CRM(Customization):
         if not isinstance(custom_patch, dict): raise CRMError('custom_fields must be an object')
         values = MODELS[kind].model_validate(data).model_dump()
         if kind == 'deals' and 'probability' not in data: values['probability'] = PROBABILITIES.get(values['stage'], 10)
-        if kind == 'tasks': values.update(schedule_status='none', scheduler_job_id=None)
+        if kind == 'tasks':
+            from .task_ownership import strip_unsupplied
+            strip_unsupplied(values, data)
+            values.update(schedule_status='none', scheduler_job_id=None)
         digest_values = dict(values, custom_fields=custom_patch) if custom_patch else values
         digest = hashlib.sha256(json.dumps([kind, digest_values], sort_keys=True).encode()).hexdigest()
         if key and len(key) > 160: raise CRMError('Idempotency key too long')
+        scoped_owner_receipt = kind == 'tasks' and any(k in data for k in ('owner_label','owner_source','owner_policy_version'))
         try:
             with self.engine.begin() as conn:
                 self._catalog_lock(conn)
-                if key:
+                if key and scoped_owner_receipt:
+                    if conn.execute(select(idempotency.c.key).where(idempotency.c.key == key)).first():
+                        raise CRMError('Idempotency key already used by a legacy operation; preserve the original payload', 409)
+                    from .task_ownership import TaskOwnership
+                    receipt_scope, receipt_digest, receipt = TaskOwnership(self).receipt(conn, key, ['task_create', digest_values])
+                    if receipt is not None: return receipt
+                if key and not scoped_owner_receipt:
                     existing = conn.execute(select(idempotency).where(idempotency.c.key == key)).mappings().first()
                     if existing:
                         if existing['digest'] != digest: raise CRMError('Idempotency key already used for different data', 409)
                         return json.loads(existing['response'])
+                if key and kind == 'tasks' and not scoped_owner_receipt:
+                    from .task_ownership import check_schema as check_owner_schema, operations as owner_operations
+                    from .report_store import scope_for
+                    if check_owner_schema(self, conn) and conn.execute(select(owner_operations.c.key).where(owner_operations.c.scope == scope_for(self, connection=conn), owner_operations.c.key == key)).first():
+                        raise CRMError('Idempotency key already used by an owner-aware operation; preserve the original payload', 409)
                 record = self._insert_created(conn, kind, values, custom_patch, actor, 'probability' not in data)
-                if key: conn.execute(idempotency.insert().values(key=key, digest=digest, response=json.dumps(record)))
+                if key and scoped_owner_receipt:
+                    TaskOwnership(self).record_receipt(conn, key, receipt_scope, receipt_digest, record)
+                elif key: conn.execute(idempotency.insert().values(key=key, digest=digest, response=json.dumps(record)))
                 return record
         except IntegrityError:
-            if key:
+            if key and not scoped_owner_receipt:
                 with self.engine.connect() as conn:
                     existing = conn.execute(select(idempotency).where(idempotency.c.key == key)).mappings().first()
                     if existing and existing['digest'] == digest: return json.loads(existing['response'])
             raise CRMError('Record conflict; refresh and retry with the same idempotency key', 409)
 
-    def update(self, kind, record_id, data, actor='local'):
+    def update(self, kind, record_id, data, actor='local', key=None):
         changes = dict(data)
         custom_patch = changes.pop('custom_fields', {})
         version = changes.pop('version', None)
@@ -325,13 +358,25 @@ class CRM(Customization):
         if set(changes) - set(allowed): raise CRMError('Unknown or read-only fields')
         with self.engine.begin() as conn:
             self._catalog_lock(conn)
+            if key is not None and kind == 'tasks':
+                from .task_ownership import TaskOwnership
+                receipt_scope, receipt_digest, receipt = TaskOwnership(self).receipt(conn, key, ['task_update', record_id, data])
+                if receipt is not None: return receipt
             old = self._get(conn, kind, record_id)
             if old['version'] != version: raise CRMError('This record changed. Refresh before editing.', 409)
-            values = {k: old[k] for k in allowed}
+            values = {k: old[k] for k in allowed if k in old}
+            if kind == 'tasks':
+                from .task_ownership import CONTROL_FIELDS
+                for k in CONTROL_FIELDS: values.pop(k, None)
             values.update(changes)
             if kind == 'deals' and 'stage' in changes and 'probability' not in changes:
                 values['probability'] = PROBABILITIES[values['stage']] if values['stage'] in PROBABILITIES else values['probability']
             values = MODELS[kind].model_validate(values).model_dump()
+            owner = None
+            if kind == 'tasks':
+                from .task_ownership import TaskOwnership, strip_unsupplied
+                strip_unsupplied(values, changes)
+                owner = TaskOwnership(self).prepare(conn, values, old)
             custom_values = self._validate_custom(conn,kind,custom_patch,old['custom_fields'])
             if kind == 'deals': self._deal_stage(conn,values,'stage' in changes and 'probability' not in changes)
             self._references(conn, kind, values)
@@ -343,6 +388,9 @@ class CRM(Customization):
             self._save_custom(conn,kind,record_id,custom_values)
             record = dict(old, **values)
             record['custom_fields'] = custom_values
+            if kind == 'tasks':
+                TaskOwnership(self).save(conn, record_id, owner)
+                TaskOwnership(self).enrich(conn, [record])
             if kind == 'deals' and values['contact_id'] != old['contact_id']:
                 # Keep explicit task links consistent, atomically and visibly. Null contact
                 # links still inherit the deal relationship without gaining a new explicit one.
@@ -359,6 +407,8 @@ class CRM(Customization):
             if kind == 'deals' and old['stage'] != values['stage']: action = 'stage_changed'
             detail = f" ({old['stage']} → {values['stage']})" if action == 'stage_changed' else ''
             self._audit(conn, kind, record, action, actor, detail)
+            if key is not None and kind == 'tasks':
+                TaskOwnership(self).record_receipt(conn, key, receipt_scope, receipt_digest, record)
             return record
 
     @staticmethod
@@ -442,9 +492,10 @@ class CRM(Customization):
         return dict(items=items, total=total, limit=limit, offset=offset)
 
     def list(self, kind, q='', stage=None, status=None, *, contact_type=None, company='',
-             email='any', followup='any', min_value=None, max_value=None, priority=None, due='any', _conn=None, include_relationships=False):
+             email='any', followup='any', min_value=None, max_value=None, priority=None, due='any', owner='any', owner_label=None, _conn=None, include_relationships=False):
         with (nullcontext(_conn) if _conn is not None else self._read_connection()) as conn:
             if kind not in TABLES: raise CRMError('Invalid record kind')
+            if kind != 'tasks' and (owner != 'any' or owner_label is not None): raise CRMError('Owner filters require tasks')
             if kind == 'contacts':
                 if status is not None or min_value is not None or max_value is not None or priority is not None or due != 'any':
                     raise CRMError('Unsupported contact filter')
@@ -476,6 +527,16 @@ class CRM(Customization):
                     self._choice(priority, ('normal','high'), 'priority')
                     if due is None: raise CRMError('Invalid due filter')
                     self._choice(due, ('any','overdue','upcoming'), 'due filter')
+                    self._choice(owner, ('any','present','missing'), 'owner filter')
+                    if owner is None: raise CRMError('Invalid owner filter')
+                    if owner != 'any' or owner_label is not None:
+                        from .task_ownership import TaskOwnership
+                        owner_expr = TaskOwnership(self).expression(conn)
+                        if owner == 'present': stmt = stmt.where(owner_expr.is_not(None))
+                        elif owner == 'missing': stmt = stmt.where(owner_expr.is_(None))
+                        if owner_label is not None:
+                            if not isinstance(owner_label,str) or not owner_label.strip() or len(owner_label)>160: raise CRMError('Invalid owner label filter')
+                            stmt = stmt.where(owner_expr == owner_label)
                     if status: stmt = stmt.where(tasks.c.status == status)
                     if priority: stmt = stmt.where(tasks.c.priority == priority)
                     if due in ('overdue','upcoming'):
@@ -483,6 +544,9 @@ class CRM(Customization):
             table = TABLES[kind]
             stmt = stmt.order_by(table.c.due_at.asc() if kind == 'tasks' else table.c.created_at.desc(), table.c.id.asc()).limit(500)
             rows = [dict(row,custom_fields=self._custom_values(conn,kind,row['id'])) for row in conn.execute(stmt).mappings()]
+            if kind == 'tasks':
+                from .task_ownership import TaskOwnership
+                TaskOwnership(self).enrich(conn, rows)
             return self._relationship_records(conn, kind, rows) if include_relationships else rows
 
     def activities(self, entity_ids=None, _conn=None):
@@ -528,6 +592,8 @@ class CRM(Customization):
                 .order_by(tasks.c.due_at.asc()).limit(500)).mappings()]
             for kind, records in [('deals',related_deals),('tasks',related_tasks)]:
                 for record in records: record['custom_fields']=self._custom_values(conn,kind,record['id'])
+            from .task_ownership import TaskOwnership
+            TaskOwnership(self).enrich(conn, related_tasks)
             deal_ids = {d['id'] for d in related_deals}
             ids = [contact_id, *deal_ids, *[t['id'] for t in related_tasks]]
             if include_relationships:
@@ -563,6 +629,8 @@ class CRM(Customization):
                 *[upcoming.c[key] for key in task_fields],
                 contacts.c.id.label('linked_contact_id'), contacts.c.name.label('contact_name'))
                 .select_from(source).order_by(upcoming.c.due_at, upcoming.c.id)).mappings()]
+            from .task_ownership import TaskOwnership
+            TaskOwnership(self).enrich(conn, upcoming_tasks)
             if include_task_assignments:
                 from .upcoming_tasks import add_assignment_summaries
                 add_assignment_summaries(self, conn, upcoming_tasks)

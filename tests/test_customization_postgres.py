@@ -104,7 +104,12 @@ def test_legacy_schema_upgrade_preserves_records_and_retry_receipt():
             assert {r['key'] for r in seeded}=={'lead','qualified','proposal','negotiation','won','lost'}
         assert upgraded.create('contacts',contact_values,key=receipt['key'])==original_response
         for kind,record in [('contacts',contact),('deals',deal),('tasks',task)]:
-            assert upgraded.get(kind,record['id'])==dict(record,custom_fields={})
+            expected = dict(record, custom_fields={})
+            if kind == 'tasks':
+                # Additive read projection only. Raw legacy rows and the exact
+                # original retry receipt are separately checked above.
+                expected.update(owner_label=None, owner_source=None)
+            assert upgraded.get(kind,record['id']) == expected
         snapshot=upgraded.snapshot()
         assert snapshot['overview']['contacts']==1
         assert snapshot['overview']['open_deals']==1

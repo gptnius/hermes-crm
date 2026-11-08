@@ -3,12 +3,13 @@ import os
 import uuid
 
 import pytest
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
+from sqlalchemy.sql import visitors
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.schema import DropSchema
 
 from hermes_crm.agent_read_policy import project_agent_result
-from hermes_crm.domain import CRM, activity, contacts, deals, tasks
+from hermes_crm.domain import CRM, activity, contacts, deals, tasks, settings
 
 
 @pytest.fixture(params=['sqlite', 'postgres'])
@@ -119,6 +120,26 @@ def test_direct_task_contact_takes_precedence_without_invented_fallback(crm):
     assert_link(crm.activities([t['id']])[0], direct)
 
 
+def _reads_activity_table(compiled):
+    # Match the actual SQL expression, never a schema-name substring. Scope
+    # validation may query settings in a schema whose name starts crm_activity_.
+    return compiled is not None and any(node is activity for node in visitors.iterate(compiled.statement))
+
+
+def test_activity_query_detection_ignores_schema_name():
+    def compile_with_activity_named_schema(statement):
+        return statement.compile(dialect=postgresql.dialect(),
+            schema_translate_map={None: 'crm_activity_synthetic'},
+            render_schema_translate=True)
+    unrelated = compile_with_activity_named_schema(select(settings.c.value))
+    assert 'crm_activity_' in str(unrelated)
+    assert not _reads_activity_table(unrelated)
+    assert not _reads_activity_table(None)
+    assert _reads_activity_table(compile_with_activity_named_schema(select(activity)))
+    nested = select(select(activity).limit(100).subquery())
+    assert _reads_activity_table(compile_with_activity_named_schema(nested))
+
+
 def test_single_bounded_query_same_supplied_transaction_and_portable_sql(crm, monkeypatch):
     c = contact(crm)
     d = deal(crm, c)
@@ -137,7 +158,7 @@ def test_single_bounded_query_same_supplied_transaction_and_portable_sql(crm, mo
     # Additive Company/Event scope validation may inspect schema metadata, but
     # record history itself remains one bounded query on the supplied snapshot.
     assert all(sql.lstrip().upper().startswith(('SELECT', 'PRAGMA', 'WITH')) for sql, _ in calls)
-    history_queries = [(sql, compiled) for sql, compiled in calls if 'crm_activity' in sql]
+    history_queries = [(sql, compiled) for sql, compiled in calls if _reads_activity_table(compiled)]
     assert len(history_queries) == 1
     statement, compiled = history_queries[0]
     assert 'notes' not in statement and 'custom' not in statement

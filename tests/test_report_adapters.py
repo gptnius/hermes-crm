@@ -38,7 +38,7 @@ def create(a):
 
 
 def test_dedicated_tools_never_expand_saved_cron_authority(adapters):
-    assert len(adapters.ctx.tools) == 67
+    assert len(adapters.ctx.tools) == 68
     for names, toolset in ((REPORT_READ, 'crm_reports'), (REPORT_WRITE, 'crm_report_write'),
                            (INTERACTION_READ, 'crm_interaction_read'), (INTERACTION_WRITE, 'crm_interaction_write')):
         for name in names:

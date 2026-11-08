@@ -35,7 +35,7 @@ FIELDS = {
     'expected_close_date':field('date',note='Expected close date, not actual won date.')},
  'tasks': {**{k:field() for k in ('id','title','contact_id','deal_id','contact_name')},
     'status':field(choices=['open','done']), 'priority':field(choices=['normal','high']),
-    'due_at':field('datetime'), 'created_at':field('datetime')}
+    'due_at':field('datetime'), 'created_at':field('datetime'), 'owner_label':field(note='Human accountability label, not an executor or permission; null means owner missing.')}
 }
 FIELDS['companies'] = {**{k: field() for k in ('id', 'name', 'domain')},
     'version': field('integer'), **{k: field('datetime') for k in ('created_at', 'updated_at', 'archived_at')}}
@@ -241,6 +241,9 @@ class ReportEngine:
                 expr['last_logged_contact_at']=last_contact_expression(self.crm,conn)
             # PostgreSQL cannot infer an untyped NULL bind in IS NULL predicates.
             expr['last_logged_contact_at']=cast(expr['last_logged_contact_at'],String(40))
+        if entity == 'tasks':
+            from .task_ownership import TaskOwnership
+            expr['owner_label'] = TaskOwnership(self.crm).expression(conn)
         if entity == 'deals':
             expr['expected_close_date']=deals.c.close_date
             expr['stage_outcome']=case({s['key']:s['outcome'] for s in schema['stages']}, value=deals.c.stage, else_=None)

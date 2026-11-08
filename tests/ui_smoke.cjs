@@ -161,7 +161,7 @@ function defer(endpoint) {
   const upcoming = nodes.get('#content').innerHTML;
   assert(upcoming.includes('Upcoming Tasks') && upcoming.includes('class="name-button task-title"'));
   assert(upcoming.includes('Contact: &lt;Linked person&gt;'));
-  assert(upcoming.includes('Task assignee: Not recorded') && upcoming.includes('Agent work: None saved'));
+  assert(upcoming.includes('Human owner: Not recorded') && upcoming.includes('Agent work: None saved'));
   assert(upcoming.includes('High priority') && upcoming.includes('Overdue'));
   fixtures.meta = {profile:'default',catalog:{stages:[],fields:{tasks:[{key:'test_value',label:'Custom value'}]}}};
   fixtures['tasks/t'] = {id:'t',title:'Fresh exact task',version:12,status:'open',priority:'normal',due_at:'2030-01-01T00:00:00Z',notes:'Existing private task notes',custom_fields:{test_value:'Retained custom data'}};

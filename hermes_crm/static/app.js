@@ -193,7 +193,7 @@ function taskRows(rows) {
         .map((t) => {
           const overdue =
             t.status !== "done" && t.due_at && new Date(t.due_at) < new Date();
-          return `<div class="task-row"><button class="check" aria-pressed="${t.status === "done"}" data-action="toggle-task" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "done" ? "✓" : ""}</button><div class="task-copy"><button data-action="task" data-id="${esc(t.id)}">${esc(t.title)}</button><div class="task-meta">${esc(t.contact_name || "Workspace task")}${t.priority === "high" ? " · High priority" : ""}</div>${taskRelationshipContext(t)}</div><span class="due ${overdue ? "overdue" : ""}">${t.status === "done" ? "Done" : (overdue ? "Overdue · " : "") + date(t.due_at)}</span></div>`;
+          return `<div class="task-row"><button class="check" aria-pressed="${t.status === "done"}" data-action="toggle-task" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Reopen" : "Complete"} ${esc(t.title)}">${t.status === "done" ? "✓" : ""}</button><div class="task-copy"><button data-action="task" data-id="${esc(t.id)}">${esc(t.title)}</button><div class="task-meta">${esc(t.contact_name || "Workspace task")} · Human owner: ${esc(t.owner_label || "Not recorded")}${t.priority === "high" ? " · High priority" : ""}</div>${taskRelationshipContext(t)}</div><span class="due ${overdue ? "overdue" : ""}">${t.status === "done" ? "Done" : (overdue ? "Overdue · " : "") + date(t.due_at)}</span></div>`;
         })
         .join("")
     : empty("All clear. No tasks to show.");
@@ -227,7 +227,7 @@ function upcomingTasks(rows) {
       && typeof task.contact_name === "string" && task.contact_name.trim();
     const contact = linked ? `<button class="name-button" data-action="contact" data-id="${esc(task.linked_contact_id)}">Contact: ${esc(task.contact_name)}</button>`
       : task.contact_id || task.deal_id ? "Contact: Unavailable" : "Contact: No linked contact";
-    return `<article class="upcoming-task"><button class="name-button task-title" data-action="task" data-id="${esc(task.id)}">${esc(task.title)}</button><div class="task-meta">${contact}</div><div class="task-meta">Due ${esc(new Date(task.due_at).toLocaleString())} · ${esc(label(task.priority))} priority ${overdue ? badge("overdue") : ""}</div><div class="task-assignment">Task assignee: Not recorded</div>${taskAssignmentLines(task).map(line => `<div class="task-assignment">${esc(line)}</div>`).join("")}</article>`;
+    return `<article class="upcoming-task"><button class="name-button task-title" data-action="task" data-id="${esc(task.id)}">${esc(task.title)}</button><div class="task-meta">${contact}</div><div class="task-meta">Due ${esc(new Date(task.due_at).toLocaleString())} · ${esc(label(task.priority))} priority ${overdue ? badge("overdue") : ""}</div><div class="task-assignment">Human owner: ${esc(task.owner_label || "Not recorded")}</div>${taskAssignmentLines(task).map(line => `<div class="task-assignment">${esc(line)}</div>`).join("")}</article>`;
   }).join("")}</div>` : empty("No open tasks. Start with a contact or a task.");
 }
 function activityContact(a, currentContactId) {
@@ -385,7 +385,7 @@ async function render() {
           .join("")}</div>`;
     } else if (state.page === "tasks") {
       // Filter on the server before its result limit, so completed history cannot hide open work.
-      const tasks = await api("tasks" + queryString({q: state.query, status: state.taskFilter, priority: state.filters.priority, due: state.filters.due}));
+      const tasks = await api("tasks" + queryString({q: state.query, status: state.taskFilter, priority: state.filters.priority, due: state.filters.due, owner: state.filters.owner, owner_label: state.filters.owner_label}));
       if (token !== state.render) return;
       state.tasks = list(tasks);
       const rows = state.tasks.filter(
@@ -395,9 +395,9 @@ async function render() {
         head(
           "Tasks",
           "Make the next move. Keep every follow-up on track.",
-          createButton("task"),
+          createButton("task") + '<button class="button" data-action="task-owner-policy">Task ownership policy</button>',
         ) +
-        `<section class="card"><div class="toolbar filters"><input class="search" id="search" type="search" aria-label="Search tasks" placeholder="Search tasks…" value="${esc(state.query)}">${filterSelect("priority","Priority",[["","All priorities"],["normal","Normal"],["high","High"]])}${filterSelect("due","Due",[["","Any due date"],["overdue","Overdue open tasks"],["upcoming","Upcoming open tasks"]])}<h2>${rows.length} ${state.taskFilter || "total"} tasks (up to 500)</h2><select id="task-filter" aria-label="Task status">${[
+        `<section class="card"><div class="toolbar filters"><input class="search" id="search" type="search" aria-label="Search tasks" placeholder="Search tasks…" value="${esc(state.query)}">${filterSelect("owner","Human owner",[["","Any owner"],["present","Owner recorded"],["missing","Owner missing"]])}${filterInput("owner_label","Exact owner")}${filterSelect("priority","Priority",[["","All priorities"],["normal","Normal"],["high","High"]])}${filterSelect("due","Due",[["","Any due date"],["overdue","Overdue open tasks"],["upcoming","Upcoming open tasks"]])}<h2>${rows.length} ${state.taskFilter || "total"} tasks (up to 500)</h2><select id="task-filter" aria-label="Task status">${[
           ["open", "Open tasks"],
           ["done", "Completed"],
           ["", "All tasks"],
@@ -494,10 +494,10 @@ function taskDuePayload(value, record) {
 }
 async function openForm(type, record = {}, context = null) {
   // A newer dialog, navigation, or cancellation wins over late network results.
-  const requestEpoch = ++modalEpoch;
+  const requestEpoch = ++modalEpoch, scope = relationshipWorkspace;
   try {
     const meta = await api("meta");
-    if (requestEpoch !== modalEpoch) return;
+    if (requestEpoch !== modalEpoch || scope !== relationshipWorkspace || (scope && meta.workspace_token !== scope)) return;
     adoptCatalog(meta);
     if (type === "contact" && !record.id) return newContactForm(record, context);
     let contacts = [],
@@ -512,7 +512,8 @@ async function openForm(type, record = {}, context = null) {
       contacts = preserveSelection(contacts, record.contact_id, record.contact_name, "contact");
       deals = preserveSelection(deals, record.deal_id, record.deal_title, "deal");
     }
-    if (requestEpoch !== modalEpoch) return;
+    if (requestEpoch !== modalEpoch || scope !== relationshipWorkspace) return;
+    if (type === "task") return taskOwnerEditor(record, contacts, deals, checkedOwnerPolicy(meta.task_owner_policy, !Object.hasOwn(meta,'task_owner_policy')));
     let fields = "";
     if (type === "contact") {
       fields =
@@ -656,7 +657,7 @@ async function taskDetail(id) {
     if (task?.id !== id) throw new Error("The task could not be verified. Refresh and try again.");
     adoptCatalog(meta);
     const overdue = task.status === "open" && new Date(task.due_at) < new Date();
-    showModal(modalHead(task.title) + `<div class="detail-body"><dl class="detail-meta"><div><dt>Status</dt><dd>${badge(task.status)} ${overdue ? badge("overdue") : ""}</dd></div><div><dt>Due (your timezone)</dt><dd>${esc(new Date(task.due_at).toLocaleString())}</dd></div><div><dt>Priority</dt><dd>${esc(label(task.priority))}</dd></div><div><dt>Task assignee</dt><dd>Not recorded</dd></div><div><dt>Contact</dt><dd>${task.contact_id ? `<button class="name-button" data-action="contact" data-id="${esc(task.contact_id)}">Open linked contact</button>` : task.deal_id ? "Linked through deal" : "No linked contact"}</dd></div></dl>${task.notes ? `<div class="notes">${esc(task.notes)}</div>` : ""}${task.event_id ? `<section><h3>Event</h3>${relationshipRecordButton("events",{id:task.event_id,title:task.event_title || "Open linked Event"})}<button class="button" id="task-unlink-event">Unlink Event</button></section>` : ""}${taskRelationshipContext(task)}${customFieldDetails("tasks", task)}<p class="subtitle">Review any separate saved agent assignments in Hermes Desktop. A task due date does not schedule agent work.</p></div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-task">Edit task</button></div>`);
+    showModal(modalHead(task.title) + `<div class="detail-body"><dl class="detail-meta"><div><dt>Status</dt><dd>${badge(task.status)} ${overdue ? badge("overdue") : ""}</dd></div><div><dt>Due (your timezone)</dt><dd>${esc(new Date(task.due_at).toLocaleString())}</dd></div><div><dt>Priority</dt><dd>${esc(label(task.priority))}</dd></div><div><dt>Human owner (task accountability)</dt><dd>${esc(task.owner_label || "Not recorded")}</dd></div><div><dt>Contact</dt><dd>${task.contact_id ? `<button class="name-button" data-action="contact" data-id="${esc(task.contact_id)}">Open linked contact</button>` : task.deal_id ? "Linked through deal" : "No linked contact"}</dd></div></dl>${task.notes ? `<div class="notes">${esc(task.notes)}</div>` : ""}${task.event_id ? `<section><h3>Event</h3>${relationshipRecordButton("events",{id:task.event_id,title:task.event_title || "Open linked Event"})}<button class="button" id="task-unlink-event">Unlink Event</button></section>` : ""}${taskRelationshipContext(task)}${customFieldDetails("tasks", task)}<p class="subtitle">Review any separate saved agent assignments in Hermes Desktop. A task due date does not schedule agent work.</p></div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button primary" id="edit-task">Edit task</button></div>`);
     state.tasks = mergeRecords(state.tasks, [task]);
     $("#task-unlink-event")?.addEventListener("click",()=>prepareEventUnlink(task));
     $("#edit-task").onclick = () => openForm("task", task);
@@ -670,22 +671,23 @@ function mergeRecords(cached, fresh) {
   return [...records.values()];
 }
 async function toggleTask(id, button) {
-  const epoch = modalEpoch;
-  const task = state.tasks.find((t) => String(t.id) === String(id));
-  if (!task) return;
   button.disabled = true;
+  const epoch = modalEpoch, scope = relationshipWorkspace, view = state.render;
   try {
-    await api("tasks/" + id, "PATCH", {
-      status: task.status === "done" ? "open" : "done",
-      version: task.version,
-    });
-    if (modalEpoch === epoch && $("#modal").open) closeModal();
-    toast(task.status === "done" ? "Task reopened" : "Task completed");
-    await render();
-  } catch (e) {
-    button.disabled = false;
-    toast(e.message);
-  }
+    const [task, policyValue] = await Promise.all([relationshipRead('tasks/'+encodeURIComponent(id)),relationshipRead('task-owner-policy')]);
+    if (epoch !== modalEpoch || scope !== relationshipWorkspace || view !== state.render) return;
+    if(task.id !== id) throw new Error('The task could not be verified. Refresh before changing its status.');
+    const policy=checkedOwnerPolicy(policyValue);
+    if(policy.required && !task.owner_label) {
+      await openForm('task', {...task, status:task.status === 'done' ? 'open' : 'done'});
+      return;
+    }
+    await ownerWrite('tasks/'+encodeURIComponent(id),'PATCH',{version:task.version,status:task.status === 'done' ? 'open' : 'done',owner_policy_version:policy.version},scope);
+    if(epoch!==modalEpoch || scope!==relationshipWorkspace || view!==state.render) return;
+    if($('#modal').open) closeModal();
+    toast(task.status==='done' ? 'Task reopened' : 'Task completed'); await render();
+  } catch(error) { if(epoch === modalEpoch && scope === relationshipWorkspace && view===state.render) toast(error.message); }
+  finally { button.disabled = false; }
 }
 document.addEventListener("click", (e) => {
   void relationshipClick(e);
@@ -701,6 +703,9 @@ document.addEventListener("click", (e) => {
     const d = state.deals.find((x) => String(x.id) === b.dataset.id);
     if (d) openForm("deal", d);
   }
+  if (a === "task-owner-policy") openTaskOwnerPolicy();
+  if (a === "owner-retry") retryOwnerWrite();
+  if (a === "owner-recover") recoverOwnerDraft();
   if (a === "task") {
     taskDetail(b.dataset.id);
   }
@@ -789,7 +794,7 @@ const relationshipDrafts = new Map();
 // Successful receipts retain the original navigation intent, including explicit null/list context.
 const relationshipReceiptContexts = new WeakMap();
 function relationshipNotices() {
-  return (relationshipAttempts.has(relationshipWorkspace) ? '<section class="error" role="alert">A relationship write has an unknown outcome. New writes are blocked.<button class="button" data-action="relationship-retry">Retry original request</button></section>' : '') + (relationshipDrafts.has(relationshipWorkspace) ? '<section class="error" role="alert">An original creation request was rejected. Its draft is retained for correction.<button class="button" data-action="relationship-recover-draft">Review original draft</button></section>' : '');
+  return ownerNotices() + (relationshipAttempts.has(relationshipWorkspace) ? '<section class="error" role="alert">A relationship write has an unknown outcome. New writes are blocked.<button class="button" data-action="relationship-retry">Retry original request</button></section>' : '') + (relationshipDrafts.has(relationshipWorkspace) ? '<section class="error" role="alert">An original creation request was rejected. Its draft is retained for correction.<button class="button" data-action="relationship-recover-draft">Review original draft</button></section>' : '');
 }
 function refreshRelationshipNotices() {
   // Modal completion/dismissal need not reload the list to expose retained recovery controls.
@@ -817,7 +822,7 @@ function confirmedRelationshipReceipt(path, method, body, result) {
   if (parts[0] === 'contacts' && parts.length === 3 && parts[2] === 'company' && method === 'PUT')
     return result.contact_id === parts[1] && atLeast(result.contact_version, body.expected_contact_version) && Object.hasOwn(result, 'company_id') && result.company_id === body.company_id;
   if (parts[0] === 'events' && parts.length === 3 && parts[2] === 'tasks' && method === 'POST')
-    return record(result.task) && result.task_id === result.task.id && record(result.event) && result.event.id === parts[1] && result.event_id === parts[1] && atLeast(result.event.version, body.expected_version);
+    return record(result.task) && (!body.data || ['owner_label','owner_source'].every(key=>!Object.hasOwn(body.data,key) || result.task[key]===body.data[key])) && result.task_id === result.task.id && record(result.event) && result.event.id === parts[1] && result.event_id === parts[1] && atLeast(result.event.version, body.expected_version);
   if (parts[0] === 'tasks' && parts[2] === 'event') {
     if (!record(result.task) || result.task_id !== parts[1] || result.task.id !== parts[1] || !atLeast(result.task.version, body.expected_task_version)) return false;
     if (parts.length === 4 && parts[3] === 'unlink' && method === 'POST')
@@ -835,6 +840,7 @@ function confirmedRelationshipReceipt(path, method, body, result) {
 async function relationshipWrite(path, method, body, returnContext = null) {
   const scope = relationshipWorkspace;
   if (!scope) throw new Error('Workspace identity unavailable. Refresh before continuing.');
+  if (ownerAttempts.has(scope)) throw new Error('An accountability save is unconfirmed. Retry its original unchanged save first.');
   const payload = JSON.stringify({ ...body, workspace_token: scope });
   let attempt = relationshipAttempts.get(scope);
   if (attempt && (attempt.path !== path || attempt.method !== method || attempt.payload !== payload)) throw new Error('An earlier write has an unknown outcome. Retry that original request before changing intent.');
@@ -868,7 +874,7 @@ function eventRelatedLinks(row) {
   return `<div class="event-related-links" role="group" aria-label="Related Event records">${['contact','deal','company'].map(kind=>row[kind+'_id'] ? relationshipRecordButton(kind === 'company' ? 'companies' : kind+'s',{id:row[kind+'_id'],name:'Open '+kind}) : '').join('')}</div>`;
 }
 function relationshipRows(page, kind) {
-  return page.items.length ? `<ul class="relationship-list">${page.items.map(row => `<li>${relationshipRecordButton(kind,row)}<small>${esc(row.domain || row.email || label(row.status || ''))}${row.archived_at ? ' · Archived' : ''}${(row.relationship_basis || row.event_link_basis || row.company_link_basis) ? ' · '+esc(label(row.relationship_basis || row.event_link_basis || row.company_link_basis)) : ''}</small><details><summary>Record details</summary><small>ID ${esc(row.id)}</small>${['starts_at','ends_at'].filter(key=>row[key]).map(key=>`<small>${esc(label(key))}: ${esc(row[key])}</small>`).join('')}</details>${kind === 'tasks' ? taskRelationshipContext(row) : ''}${row.starts_at ? `<small>${esc(relReadable(row.starts_at,row.timezone))} → ${esc(relReadable(row.ends_at,row.timezone))} · ${esc(row.timezone)}</small>` : ''}</li>`).join('')}</ul>` : empty('No matching records.');
+  return page.items.length ? `<ul class="relationship-list">${page.items.map(row => `<li>${relationshipRecordButton(kind,row)}<small>${esc(row.domain || row.email || label(row.status || ''))}${row.archived_at ? ' · Archived' : ''}${(row.relationship_basis || row.event_link_basis || row.company_link_basis) ? ' · '+esc(label(row.relationship_basis || row.event_link_basis || row.company_link_basis)) : ''}</small><details><summary>Record details</summary><small>ID ${esc(row.id)}</small>${['starts_at','ends_at'].filter(key=>row[key]).map(key=>`<small>${esc(label(key))}: ${esc(row[key])}</small>`).join('')}</details>${kind === 'tasks' ? '<small>Human owner: '+esc(row.owner_label || 'Not recorded')+'</small>'+taskRelationshipContext(row) : ''}${row.starts_at ? `<small>${esc(relReadable(row.starts_at,row.timezone))} → ${esc(relReadable(row.ends_at,row.timezone))} · ${esc(row.timezone)}</small>` : ''}</li>`).join('')}</ul>` : empty('No matching records.');
 }
 async function relationshipPage() {
   const kind = state.page;
@@ -979,7 +985,7 @@ async function relationshipDetail(kind,id,tab = 'contacts',offset = 0) {
     const page = await relationshipRead(path,{limit:25,offset});
     if (requestEpoch !== modalEpoch || scope !== relationshipWorkspace) return;
     const buttons = kind === 'companies' ? `<button class="button" data-rel-op="${row.archived_at ? 'restore' : 'archive'}">${row.archived_at ? 'Restore' : 'Archive'}</button>` : ['scheduled','needs_rescheduling'].includes(row.status) ? `<button class="button" data-rel-op="reschedule">Reschedule</button><button class="button" data-rel-op="complete">Complete (self-reported)</button><details><summary>More Event actions</summary><div class="form-actions"><button class="button" data-rel-op="cancel">Cancel Event</button>${row.status === 'scheduled' ? '<button class="button" data-rel-op="needs-rescheduling">Needs rescheduling</button>' : ''}</div></details>` : '<button class="button" data-rel-op="reopen">Reopen</button>';
-    showModal(modalHead(row.name || row.title)+`<div class="detail-body"><p>${esc(row.domain || label(row.status || ''))}</p><details><summary>Record details</summary><p>ID ${esc(row.id)} · Version ${row.version}</p>${['starts_at','ends_at','outcome_happened_at','recorded_at'].filter(key=>row[key]).map(key=>`<p>${esc(label(key))}: ${esc(row[key])}</p>`).join('')}</details>${kind === 'events' ? `<p>${esc(relReadable(row.starts_at,row.timezone))} → ${esc(relReadable(row.ends_at,row.timezone))} · ${esc(row.timezone)}</p><p class="subtitle">Source: local${row.status === 'completed' ? ' · Self-reported completion, not verified attendance or a verified call' : ''}</p>${row.outcome_summary ? `<p>${esc(row.outcome_summary)}<small>Claimed: ${esc(relReadable(row.outcome_happened_at,row.timezone))} · Recorded: ${esc(relReadable(row.recorded_at,row.timezone))}</small></p>` : ''}<details><summary>About local Events</summary><p>${eventLocalHelp}</p></details>${eventRelatedLinks(row)}` : '<p class="subtitle">Current relationship rollup. Contacts use explicit Company links; deals follow their contact. Tasks can belong through their contact or linked Event. Events use their own Company link. A rename never overwrites legacy contact text.</p>'}${row.notes ? `<p class="notes">${esc(row.notes)}</p>` : ''}<div class="form-actions">${kind === 'companies' || ['scheduled','needs_rescheduling'].includes(row.status) ? '<button class="button primary" id="relationship-edit">Edit</button>' : ''}${buttons}</div>${kind === 'companies' ? `<div class="form-actions"><button class="button" id="company-activities">Relationship Activities</button>${['contacts','deals','tasks','events'].map(k=>`<button class="button" data-rel-tab="${k}" aria-pressed="${tab === k}">${label(k)} (${Number(result.counts[k] || 0)})</button>`).join('')}</div>` : '<h3>Associated tasks</h3><p class="subtitle">Task assignees are not recorded. Open the task and use the genuine assignment workflow in Hermes Desktop.</p><div class="form-actions"><button class="button" id="event-create-task">Create task</button><button class="button" id="event-link-task">Link existing task</button></div>'}${relationshipRows(page,kind === 'companies' ? tab : 'tasks')}${relationshipPager(page,'relationship-detail-page',`data-kind="${kind}" data-id="${esc(id)}" data-tab="${tab}"`)}</div>`);
+    showModal(modalHead(row.name || row.title)+`<div class="detail-body"><p>${esc(row.domain || label(row.status || ''))}</p><details><summary>Record details</summary><p>ID ${esc(row.id)} · Version ${row.version}</p>${['starts_at','ends_at','outcome_happened_at','recorded_at'].filter(key=>row[key]).map(key=>`<p>${esc(label(key))}: ${esc(row[key])}</p>`).join('')}</details>${kind === 'events' ? `<p>${esc(relReadable(row.starts_at,row.timezone))} → ${esc(relReadable(row.ends_at,row.timezone))} · ${esc(row.timezone)}</p><p class="subtitle">Source: local${row.status === 'completed' ? ' · Self-reported completion, not verified attendance or a verified call' : ''}</p>${row.outcome_summary ? `<p>${esc(row.outcome_summary)}<small>Claimed: ${esc(relReadable(row.outcome_happened_at,row.timezone))} · Recorded: ${esc(relReadable(row.recorded_at,row.timezone))}</small></p>` : ''}<details><summary>About local Events</summary><p>${eventLocalHelp}</p></details>${eventRelatedLinks(row)}` : '<p class="subtitle">Current relationship rollup. Contacts use explicit Company links; deals follow their contact. Tasks can belong through their contact or linked Event. Events use their own Company link. A rename never overwrites legacy contact text.</p>'}${row.notes ? `<p class="notes">${esc(row.notes)}</p>` : ''}<div class="form-actions">${kind === 'companies' || ['scheduled','needs_rescheduling'].includes(row.status) ? '<button class="button primary" id="relationship-edit">Edit</button>' : ''}${buttons}</div>${kind === 'companies' ? `<div class="form-actions"><button class="button" id="company-activities">Relationship Activities</button>${['contacts','deals','tasks','events'].map(k=>`<button class="button" data-rel-tab="${k}" aria-pressed="${tab === k}">${label(k)} (${Number(result.counts[k] || 0)})</button>`).join('')}</div>` : '<h3>Associated tasks</h3><p class="subtitle">Task owners record human accountability. Agent assignments and execution are separate; review them in Hermes Desktop.</p><div class="form-actions"><button class="button" id="event-create-task">Create task</button><button class="button" id="event-link-task">Link existing task</button></div>'}${relationshipRows(page,kind === 'companies' ? tab : 'tasks')}${relationshipPager(page,'relationship-detail-page',`data-kind="${kind}" data-id="${esc(id)}" data-tab="${tab}"`)}</div>`);
     if (kind === 'companies') {
       const actions = document.createElement('div'); actions.className='form-actions';
       actions.innerHTML=`<button class="button" id="company-create-contact" ${row.archived_at ? 'disabled' : ''}>Create contact</button><button class="button" id="company-create-event" ${row.archived_at ? 'disabled' : ''}>Create Event</button>`;
@@ -1002,8 +1008,12 @@ function relationshipOperation(kind,row,operation) {
   const fields = complete ? '<p class="subtitle">You are recording your claim that this Event happened, not verified attendance.</p>'+relationshipZone(row.timezone || 'UTC')+relationshipTimeField('outcome_happened_at','Claimed occurrence',new Date().toISOString(),row.timezone || 'UTC')+field('outcome_summary','Outcome summary','','text','required maxlength="10000"') : ['archive','restore'].includes(operation) ? `<p>${label(operation)} this Company? Its existing links and history remain available.</p>` : field('reason','Reason','','text','required maxlength="2000"');
   relationshipForm(label(operation),fields, values=>relationshipWrite(`${kind}/${encodeURIComponent(row.id)}/${operation}`,'POST',{expected_version:row.version,...(complete ? {data:values} : values)}),()=>relationshipDetail(kind,row.id));
 }
-function eventTaskForm(event) {
-  relationshipForm('Create Event task',field('title','Task title','','text','required')+relationshipZone(event.timezone || 'UTC')+relationshipTimeField('due_at','Due','',event.timezone || 'UTC')+select('priority','Priority',['normal','high'],'normal')+exactSelector('contact_id','contacts',event.contact_id)+exactSelector('deal_id','deals',event.deal_id)+relationshipNotes()+`<p class="subtitle">Review the exact contact and deal IDs above, prefilled from this Event. Clear either ID for no direct context. An Event-only task with no direct contact or deal does not count as a contact follow-up. Creates and links one task atomically. No agent is assigned and no research runs when you save. The explicit Event link remains independent of the selected contact and deal.</p>`,data=>relationshipWrite(`events/${encodeURIComponent(event.id)}/tasks`,'POST',{expected_version:event.version,data:{...data,status:'open',contact_id:data.contact_id || null,deal_id:data.deal_id || null}}),()=>relationshipDetail('events',event.id));
+async function eventTaskForm(event) {
+  const epoch=++modalEpoch, scope=relationshipWorkspace;
+  let policy;
+  try { policy=checkedOwnerPolicy(await relationshipRead('task-owner-policy')); } catch(error) { if(epoch===modalEpoch && scope===relationshipWorkspace) toast(error.message); return; }
+  if(epoch!==modalEpoch || scope!==relationshipWorkspace) return;
+  relationshipForm('Create Event task',ownerFields(policy,{})+field('title','Task title','','text','required')+relationshipZone(event.timezone || 'UTC')+relationshipTimeField('due_at','Due','',event.timezone || 'UTC')+select('priority','Priority',['normal','high'],'normal')+exactSelector('contact_id','contacts',event.contact_id)+exactSelector('deal_id','deals',event.deal_id)+relationshipNotes()+`<p class="subtitle">Review the exact contact and deal IDs above, prefilled from this Event. Clear either ID for no direct context. An Event-only task with no direct contact or deal does not count as a contact follow-up. Creates and links one task atomically. No agent is assigned and no research runs when you save. The explicit Event link remains independent of the selected contact and deal.</p>`,async data=>{ await verifyOwnerPolicy(policy,scope,modalEpoch); return relationshipWrite(`events/${encodeURIComponent(event.id)}/tasks`,'POST',{expected_version:event.version,data:{...ownerTaskData(data,policy),status:'open',contact_id:data.contact_id || null,deal_id:data.deal_id || null}}); },()=>relationshipDetail('events',event.id));
 }
 async function prepareEventUnlink(task) {
   const epoch=++modalEpoch, scope=relationshipWorkspace;
@@ -1166,4 +1176,129 @@ async function contactEvents(contact, offset = 0, feed = false) {
     $('#contact-events-back').onclick=()=>contactDetail(contact.id);
   } catch(error) { if(epoch === modalEpoch) toast(error.message); }
 }
+// Human task accountability is independent of frozen agent assignment ownership.
+const ownerAttempts = new Map();
+const ownerDrafts = new Map();
+function checkedOwnerPolicy(value, legacyAbsent=false) {
+  const p=value===undefined && legacyAbsent ? {version:0,required:false,default_owner_label:null,legacy_edit_rule:'owner_required_on_edit'} : value;
+  if (!p || typeof p!=='object' || Array.isArray(p) || !Number.isSafeInteger(p.version) || p.version<0 || typeof p.required!=='boolean' ||
+    !(p.default_owner_label===null || (typeof p.default_owner_label==='string' && p.default_owner_label.trim() && p.default_owner_label.length<=160)))
+    throw new Error('Task ownership policy could not be verified. Refresh before saving.');
+  return {...p};
+}
+function ownerFields(policy,record) {
+  const useDefault=!record.ownerDraftReview && !record.id && !!policy.default_owner_label;
+  return `<p class="subtitle">Human accountability only. This owner does not assign Hermes, change saved agent assignments or schedule work. Reviewed policy version ${policy.version}: owner ${policy.required ? 'required' : 'optional'}.</p>`+
+    select('owner_choice','Owner choice', [['explicit','Enter owner explicitly'],...(policy.default_owner_label ? [['default','Use reviewed default: '+policy.default_owner_label]] : [])],useDefault ? 'default' : 'explicit')+
+    field('owner_label','Human owner',record.owner_label || (useDefault ? policy.default_owner_label : ''),'text','maxlength="160"')+
+    (record.id && !record.owner_label ? '<p class="subtitle">This existing task has no recorded owner. Choose an owner explicitly before editing or completing it when ownership is required. No default is applied automatically.</p>' : '');
+}
+function ownerTaskData(values,policy) {
+  const data={...values}, choice=data.owner_choice;
+  delete data.owner_choice;
+  const owner=String(data.owner_label || '').trim();
+  if(owner.length>160) throw new Error('Owner must be at most 160 characters.');
+  if(choice==='default' && (!policy.default_owner_label || owner!==policy.default_owner_label)) throw new Error('To use the reviewed default, enter its exact label or choose explicit owner.');
+  if(policy.required && !owner) throw new Error('A human owner is required. Enter an owner before saving this task.');
+  data.owner_label=owner || null; data.owner_source=choice==='default' ? 'default' : 'explicit'; data.owner_policy_version=policy.version;
+  return data;
+}
+async function verifyOwnerPolicy(policy,scope,epoch) {
+  const fresh=checkedOwnerPolicy(await api('task-owner-policy?'+new URLSearchParams({workspace_token:scope})));
+  if(scope!==relationshipWorkspace || epoch!==modalEpoch) throw new Error('This task draft is no longer current.');
+  if(fresh.version!==policy.version || fresh.required!==policy.required || fresh.default_owner_label!==policy.default_owner_label)
+    throw new Error('Ownership policy changed. Your draft has not been saved. Cancel and reopen to review the current policy and default.');
+}
+function ownerNotices() {
+  return (ownerAttempts.has(relationshipWorkspace) ? '<section class="error" role="alert">A task or policy save has an unknown outcome. New accountability writes are blocked. <button class="button" data-action="owner-retry">Retry original unchanged save</button></section>' : '') + (ownerDrafts.has(relationshipWorkspace) ? '<section class="error" role="alert">A rejected task or policy draft is retained. <button class="button" data-action="owner-recover">Review rejected draft with current policy</button></section>' : '');
+}
+function sameOwnerDue(actual,expected) {
+  try { return relMicros(actual)===relMicros(expected); } catch { return false; }
+}
+function ownerReceipt(attempt,result) {
+  const body=JSON.parse(attempt.payload);
+  if(attempt.path==='task-owner-policy') return !!result && result.version===body.data.version+1 && result.required===body.data.required && result.default_owner_label===body.data.default_owner_label;
+  return !!result && typeof result.id==='string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(result.id) && typeof result.title==='string' && !!result.title.trim() && result.title.length<=200 && sameOwnerDue(result.due_at,result.due_at) && ['open','done'].includes(result.status) && (result.owner_label===null || typeof result.owner_label==='string' && !!result.owner_label.trim() && result.owner_label.length<=160) && (result.owner_source===null || ['explicit','default'].includes(result.owner_source)) && Number.isSafeInteger(result.version) && result.version>0 &&
+    (attempt.id ? result.id===attempt.id && result.version===body.version+1 : result.version===1) &&
+    ['title','status','owner_label','priority','notes','contact_id','deal_id'].every(k=>!Object.hasOwn(body,k) || result[k]===body[k]) &&
+    (!Object.hasOwn(body,'due_at') || sameOwnerDue(result.due_at,body.due_at)) &&
+    (!Object.hasOwn(body,'owner_source') || result.owner_source===body.owner_source);
+}
+async function ownerWrite(path,method,body,scope=relationshipWorkspace,retry=false,recovered=null) {
+  if(!scope || scope!==relationshipWorkspace) throw new Error('Workspace changed. Reopen before saving.');
+  if (relationshipAttempts.has(scope)) throw new Error('A relationship save is unconfirmed. Retry its original request first.');
+  let attempt=ownerAttempts.get(scope);
+  if(attempt && !retry) throw new Error('An earlier save is unconfirmed. Use Retry original unchanged save before editing again.');
+  if(attempt?.running) throw new Error('A save is already running.');
+  if(!attempt) { attempt={path,method,payload:JSON.stringify(body),key:crypto.randomUUID(),recovered,id:path.startsWith('tasks/') ? decodeURIComponent(path.slice(6)) : null}; ownerAttempts.set(scope,attempt); }
+  attempt.running=true;
+  try {
+    const saved=JSON.parse(attempt.payload);
+    const result=await api(attempt.path+(attempt.path==='task-owner-policy' ? '' : '?'+new URLSearchParams({workspace_token:scope})),attempt.method,attempt.path==='task-owner-policy' ? {...saved,workspace_token:scope,idempotency_key:attempt.key} : saved,attempt.key);
+    if(!ownerReceipt(attempt,result)) throw new Error('Save receipt could not be verified.');
+    ownerAttempts.delete(scope); if(attempt.recovered && ownerDrafts.get(scope)===attempt.recovered) ownerDrafts.delete(scope); return result;
+  } catch(error) {
+    if([400,404,409,422].includes(error.status)) { ownerAttempts.delete(scope); ownerDrafts.set(scope,{attempt,error:error.message}); }
+    else error.message+=' Outcome unknown. Retry original unchanged save; the exact request and key are retained.';
+    throw error;
+  } finally { attempt.running=false; if(scope===relationshipWorkspace) refreshRelationshipNotices(); }
+}
+async function retryOwnerWrite() {
+  const scope=relationshipWorkspace, epoch=modalEpoch, attempt=ownerAttempts.get(scope);
+  if(!attempt) return;
+  try {
+    await ownerWrite(attempt.path,attempt.method,JSON.parse(attempt.payload),scope,true);
+    if(scope!==relationshipWorkspace || epoch!==modalEpoch) return;
+    toast('Original save confirmed. Reopen to review current data.'); await render();
+  } catch(error) { if(scope===relationshipWorkspace && epoch===modalEpoch) toast(error.message); }
+}
+async function recoverOwnerDraft() {
+  const scope=relationshipWorkspace, saved=ownerDrafts.get(scope);
+  if(!saved || ($('#modal').open && closeModal(false)===false)) return;
+  const epoch=++modalEpoch;
+  try {
+    if(saved.attempt.path==='task-owner-policy') {
+      await openTaskOwnerPolicy(saved);
+      return;
+    }
+    const body=JSON.parse(saved.attempt.payload);
+    const [policyValue,current,contacts,deals]=await Promise.all([
+      relationshipRead('task-owner-policy'),saved.attempt.id ? relationshipRead('tasks/'+encodeURIComponent(saved.attempt.id)) : Promise.resolve({}),api('contacts'),api('deals')]);
+    if(scope!==relationshipWorkspace || epoch!==modalEpoch || ownerDrafts.get(scope)!==saved) return;
+    if(saved.attempt.id && current.id!==saved.attempt.id) throw new Error('Current task identity could not be verified.');
+    const record={...current,...body,ownerDraftReview:true};
+    delete record.owner_policy_version;
+    if(saved.attempt.id) { record.id=current.id; record.version=current.version; } else { delete record.version; delete record.id; }
+    taskOwnerEditor(record,preserveSelection(list(contacts),record.contact_id,record.contact_name,'contact'),preserveSelection(list(deals),record.deal_id,record.deal_title,'deal'),checkedOwnerPolicy(policyValue),saved);
+    $('#relationship-form').dataset.dirty='true';
+    $('#relationship-error').hidden=false;
+    $('#relationship-error').textContent=saved.error+' Original values restored against the current task and ownership policy. Review every field and choose an owner source before Save. Nothing has been resubmitted.';
+  } catch(error) { if(scope===relationshipWorkspace && epoch===modalEpoch) toast(error.message); }
+}
+async function openTaskOwnerPolicy(recovered=null) {
+  const scope=relationshipWorkspace, epoch=++modalEpoch;
+  try {
+    const policy=checkedOwnerPolicy(await relationshipRead('task-owner-policy'));
+    if(scope!==relationshipWorkspace || epoch!==modalEpoch) return;
+    relationshipForm('Task ownership policy',`<p>Current policy version ${policy.version}: human owner ${policy.required ? 'required' : 'optional'}. Default: ${esc(policy.default_owner_label || 'None')}.</p><p>Required ownership applies to new tasks and task-detail edits, including Complete and Reopen. Relationship-only maintenance is unchanged. Existing ownerless tasks remain unchanged until you edit them. This does not alter agent assignments or run times.</p>`+select('required','Require a human owner',[['false','Optional'],['true','Required']],String(recovered ? JSON.parse(recovered.attempt.payload).data.required : policy.required))+field('default_owner_label','Default owner for new tasks (optional)',(recovered ? JSON.parse(recovered.attempt.payload).data.default_owner_label : policy.default_owner_label) || '','text','maxlength="160"'),values=>ownerWrite('task-owner-policy','PATCH',{data:{version:policy.version,required:values.required==='true',default_owner_label:values.default_owner_label.trim() || null}},scope,false,recovered),()=>{ if(recovered && ownerDrafts.get(scope)===recovered) ownerDrafts.delete(scope); refreshRelationshipNotices(); toast('Task ownership policy saved. Existing tasks were not changed.'); });
+    if(recovered && scope===relationshipWorkspace) { $('#relationship-form').dataset.dirty='true'; $('#relationship-error').hidden=false; $('#relationship-error').textContent=recovered.error+' Original policy choices restored. Review them against the current policy above, then explicitly Save. Nothing has been resubmitted.'; }
+  } catch(error) { if(scope===relationshipWorkspace && epoch===modalEpoch) toast(error.message); }
+}
+function taskOwnerEditor(record,contacts,deals,policy,recovered=null) {
+  const scope=relationshipWorkspace;
+  const fields=field('title','Task name *',record.title,'text','required maxlength="200"')+ownerFields(policy,record)+
+    select('contact_id','Contact (optional)',[['','No contact'],...contacts.map(c=>[c.id,c.name])],record.contact_id || '')+
+    select('deal_id','Deal (optional)',[['','No deal'],...deals.map(d=>[d.id,d.title])],record.deal_id || '')+
+    field('due_at','Due date & time (your timezone) *',localTime(record.due_at),'datetime-local','required')+
+    select('priority','Priority',['normal','high'],record.priority || 'normal')+select('status','Status',['open','done'],record.status || 'open')+customFieldDetails('tasks',record)+relationshipNotes(record.notes);
+  relationshipForm(record.id ? 'Edit task' : 'Add task',fields,async values=>{
+    const epoch=modalEpoch;
+    const data=ownerTaskData(values,policy);
+    data.contact_id=data.contact_id || null; data.deal_id=data.deal_id || null; data.due_at=taskDuePayload(data.due_at,record);
+    if(record.id) data.version=record.version;
+    await verifyOwnerPolicy(policy,scope,epoch);
+    return ownerWrite('tasks'+(record.id ? '/'+encodeURIComponent(record.id) : ''),record.id ? 'PATCH' : 'POST',data,scope,false,recovered);
+  },result=>{ if(recovered && ownerDrafts.get(scope)===recovered) ownerDrafts.delete(scope); refreshRelationshipNotices(); return taskDetail(result.id); });
+}
+
 initialize();

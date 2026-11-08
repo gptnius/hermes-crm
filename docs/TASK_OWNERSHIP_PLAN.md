@@ -1,8 +1,32 @@
 # Task dates and human accountability: implementation plan
 
-Status: **proposal only**. No owner feature, policy setting, migration, or default
-is enabled by this document. Audited source tree:
-`2801920b49b3851ed6eb6e1d4110c35972914587`.
+Status: **first increment implemented; personal activation remains explicit**.
+The original design below was based on source tree
+`2801920b49b3851ed6eb6e1d4110c35972914587`. Read the current
+[usage and limitations](TASK_OWNERSHIP.md); historical “current” and “proposed”
+sections below describe that original baseline, not missing release features.
+
+## Implemented decisions
+
+- Task owners are optional human accountability labels by default, separate from
+  assignment owners and agent executors. No default, backfill or required-owner
+  policy is activated on installation.
+- Scoped versioned settings may require owners on new tasks and explicit
+  task-detail edits, including Complete/Reopen. Existing ownerless records stay
+  readable but need deliberate ownership before those edits. Scheduler and
+  relationship-only maintenance are exempt and never infer owners.
+- Owner edits bump task versions without rewriting saved agent assignments.
+  Current policy versions and explicit default labels are checked atomically.
+- Native/standalone forms, Event tasks, API/tool writes, minimal projections,
+  typed reports and scoped encrypted content export include ownership.
+- Reads are non-initializing; additive schemas and original create receipts are
+  preserved. Keyed writes have idempotent receipts; no background retry.
+- The stronger older-writer gate proposed below is **not implemented**. Older
+  binaries or direct SQL can bypass this application policy. Do not downgrade
+  while relying on required ownership. It is not a database-wide guarantee.
+
+Personal default identity, account-directory integration, bulk backfill and
+restore remain separate choices/work. No policy is changed by this document.
 
 ## Current behavior
 

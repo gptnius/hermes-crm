@@ -19,7 +19,7 @@ _RECORD_FIELDS = {
     'deal': _COMMON | {'title', 'contact_id', 'contact_name', 'value', 'currency',
                        'stage', 'probability', 'close_date'},
     'task': _COMMON | {'title', 'contact_id', 'contact_name', 'deal_id', 'due_at',
-                       'priority', 'status', 'schedule_status', 'scheduler_job_id'},
+                       'priority', 'status', 'schedule_status', 'scheduler_job_id', 'owner_label'},
 }
 _RECORD_TOOLS = {
     f'crm_{kind}_{operation}': (kind, operation)

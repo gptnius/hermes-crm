@@ -242,12 +242,16 @@ current record. The contact shown is its current relationship, not an assignment
 or evidence of customer communication. Missing links stay explicitly unknown or
 unlinked rather than being guessed from the displayed contact list.
 
-Business tasks do not currently have an assignee field. **Task assignee: Not
-recorded** is not a claim that nobody is responsible. Any separate saved Hermes
-agent-work intent is shown with its recorded human owner and state; it is not
-silently treated as the business-task assignee. Saving, scheduling, reporting and
-completing the business task are different actions. Review task details and
-assignment history before assuming work will run or has finished.
+**Task owner (human)** is a saved accountability label. **Not recorded** is not
+a claim that nobody is responsible. Any separate saved Hermes agent-work intent
+shows its own human owner and state; it is not silently treated as the business
+task's owner. Due dates remain required. **Tasks → Task ownership** lets you
+explicitly configure optional required-owner and visible-default policies for
+this workspace; installing the feature enables neither. Read
+[task ownership, legacy tasks and limits](TASK_OWNERSHIP.md) before enabling a
+policy. Saving, scheduling, reporting and completing the business task are
+different actions. Review task details and assignment history before assuming
+work will run or has finished.
 
 ## Read recent record history
 

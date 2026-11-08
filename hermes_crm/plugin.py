@@ -107,6 +107,9 @@ def register(ctx):
     from .customization_tools import register_customization_tools
     register_customization_tools(register_tool)
 
+    from .task_ownership import TaskOwnership
+    register_tool('crm_task_owner_policy', 'Read current task accountability policy for explicit review before task writes. Labels are not executor identities or permissions.', {}, [], lambda crm,a,k:TaskOwnership(crm).policy(), toolset='crm_detail_read')
+
     detail_schema = _RecordFields.model_json_schema()
     register_tool('crm_record_fields',
         'Read explicitly selected ordinary notes or named custom fields for one exact record. '
@@ -134,7 +137,7 @@ def register(ctx):
         filters = {'q':{'type':'string','maxLength':200}}
         if kind == 'contacts': filters = contact_filters.copy()
         if kind == 'tasks':
-            filters.update(status={'type':'string','enum':['open','done']},
+            filters.update(owner={'type':'string','enum':['any','present','missing']}, owner_label={'type':'string','minLength':1,'maxLength':160}, status={'type':'string','enum':['open','done']},
                 priority={'type':'string','enum':['normal','high']},
                 due={'type':'string','enum':['any','overdue','upcoming'], 'description':'Overdue/upcoming include only open tasks.'})
         if kind == 'deals':
@@ -152,12 +155,12 @@ def register(ctx):
             'description':'Values keyed by stable field keys from crm_schema_catalog for this record kind. Types and choices are validated against the current workspace catalog. Omit to preserve; set an individual value to null to clear. Archived definitions cannot receive new values.'}
         if kind == 'deals':
             properties['stage'] = {'type':'string', 'description':'Active stage key from crm_schema_catalog. Stage labels are display text, not keys.'}
-        register_tool(f'crm_{singular}_create',f'Create a CRM {singular}. Use a stable idempotency_key when retrying. Does not send outreach or create a scheduler job.',
+        register_tool(f'crm_{singular}_create',f'Create a CRM {singular}. Use a stable idempotency_key when retrying. Does not send outreach or create a scheduler job. For tasks read crm_task_owner_policy first and submit its reviewed version; never infer an owner.',
             dict(properties,idempotency_key={'type':'string','maxLength':160}),schema.get('required',[]),
             lambda crm,a,k,kind=kind:crm.create(kind,{key:value for key,value in a.items() if key!='idempotency_key'},actor='hermes',key=a.get('idempotency_key')))
-        register_tool(f'crm_{singular}_update',f'Update a CRM {singular} using its latest version. Tasks are local records; completing a task does not cancel an existing Hermes job.',
-            dict(properties,id=ident,version={'type':'integer','minimum':1}),['id','version'],
-            lambda crm,a,k,kind=kind:crm.update(kind,a['id'],{key:value for key,value in a.items() if key!='id'},actor='hermes'))
+        register_tool(f'crm_{singular}_update',f'Update a CRM {singular} using its latest version. Tasks are local records; completing a task does not cancel an existing Hermes job. For tasks read crm_task_owner_policy and pass owner_policy_version; reuse idempotency_key for uncertain retries.',
+            dict(properties,id=ident,version={'type':'integer','minimum':1}, **({'idempotency_key':{'type':'string','minLength':1,'maxLength':160}} if kind == 'tasks' else {})),['id','version'],
+            lambda crm,a,k,kind=kind:crm.update(kind,a['id'],{key:value for key,value in a.items() if key not in ('id','idempotency_key')},actor='hermes',key=a.get('idempotency_key')))
     register_tool('crm_overview','Read current profile CRM totals, pipeline and upcoming tasks. Omits notes, custom values, catalog and audit activity. Workspace-wide totals, not assignment-scoped authorization.',{},[],lambda crm,a,k:crm.overview(),read=True)
     register_tool('crm_followup_schedule','Create a one-shot native Hermes job for an existing future CRM task. Only use after user requests scheduling. Delivers locally, never contacts anyone. Gateway must be running. On uncertain outcomes inspect Hermes jobs; do not retry.',
         {'task_id':ident},['task_id'],lambda crm,a,k:crm.schedule_followup(a['task_id'],ctx.dispatch_tool,actor='hermes',**k))

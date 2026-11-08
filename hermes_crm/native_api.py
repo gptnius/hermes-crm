@@ -83,6 +83,9 @@ def meta():
         return metadata(crm)
 
 
+from .task_ownership_api import build_router as build_owner_router
+router.include_router(build_owner_router(service, require_workspace))
+
 from .relationship_api import build_router as build_relationship_router
 router.include_router(build_relationship_router(service, require_workspace, actor='desktop'))
 
@@ -219,13 +222,13 @@ def listing(request: Request, kind: Literal['contacts', 'deals', 'tasks'], q: st
             stage: str | None = None, status: str | None = None, workspace_token: str | None = None,
             contact_type: str | None = None, company: str = '', email: str = 'any', followup: str = 'any',
             min_value: int | None = None, max_value: int | None = None,
-            priority: str | None = None, due: str = 'any'):
+            priority: str | None = None, due: str = 'any', owner: str = 'any', owner_label: str | None = None):
     with service() as crm:
         if workspace_token is not None: require_workspace(crm, workspace_token)
         validate_query(request.query_params, LIST_FILTERS | {'workspace_token', 'profile'})
         return crm.list(kind, q=q, stage=stage, status=status, contact_type=contact_type,
                         company=company, email=email, followup=followup, min_value=min_value,
-                        max_value=max_value, priority=priority, due=due, include_relationships=True)
+                        max_value=max_value, priority=priority, due=due, owner=owner, owner_label=owner_label, include_relationships=True)
 
 
 @router.get('/{kind}/{record_id}')
@@ -255,6 +258,6 @@ def create(kind: Literal['contacts', 'deals', 'tasks'], body: WriteRequest):
 def patch(kind: Literal['contacts', 'deals', 'tasks'], record_id: str, body: WriteRequest):
     with service() as crm:
         require_workspace(crm, body.workspace_token)
-        if body.idempotency_key is not None:
+        if body.idempotency_key is not None and kind != 'tasks':
             raise CRMError('Updates use record versions, not create idempotency keys')
-        return crm.update(kind, record_id, body.data, actor='desktop')
+        return crm.update(kind, record_id, body.data, actor='desktop', key=body.idempotency_key)

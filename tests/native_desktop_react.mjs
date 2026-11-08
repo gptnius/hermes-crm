@@ -126,7 +126,7 @@ const writes = [],
 let backendTokenSuffix = "",
   backendKind = "sqlite";
 let reportTotal = 1;
-let snapshotError = "", testCatalog;
+let snapshotError = "", testCatalog, testOwnerPolicy;
 let delayReport = false, releaseReport;
 let delayDetail = false,
   releaseDetail;
@@ -135,6 +135,7 @@ const releaseTaskDetails = [];
 let workRows = [], workError = "", delayWork = false, releaseWork;
 let companyMissing = false;
 let createdEvent = null, companyArchived = false, contactFailureStatus = 0;
+let taskFailureStatus = 0, taskReceiptPatch = null;
 let writeError = "", delayWrite = false, releaseWrite;
 const pluginDisposers = [];
 const ctx = {
@@ -147,11 +148,12 @@ const ctx = {
     if (path === "/snapshot" && snapshotError) throw new Error(snapshotError);
     if (options) {
       writes.push({ path, options, profile: profile.get() });
-      if (writeError) throw new Error(writeError);
+      if (writeError) throw Object.assign(new Error(writeError), taskFailureStatus ? {status:taskFailureStatus} : {});
       if (delayWrite) return new Promise(resolve => { releaseWrite = resolve; });
       if (path === "/events") { createdEvent = {...options.body.data,id:'event-created',version:1,status:'scheduled'}; return createdEvent; }
       if (path === '/relationship-contacts' && contactFailureStatus) throw Object.assign(new Error('Company changed'), {status:contactFailureStatus});
       if (path === "/relationship-contacts") return {contact:{...contact,version:1},company_link:{contact_id:contact.id,contact_version:1,company_id:options.body.company_id,company_link_basis:options.body.company_id ? 'explicit' : 'unlinked'}};
+      if (path === "/tasks" || path.startsWith("/tasks/")) return {owner_label:null,owner_source:null,...task, ...options.body.data, version:(options.body.data.version || 0)+1, ...taskReceiptPatch};
       return options.method === "POST" && ["/contacts", "/tasks", "/deals"].includes(path) ? { id: path === "/contacts" ? "c1" : path === "/tasks" ? "t1" : "d1" } : {};
     }
     if (path.startsWith('/events/event-created?')) return createdEvent;
@@ -174,11 +176,13 @@ const ctx = {
     const routes = {
       "/meta": {
         ...(testCatalog ? {catalog:testCatalog} : {}),
+        ...(testOwnerPolicy ? {task_owner_policy:testOwnerPolicy} : {}),
         backend: backendKind,
         demo: true,
         profile: profile.get(),
         workspace_token: `token-${profile.get()}${backendTokenSuffix}`,
       },
+      "/task-owner-policy": testOwnerPolicy || {version:0,required:false,default_owner_label:null,legacy_edit_rule:"owner_required_on_edit"},
       "/overview": overview,
       "/contacts": profile.get() === "work" ? [contact] : [],
       "/reports/contacts": { items: profile.get() === "work" ? [{ ...contact, deal_stages: ["lead", "won"] }] : [], total: profile.get() === "work" ? reportTotal : 0, limit: 50, offset: 0 },
@@ -295,7 +299,7 @@ assert.equal(intervals.size, 1, "Strict Mode replay leaves one live interval");
 // Dashboard rows distinguish task ownership from saved agent intent and read exact tasks.
 assert.match(text(), /Upcoming Tasks/);
 assert.doesNotMatch(text(), /Up next/);
-assert.match(text(), /Task assignee: Not recorded/);
+assert.match(text(), /Task owner \(human\): Not recorded/);
 assert.match(text(), /Agent work: Unavailable/);
 assert.doesNotMatch(text(), /Agent executor: Hermes/); // Reminder scheduling is not assigned work.
 overview.tasks = [{...task, title:'Cached dashboard title', contact_name:'Linked contact outside cache', linked_contact_id:'outside', due_at:'2000-01-01T00:00:00Z', priority:'high', agent_work:{status:'available',total:0,items:[]}}];
@@ -562,6 +566,8 @@ await flush();
 const followupParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/tasks?")).path.split("?")[1]);
 assert.equal(followupParams.get("priority"), "high");
 assert.equal(followupParams.get("due"), "overdue");
+await act(async()=>{control("Task owner").props.onChange({target:{value:"missing"}});control("Exact owner label").props.onChange({target:{value:"Case-sensitive owner"}});});await flush();
+const ownerFilters=new URLSearchParams(calls.findLast(call=>call.path.startsWith("/tasks?")).path.split("?")[1]);assert.equal(ownerFilters.get("owner"),"missing");assert.equal(ownerFilters.get("owner_label"),"Case-sensitive owner");
 await click("Clear filters");
 task.contact_id = "outside-loaded-contacts";
 await act(async () => { root.root.findAllByType("button").find(node => flatten(node.children).includes("Follow up")).props.onClick(); });
@@ -941,6 +947,52 @@ await act(async () => detailReopen.props.onClick());
 assert.equal(writes.at(-1).options.body.data.status, "open");
 assert.equal(recordDetails().length, 1);
 task.status = "open";
+// Required ownership only interrupts genuinely ownerless task mutations.
+testOwnerPolicy = {version:3,required:true,default_owner_label:"Configured person",legacy_edit_rule:"owner_required_on_edit"};
+await click("Tasks"); await click("Refresh"); await flush();
+let ownerWrites = writes.length;
+await click("Task ownership");assert.match(text(),/Current policy · Version 3/);assert.equal(writes.length,ownerWrites);await click("Close");
+await click("Complete");
+assert.equal(writes.length,ownerWrites);assert.ok(input("owner_label"));assert.equal(input("owner_label").props.value,"");
+assert.match(text(),/Choose a human task owner before completing/);
+await click("Cancel");
+await openRecord("Follow up");await click("Complete");assert.equal(writes.length,ownerWrites);assert.equal(select("status").props.value,"open");
+await click("Use configured default: Configured person");await change(select("status"),"done");
+writeError="Network response lost";await submitForm();
+const frozenOwnerWrite=JSON.stringify(writes.at(-1).options);
+assert.equal(writes.at(-1).options.body.data.owner_source,"default");assert.equal(writes.at(-1).options.body.data.owner_policy_version,3);assert.equal(writes.at(-1).options.body.data.due_at,task.due_at);
+await click("Cancel");await click("Discard changes");await click("Edit");
+assert.equal(input("owner_label").props.value,"Configured person");assert.equal(input("owner_label").props.disabled,true);
+writeError="";await submitForm();assert.equal(JSON.stringify(writes.at(-1).options),frozenOwnerWrite,"Owner PATCH retry retains original body and idempotency key across remount");
+task.owner_label="Existing owner";task.owner_source="default";
+await click("Refresh");await openRecord("Follow up");
+ownerWrites=writes.length;await click("Complete");assert.equal(writes.length,ownerWrites+1);assert.equal(root.root.findAllByType("form").length,0);assert.equal(writes.at(-1).options.body.data.owner_policy_version,3);assert.equal(writes.at(-1).options.body.data.owner_label,undefined);
+await click("Edit");await change(input("title"),"Keep existing ownership provenance");await submitForm();assert.equal(writes.at(-1).options.body.data.owner_label,undefined);assert.equal(writes.at(-1).options.body.data.owner_source,undefined);assert.equal(writes.at(-1).options.body.data.due_at,task.due_at);
+delete task.owner_label;delete task.owner_source;testOwnerPolicy=undefined;await click("Refresh");
+console.log("PASS native task owner required completion guard, direct owned completion, exact due/source preservation and same-key frozen unknown PATCH recovery across dismissal.");
+// A definitive rejection is retained, never retried, until an explicit fresh review.
+for (const create of [false,true]) {
+  await click("Tasks"); if(create) await click("+ Follow-up"); else {await openRecord("Follow up");await click("Edit");}
+  await change(input("title"),create ? "Retained rejected create" : "Retained rejected update");
+  if(create) await change(input("due_at"),"2030-06-12T10:00");
+  writeError="Outcome unknown";await submitForm();
+  const unknownBody=JSON.stringify(writes.at(-1).options);
+  taskFailureStatus=409;writeError="Task or policy conflict";await submitForm();assert.equal(JSON.stringify(writes.at(-1).options),unknownBody);
+  let count=writes.length;await submitForm();assert.equal(writes.length,count,"Definitive rejection cannot replay Save");
+  await click("Cancel");await click("Discard changes");await click("Contacts");await click("Tasks");
+  if(create) await click("+ Follow-up");else {await openRecord("Follow up");await click("Edit");}
+  assert.equal(input("title").props.value,create ? "Retained rejected create" : "Retained rejected update");assert.equal(input("title").props.disabled,true);
+  taskFailureStatus=0;writeError="";await click("Review current task and policy");assert.equal(writes.length,count,"Fresh review only reads");assert.equal(input("title").props.disabled,false);assert.match(text(),/Current saved record and retained draft/);
+  await change(input("title"),create ? "Corrected new task" : "Corrected existing task");await submitForm();assert.equal(writes.length,count+1);assert.notEqual(writes.at(-1).options.body.idempotency_key,JSON.parse(unknownBody).body.idempotency_key);assert.equal(root.root.findAllByType("form").length,0);
+}
+// Correct IDs/owners/status cannot turn a malformed business-record receipt into success.
+for (const create of [false,true]) {
+  await click("Tasks");if(create) await click("+ Follow-up");else {await openRecord("Follow up");await click("Edit");}
+  await change(input("title"),"Reviewed receipt fields");if(create)await change(input("due_at"),"2030-06-12T10:00");
+  taskReceiptPatch={due_at:null,title:"Unrelated record"};await submitForm();assert.match(text(),/receipt did not match/);assert.equal(root.root.findAllByType("form").length,1);
+  const malformedBody=JSON.stringify(writes.at(-1).options);taskReceiptPatch=null;await submitForm();assert.equal(JSON.stringify(writes.at(-1).options),malformedBody);assert.equal(root.root.findAllByType("form").length,0);
+}
+console.log("PASS native definitive task rejection retained across navigation, unknown-to-conflict exact retry, fresh review/corrected new key and malformed create/update receipt recovery.");
 const beforeHistoryWrites = writes.length;
 // Optional native-work capability must distinguish missing/failed from empty.
 await click("Tasks");

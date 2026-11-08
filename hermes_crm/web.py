@@ -50,6 +50,8 @@ def create_app(crm=None):
         token = current.existing_workspace_token()
         if token is None or supplied != token:
             raise CRMError('The workspace changed. Refresh and reopen the form before saving.', 409)
+    from .task_ownership_api import build_router as build_owner_router
+    app.include_router(build_owner_router(relationship_service, require_workspace), prefix='/api')
     from .relationship_api import build_router as build_relationship_router
     app.include_router(build_relationship_router(relationship_service, require_workspace, actor='web'), prefix='/api')
 
@@ -71,28 +73,30 @@ def create_app(crm=None):
     @app.get('/api/{kind}')
     def listing(request:Request, kind:str, q:str='', stage:str|None=None, status:str|None=None,
                 contact_type:str|None=None, company:str='', email:str='any', followup:str='any',
-                min_value:int|None=None, max_value:int|None=None, priority:str|None=None, due:str='any'):
+                min_value:int|None=None, max_value:int|None=None, priority:str|None=None, due:str='any', owner:str='any', owner_label:str|None=None):
         if kind not in ('contacts','deals','tasks'): raise CRMError('Endpoint not found',404)
         validate_query(request.query_params, LIST_FILTERS)
         return crm.list(kind,q=q,stage=stage,status=status,contact_type=contact_type,company=company,
-                        email=email,followup=followup,min_value=min_value,max_value=max_value,priority=priority,due=due,include_relationships=True)
+                        email=email,followup=followup,min_value=min_value,max_value=max_value,priority=priority,due=due,owner=owner,owner_label=owner_label,include_relationships=True)
     @app.get('/api/{kind}/{record_id}')
     def record(kind:str,record_id:str):
         if kind not in ('deals','tasks'): raise CRMError('Endpoint not found',404)
         return crm.get(kind,record_id,include_relationships=True)
     @app.post('/api/{kind}',status_code=201)
-    async def create(kind:str,request:Request):
+    async def create(kind:str,request:Request,workspace_token:str|None=None):
         if kind not in ('contacts','deals','tasks'): raise CRMError('Endpoint not found',404)
+        if workspace_token is not None: require_workspace(crm,workspace_token)
         try: data=await request.json()
         except ValueError: raise CRMError('Invalid JSON')
         return crm.create(kind,data,actor='ui',key=request.headers.get('idempotency-key'))
     @app.patch('/api/{kind}/{record_id}')
-    async def patch(kind:str,record_id:str,request:Request):
+    async def patch(kind:str,record_id:str,request:Request,workspace_token:str|None=None):
         if kind not in ('contacts','deals','tasks'): raise CRMError('Endpoint not found',404)
+        if workspace_token is not None: require_workspace(crm,workspace_token)
         try: data=await request.json()
         except ValueError: raise CRMError('Invalid JSON')
         if not isinstance(data,dict): raise CRMError('Expected a JSON object')
-        return crm.update(kind,record_id,data,actor='ui')
+        return crm.update(kind,record_id,data,actor='ui',key=request.headers.get('idempotency-key'))
     static = Path(__file__).parent/'static'
     app.mount('/static',StaticFiles(directory=static),name='static')
     @app.get('/')

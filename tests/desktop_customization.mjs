@@ -69,7 +69,7 @@ await act(async()=>staleSubmit({preventDefault(){}}));
 assert.equal(calls.length,3,'dismissed definition callbacks cannot write');
 await act(async()=>inputs.unmount());
 console.log('PASS customization real React: typed zero/false/null, select choices, dynamic stages, immutable keys/outcome, terminal probability, exact create retries, frozen unknown updates, workspace and unmount guards. Native physical QA not performed.');
-const plugin = new vm.SourceTextModule((await readFile(new URL('../desktop/plugin.js',import.meta.url),'utf8'))+'\nexport { Editor, Drawer };',{context});
+const plugin = new vm.SourceTextModule((await readFile(new URL('../desktop/plugin.js',import.meta.url),'utf8'))+'\nexport { Drawer };',{context});
 await plugin.link(specifier=>new vm.SyntheticModule(Object.keys(specifier==='react'?React:{}),function(){for(const [key,value] of Object.entries(specifier==='react'?React:{}))this.setExport(key,value);},{context}));
 await plugin.evaluate();
 const fields=[{key:'score',label:'Score',type:'number'},{key:'enabled',label:'Enabled',type:'boolean'},{key:'note',label:'Extra note',type:'text'}];

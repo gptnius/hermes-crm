@@ -36,7 +36,11 @@ def company_expressions(crm, kind, source=None, *, conn):
 
 def audit_scope_predicate(crm, conn):
     """Filter new audit kinds before pagination; legacy audit visibility is unchanged."""
-    ordinary = activity.c.entity_type.not_in(('companies', 'events'))
+    import uuid
+    current_scope = scope_for(crm, connection=conn)
+    policy_id = str(uuid.uuid5(uuid.NAMESPACE_URL, 'task-owner-policy:'+current_scope)) if current_scope else None
+    ordinary = or_(activity.c.entity_type.not_in(('companies', 'events', 'task_owner_policy')),
+                   and_(activity.c.entity_type == 'task_owner_policy', activity.c.entity_id == policy_id))
     if not check_schema(crm, conn):
         return ordinary
     scope = scope_for(crm, connection=conn)

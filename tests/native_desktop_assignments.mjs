@@ -16,7 +16,7 @@ const flatten = n => typeof n === 'string' || typeof n === 'number' ? String(n) 
 const clone = value => structuredClone(value);
 function atom(value) { const listeners = new Set(); return { get: () => value, set(v) { if (Object.is(value, v)) return; value = v; for (const f of [...listeners]) f(); }, listen(f) { listeners.add(f); return () => listeners.delete(f); }, subscribe(f) { listeners.add(f); return () => listeners.delete(f); }, listeners }; }
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
-const originalTask = { id: 't1', version: 3, status: 'open', title: 'Synthetic follow-up', due_at: '2030-12-01T12:00:00+00:00', priority: 'normal', schedule_status: 'not_scheduled', notes: 'PRIVATE HIDDEN NOTES', contact_id: 'c1', email: 'private@example.test' };
+const originalTask = { owner_label: null, owner_source: null, id: 't1', version: 3, status: 'open', title: 'Synthetic follow-up', due_at: '2030-12-01T12:00:00+00:00', priority: 'normal', schedule_status: 'not_scheduled', notes: 'PRIVATE HIDDEN NOTES', contact_id: 'c1', email: 'private@example.test' };
 const originalWork = { id: 'a1', task_id: 't1', version: 2, generation: 1, state: 'pending', reason: 'not_scheduled', job_id: null, idempotency_key: 'prior-saved-key', source_task_current: true,
   payload: { task_id: 't1', task_version: 3, task_status: 'open', human_owner: 'Synthetic owner', prompt: 'Review saved CRM only', success_criteria: 'Cite CRM evidence', run_at: '2030-12-01T13:30:41.000000+00:00' }, events: [], reports: [] };
 async function fixture(options = {}) {

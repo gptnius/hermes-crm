@@ -156,7 +156,9 @@ class EventStore(RelationshipStore):
     def create_task(self,event_id,data,*,expected_version,actor,key):
         self._version(expected_version);actor=self._actor(actor)
         if not isinstance(data,dict): raise CRMError('Task data must be an object')
-        raw=dict(data);custom=raw.pop('custom_fields',{});values=TaskInput.model_validate(raw).model_dump();values.update(schedule_status='none',scheduler_job_id=None)
+        raw=dict(data);custom=raw.pop('custom_fields',{});values=TaskInput.model_validate(raw).model_dump();
+        from .task_ownership import strip_unsupplied
+        strip_unsupplied(values,raw);values.update(schedule_status='none',scheduler_job_id=None)
         def action(conn,scope):
             event=self._get(conn,scope,event_id)
             if event['version']!=expected_version: raise CRMError('Event changed; refresh before adding a task',409)

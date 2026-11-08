@@ -86,7 +86,7 @@ export function confirmedRelationshipReceipt(path, method, body, result) {
   if (parts[0] === 'contacts' && parts.length === 3 && parts[2] === 'company' && method === 'PUT')
     return result.contact_id === parts[1] && atLeast(result.contact_version, body.expected_contact_version) && Object.hasOwn(result, 'company_id') && result.company_id === body.company_id;
   if (parts[0] === 'events' && parts.length === 3 && parts[2] === 'tasks' && method === 'POST')
-    return record(result.task) && result.task_id === result.task.id && record(result.event) && result.event.id === parts[1] && result.event_id === parts[1] && atLeast(result.event.version, body.expected_version);
+    return record(result.task) && (!Object.hasOwn(body.data || {}, 'owner_label') || result.task.owner_label === body.data.owner_label) && result.task_id === result.task.id && record(result.event) && result.event.id === parts[1] && result.event_id === parts[1] && atLeast(result.event.version, body.expected_version);
   if (parts[0] === 'tasks' && parts[2] === 'event') {
     if (!record(result.task) || result.task_id !== parts[1] || result.task.id !== parts[1] || !atLeast(result.task.version, body.expected_task_version)) return false;
     if (parts.length === 4 && parts[3] === 'unlink' && method === 'POST')
@@ -185,6 +185,7 @@ export function RelationshipRows({ session, path, params = {}, open, revision = 
       h('small', null, [row.email, row.domain, row.status && relLabel(row.status), row.starts_at && relReadable(row.starts_at,row.timezone), row.happened_at && relReadable(row.happened_at), relLabel(row.timestamp_basis), relLabel(row.relationship_basis || row.association_basis)].filter(Boolean).join(' · ')),
       h('details', null, h('summary', null, 'Record details'), h('small', null, `ID: ${row.id}`), ...['starts_at','ends_at','happened_at'].filter(key=>row[key]).map(key=>h('small',{key},`${relLabel(key)}: ${row[key]}`))),
       (kind === 'tasks' || row.event_id) && h('div', { className: 'hc-relationship-bases' }, h('small', null, `Current-contact Company: ${row.company_name || 'None'}${row.company_id ? ' · ' + row.company_id : ''} · Basis: ${relLabel(row.company_link_basis) || 'not linked'}`), h('small', null, `Explicit Event Company: ${row.event_company_name || 'None'}${row.event_company_id ? ' · ' + row.event_company_id : ''} · Event: ${row.event_title || row.event_id || 'not linked'} · Basis: ${relLabel(row.event_link_basis) || 'not linked'}`)),
+      kind === 'tasks' && h('small', null, `Task owner (human): ${row.owner_label || 'Not recorded'} · Due: ${relReadable(row.due_at)}`),
       row.provenance && h('small', null, `Provenance: ${row.provenance}`),
       row.source && h('small', null, `Source: ${row.source} · Self-reported; not verified attendance or delivery`)))),
     h(RelationshipPager, { page, offset, change: setOffset, disabled })));
@@ -223,7 +224,18 @@ export function RelationshipForm({ kind, row, initialValues = null, action, sess
   const originalZone = useRef((row || initialValues)?.timezone || 'UTC').current;
   const [zone, setZone] = useState(originalZone), [walls, setWalls] = useState(()=>Object.fromEntries(fields.filter(key=>key.endsWith('_at')).map(key=>[key, values[key] ? relWall(values[key],originalZone) : '']))), [choices,setChoices] = useState({});
   const [discard,setDiscard] = useState(false);
-  const dirty = JSON.stringify(values)!==JSON.stringify(original) || zone!==originalZone || Object.entries(walls).some(([key,value])=>value!==(original[key] ? relWall(original[key],originalZone) : '')) || Object.values(choices).some(Boolean);
+  const [ownerPolicy,setOwnerPolicy] = useState(null), [ownerLabel,setOwnerLabel] = useState(''), [ownerSource,setOwnerSource] = useState('explicit'), [ownerPolicyError,setOwnerPolicyError] = useState('');
+  useEffect(() => {
+    if (action !== 'task') return;
+    let live = true;
+    session.read('/task-owner-policy').then(policy => {
+      if (!live) return;
+      if (!policy || !Number.isSafeInteger(policy.version) || policy.version < 0 || typeof policy.required !== 'boolean' || !(policy.default_owner_label === null || (typeof policy.default_owner_label === 'string' && policy.default_owner_label.trim() && policy.default_owner_label.length <= 160))) throw new Error('Task ownership policy could not be verified. Close and reopen the task form.');
+      setOwnerPolicy(policy);
+    }).catch(error => {if(live) setOwnerPolicyError(error.message);});
+    return () => {live = false;};
+  }, [session,action]);
+  const dirty = !!ownerLabel || JSON.stringify(values)!==JSON.stringify(original) || zone!==originalZone || Object.entries(walls).some(([key,value])=>value!==(original[key] ? relWall(original[key],originalZone) : '')) || Object.values(choices).some(Boolean);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const requestCancel = () => { if (!active.current || busy) return; if (dirty) setDiscard(true); else cancel(); };
@@ -237,6 +249,13 @@ export function RelationshipForm({ kind, row, initialValues = null, action, sess
     if (data.timezone) new Intl.DateTimeFormat('en', { timeZone: data.timezone }).format();
     if (data.starts_at && data.ends_at && relMicros(data.ends_at) <= relMicros(data.starts_at)) throw new Error('End must follow start.');
     if (data.outcome_happened_at && relMicros(data.outcome_happened_at) > BigInt(Date.now()) * 1000n) throw new Error('Claimed occurrence cannot be in the future.');
+    if (action === 'task') {
+      if (!ownerPolicy) throw new Error('Task ownership policy is not available. Close and reopen this form before saving.');
+      data.owner_label = ownerLabel.trim() || null;
+      if (ownerPolicy.required && !data.owner_label) throw new Error('Choose a human task owner before saving.');
+      data.owner_source = ownerSource;
+      data.owner_policy_version = ownerPolicy.version;
+    }
     submit(data);
   } catch (error) { setError(error.message); } }, onKeyDown: e => { if (e.key === 'Escape' && !busy) { e.preventDefault(); e.stopPropagation?.(); requestCancel(); } } },
     h('h3', null, `${relLabel(action || (row ? 'Edit' : 'Create'))} ${action === 'task' ? 'associated task' : kind === 'companies' ? 'Company' : 'Event'}`),
@@ -244,9 +263,14 @@ export function RelationshipForm({ kind, row, initialValues = null, action, sess
     action === 'task' && h('p', { className: 'hc-muted' }, 'Review the exact contact and deal context prefilled from this Event below, or clear each selection for an Event-only task. No Company is inferred. The explicit Event link remains separate from the task’s direct contact or deal context.'),
     fields.some(key=>key.endsWith('_at')) && h('label', null, 'Timezone for entered times', h('input', {value:zone, required:true, disabled:busy || pending, placeholder:'America/New_York', onChange:e=>{setZone(e.target.value); setChoices({}); if(fields.includes('timezone')) change('timezone',e.target.value);}}), h('small', null, 'Changing the zone reinterprets the entered wall times. New or changed times must use years 1900–2100; unchanged original times are preserved. Review each preview before saving.')),
     fields.filter(key=>key!=='timezone').map((key, index) => key.endsWith('_at') ? h(RelationshipTime, {key,name:key,value:walls[key],zone,original:original[key],originalZone,choice:choices[key] || '',change:value=>{setWalls(previous=>({...previous,[key]:value}));setChoices(previous=>({...previous,[key]:''}));},choose:value=>setChoices(previous=>({...previous,[key]:value})),disabled:busy || pending}) : h('label', { key }, relLabel(key), key === 'kind' ? h('select', { value: values[key], disabled: busy || pending, onChange: e => change(key, e.target.value) }, h('option', { value: 'appointment' }, 'Appointment'), h('option', { value: 'call' }, 'Call')) : h(['notes', 'reason', 'outcome_summary'].includes(key) ? 'textarea' : 'input', { ref: index === 0 ? first : undefined, value: values[key], disabled: busy || pending, required: !['domain', 'notes'].includes(key), onChange: e => change(key, e.target.value) }))),
+    action === 'task' && h('fieldset', {className:'hc-form-section',disabled:busy || pending}, h('legend',null,'Task accountability'),
+      h('label',null,'Task owner (human)',h('input',{name:'owner_label',value:ownerLabel,maxLength:160,required:ownerPolicy?.required || false,disabled:busy || pending || !ownerPolicy,onChange:e=>{if(active.current && !busy && !pending){setOwnerLabel(e.target.value);setOwnerSource('explicit');}}})),
+      ownerPolicy?.default_owner_label && relButton(`Use configured default: ${ownerPolicy.default_owner_label}`,()=>{if(active.current && !busy && !pending){setOwnerLabel(ownerPolicy.default_owner_label);setOwnerSource('default');}},busy || pending),
+      h('p',null,ownerPolicy ? `Reviewed policy version ${ownerPolicy.version} · ${ownerPolicy.required ? 'Owner required' : 'Owner optional'}${ownerSource === 'default' ? ' · Configured default selected' : ''}` : ownerPolicyError || 'Loading ownership policy…'),
+      h('small',null,'Human accountability label, not verified identity or access permission. Separate from Hermes executor and assignment owners. Saving this task does not schedule execution.')),
     action === 'task' && !values.contact_id && !values.deal_id && h('p', {className:'hc-notice'}, 'An Event-only task does not count as a contact follow-up. Link a contact or deal if this task is intended for contact follow-up.'),
     kind === 'events' && (!action || action === 'task') && (action === 'task' ? ['contacts', 'deals'] : ['contacts', 'deals', 'companies']).map(entity => { const key = entity === 'companies' ? 'company_id' : `${entity.slice(0, -1)}_id`; return h(RelationshipSelector, { key, session, kind: entity, label: `Related ${entity}`, value: values[key], disabled: busy || pending, onChange: id => change(key, id) }); }),
-    error && h('p', { role: 'alert' }, error), h('div', { className: 'hc-actions' }, h('button', { type: 'submit', disabled: busy || pending, className: 'hc-primary' }, busy ? 'Saving…' : 'Save'), relButton('Cancel', requestCancel, busy)), discard && h('div', {className:'hc-discard-choice',role:'alert'}, h('p', null, 'Discard unsaved changes?'), relButton('Keep editing', ()=>setDiscard(false)), relButton('Discard changes', cancel, busy)));
+    error && h('p', { role: 'alert' }, error), h('div', { className: 'hc-actions' }, h('button', { type: 'submit', disabled: busy || pending || (action === 'task' && !ownerPolicy), className: 'hc-primary' }, busy ? 'Saving…' : 'Save'), relButton('Cancel', requestCancel, busy)), discard && h('div', {className:'hc-discard-choice',role:'alert'}, h('p', null, 'Discard unsaved changes?'), relButton('Keep editing', ()=>setDiscard(false)), relButton('Discard changes', cancel, busy)));
 }
 export function Relationships({ client, workspaceToken, page = 'companies', initial = null, startRelatedCreate, onCreated, onCreateRejected, createContext = null, open, onSaved, onEditingChange, navigateRecord, onBack, initialListState = {}, onListStateChange, disabled = false, operationStore = null }) {
   const sessionRef = useRef(null);

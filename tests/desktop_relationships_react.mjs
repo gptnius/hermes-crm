@@ -22,7 +22,7 @@ await session.retry(); assert.equal(calls[0].options.body.idempotency_key,calls[
 assert.deepEqual(calls[0].options.body,calls[1].options.body);
 await session.read('/companies',{offset:25}); assert.match(calls.at(-1).path,/workspace_token=captured-workspace/);
 let tree, writes = []; const event = {id:'event-one',version:3,title:'Fixture consultation',kind:'appointment',status:'scheduled',starts_at:'2026-10-01T12:30:59.123456Z',ends_at:'2026-10-01T13:30:59.123456Z',timezone:'UTC',notes:'Fixture note'};
-const native = { current: () => true, request: async (path, options) => { if (options) { writes.push({path,...options}); return {...event,version:4}; } if (path.startsWith('/events/event-one?')) return event; return {items:[],total:0,limit:25,offset:0}; } };
+const native = { current: () => true, request: async (path, options) => { if (options) { writes.push({path,...options}); return {...event,version:4}; } if (path.startsWith('/task-owner-policy?')) return {version:0,required:false,default_owner_label:null,legacy_edit_rule:'owner_required_on_edit'}; if (path.startsWith('/events/event-one?')) return event; return {items:[],total:0,limit:25,offset:0}; } };
 const h = React.createElement;
 await act(async () => { tree = Renderer.create(h(Relationships,{client:native,workspaceToken:'ws',page:'events',initial:{kind:'events',id:'event-one'},open:()=>{}})); });
 const button = name => tree.root.findAllByType('button').find(n=>n.children.join('')===name);
@@ -82,7 +82,7 @@ for (const outcome of ['success','unknown']) {
 const contextEvent={...event,status:'needs_rescheduling',contact_id:'contact-review',deal_id:'deal-review'};
 let capturedTask;
 await act(async()=>{tree=Renderer.create(h(RelationshipForm,{kind:'events',row:contextEvent,action:'task',session:relationshipSession(native,'review'),submit:data=>capturedTask=data,cancel:()=>{}}));});
-assert.match(JSON.stringify(tree.toJSON()),/contact-review/);assert.match(JSON.stringify(tree.toJSON()),/deal-review/);assert.equal(tree.root.findAllByType('fieldset').length,2);
+assert.match(JSON.stringify(tree.toJSON()),/contact-review/);assert.match(JSON.stringify(tree.toJSON()),/deal-review/);assert.equal(tree.root.findAllByType('fieldset').filter(n=>n.props.className==='hc-relationship-selector').length,2);
 await act(async()=>{tree.root.findAllByType('button').filter(n=>n.children.join('')==='Clear selection')[0].props.onClick();});assert.ok(!JSON.stringify(tree.toJSON()).includes('Selected exact ID: contact-review'));
 await act(async()=>tree.unmount());
 // Both independently relevant Companies remain intelligible in task rollups.
