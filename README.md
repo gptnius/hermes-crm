@@ -99,6 +99,16 @@ Other planned work remains explicitly separate:
   still require their own development and verification. No promise that
   every task executes or that outages and unknown outcomes cannot occur. See
   [agent-work roadmap](docs/NEXT_RELEASE_PLAN.md).
+- **Files and links, planned:** reviewed HTTPS references and managed uploads
+  linked to exact CRM records, with provenance, retained revisions, explicit
+  storage destinations and scoped recovery. Uploading a record file does not
+  automatically send it to the agent. No attachment upload/store is implemented
+  yet; see the [file implementation plan](docs/ATTACHMENTS_PLAN.md).
+- **Task accountability, planned:** tasks already require due dates. Add optional
+  human accountability separately from the agent executor, with required-owner
+  and visible-default policies enabled only for a selected workspace. Personal
+  defaults and legacy ownerless records need explicit choices; no owners are
+  inferred or backfilled. See the [ownership plan](docs/TASK_OWNERSHIP_PLAN.md).
 - **Reporting:** multiple pipelines, stage-transition history and actual outcome
   dates before historical funnels; broader date controls, dashboard-wide filter
   semantics and scale testing. Advanced formulas, arbitrary joins and custom
