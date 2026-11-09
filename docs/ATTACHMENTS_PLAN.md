@@ -1,244 +1,236 @@
-# Record file links and managed uploads: implementation plan
+# Record links and bounded file attachments: next-package plan
 
-Status: **proposal only**. This document does not enable attachments, authorize
-implementation, or claim native end-to-end upload verification. Audited source tree:
-`2801920b49b3851ed6eb6e1d4110c35972914587`.
+Status: **proposal only; not implemented**. This document describes the next
+attachment increment, not shipped capability or native end-to-end verification.
+CRM baseline inspected: tree `e07ab221de1a96fe947ec4ec6b7cbf50b70bc6f5`.
+Official Hermes contracts inspected at commit
+`2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`.
 
-## Current facts and reusable contracts
+## Current capability and supported host contracts
 
-There is no general record attachment store, upload route, or attachment UI.
-Ordinary Notes may contain textual references; those are not managed files.
-Gmail history excludes message bodies and attachments. CSV transfer is a
-special-purpose import/export workflow, not a general attachment feature.
+CRM has no general attachment store, upload route, or Files UI. Textual references
+in Notes are not stored files. Gmail history excludes bodies and attachments;
+CSV transfer is a special-purpose import/export flow.
 
-Existing code offers useful patterns:
+The official desktop SDK supports single-file multipart uploads through
+`ctx.rest(path, {method: 'POST', upload: {filename, contentType?, bytes}})`, where
+`bytes` is an `ArrayBuffer`:
 
-- `hermes_crm/relationship_schema.py`, `relationship_store.py`,
-  `relationship_api.py`, and `relationship_tools.py`: exact record references,
-  workspace/profile scope, optimistic versions, idempotency receipts, and
-  explicit schema checks. Company archive and Event revisions provide examples.
-- `hermes_crm/report_store.py`: scoped identity, SQLite transactions, PostgreSQL
-  locking, and refusal to silently repair incompatible schemas.
-- `desktop/contact-transfer.js`: human file input, selected bytes via
-  `arrayBuffer()`, bounded input, explicit submission, scope-change invalidation,
-  and original-operation recovery after uncertain outcomes.
-- `hermes_crm/contact_transfer_runtime.py`: private profile-owned artifacts,
-  opaque generated names, owner/mode/link checks, `O_NOFOLLOW`, bounded retention,
-  byte count/hash verification, and reservation receipts. These are patterns to
-  review, not a reusable attachment store or a comprehensive security guarantee.
-- `hermes_crm/agent_read_policy.py`: minimal default agent projections and an
-  explicit ordinary-field read path. Attachments must not bypass these boundaries.
+- [Desktop REST types and scoped transport](https://github.com/NousResearch/hermes-agent/blob/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19/apps/desktop/src/api/plugins.ts)
+- [Official SDK documentation](https://github.com/NousResearch/hermes-agent/blob/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19/website/docs/developer-guide/desktop-plugin-sdk.md)
+- [Native Kanban attachment upload example](https://github.com/NousResearch/hermes-agent/blob/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19/apps/desktop/src/plugins/kanban/api.ts)
 
-Pinned official Hermes source provides a single-file multipart REST upload
-contract: `upload: {filename, contentType?, bytes: ArrayBuffer}`. See
-[Desktop REST types](https://github.com/NousResearch/hermes-agent/blob/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19/apps/desktop/src/api/plugins.ts).
-A browser file input followed by `arrayBuffer()` and this transport is the
-candidate no-new-folder-grant upload path. It still needs real native integration
-verification, backend multipart support, size enforcement, and scope tests.
-The source contract is not proof that this CRM currently uploads files.
+The same SDK documents `captureGatewayFileDownload()`: capture it before the
+associated backend request and retain the resulting function with that result.
+It preserves connection/profile binding and accepts a backend-issued persisted
+path and safe suggested name. Invoke it only on Download. Its promise settling
+does not prove that a file was saved; cancellation is possible.
 
-Native path selection is not itself a read grant. The SDK's folder-handle file
-APIs are a separate permission-bearing alternative, not required for this plan.
-No composer `attachFile` API was found in the inspected SDK. A record upload
-must not pretend to attach the file to a model conversation.
+[CRM contact transfer](../desktop/contact-transfer.js) already uses a standard
+file input and `File.arrayBuffer()`. This is the proposed selection route: no
+arbitrary local path input, new folder grant, or host-internal API is needed.
+Selecting a path is not a read grant. Chat staging and managed-files routes have
+separate ownership/lifecycle contracts and are not CRM persistence. Record upload
+does not attach content to a conversation or authorize model access.
 
-## User-visible scope and stages
+Source support is not native integration proof. Verify the actual CRM bridge,
+multipart backend, remote/local scope binding and downloads before release.
 
-### Stage 1: HTTPS references
+## User-visible increment
 
-Provide an optional Files section on Company, Contact, Event, deal, and task
-records. A user adds a title and an HTTPS URL to an exact record. Show the URL,
-source/provenance, created time, and archive state. An explicit Open action may
-navigate to it using the supported external-navigation contract. Saving a link
-must not fetch the destination, create a preview, test access, or ingest content.
+Provide a shared **Files and links** section for Company, Contact, Event, Deal
+and Task. Show exact record identity, source type, title, creation time and archive
+state. Links and stored files must be visibly different.
 
-Accept only validated HTTPS URLs initially. Reject embedded credentials,
-control characters, local paths, and schemes such as `file:`, `data:`, and
-`javascript:`. Warn against signed/token-bearing private URLs. Do not resolve
-DNS or make requests during validation. Preserve meaningful query/fragment
-components rather than silently changing the linked resource for deduplication.
-Use supported safe external navigation and referrer controls; do not promise
-controls the host does not provide. A reference grants no access and may expire.
+### HTTPS links
 
-### Stage 2: managed uploads
+Add a title and HTTPS URL to an exact record. State: **Link only; content is not
+stored or read.** Saving/listing a link must not fetch it, resolve DNS, create a
+preview, test access or start research. Open is an explicit external-navigation
+action through the supported host contract. Do not promise referrer controls the
+host cannot supply. External access may require sign-in or expire.
 
-The human selects one file using the native pane's standard file input. The pane
-shows the exact target record, filename, size, and destination host/profile before
-an explicit Upload action sends bytes through profile-scoped REST. Selection
-alone does not upload, parse for research, or grant ongoing folder access.
+Reuse reviewed URL validation patterns in
+[research_models.py](../hermes_crm/research_models.py): bounded text, no controls,
+embedded credentials, malformed escapes, secret-bearing query parameters, local
+paths or non-HTTPS schemes. This is not exhaustive secret detection. Preserve
+meaningful query/fragment components; do not silently rewrite the resource.
 
-The server owns storage names and locations. Do not accept arbitrary path-read
-arguments from the UI or an agent. Prefer opaque attachment/revision IDs on all
-subsequent reads and downloads. Original filenames are display/download metadata,
-never storage paths. Download is a separate action and does not prove that the
-user saved a copy.
+### Stored files
 
-Proposed initial limits, **not current capabilities or host guarantees**: one
-file per request; 10 MiB maximum actual file bytes; 100 MiB retained bytes per
-workspace/profile, including archived revisions and pending reservations. Confirm
-these values against transport memory usage and host request limits before
-implementation. Server enforcement is mandatory even with UI checks; reject
-oversized streams before buffering all content and account for encoding overhead.
-No automatic deletion when quota is reached.
+Select one file, review filename, byte count, exact record and destination
+host/profile, then explicitly Upload. Selection alone sends nothing, performs no
+research and grants no persistent directory access. A remote Hermes host is a
+remote destination; configured PostgreSQL is also the storage destination and
+must be disclosed. No new bucket, provider, service or credential is proposed.
 
-A proposed first allowlist is PDF, plain UTF-8 text/CSV, PNG, and JPEG, with
-server-side extension/type/signature consistency checks. Store/download only:
-no inline rendering, thumbnail generation, OCR, extraction, or execution. MIME
-checks are not malware scanning. PDFs and images are not guaranteed safe.
-Initially reject executables, scripts, HTML, SVG, macro-enabled Office files,
-archives, and rendered email formats. Supporting DOCX/PPTX proposals or EML
-later requires a separate reviewed format policy; Office ZIP containers cannot
-be supported by blindly allowing every ZIP or extracting its contents.
+**Proposed product limits, not current capability or host limits:** 2 MiB decoded
+bytes per file and 8 MiB retained decoded bytes per workspace/profile, including
+archived content. Verify these against actual bridge/proxy behavior and memory
+usage. Account for base64, JSON and multipart overhead. No automatic deletion
+when a quota is reached.
 
-### Stage 3: optional research handoff, separately designed
+Initial formats: PDF, UTF-8 TXT/CSV, PNG and JPEG. Validate extension, declared type,
+actual byte count and applicable signatures/encoding on the server. These checks
+are not malware scanning or a guarantee that a document is safe. Store/download
+only: no inline rendering, thumbnails, extraction, OCR, execution or archive
+unpacking. DOCX/PPTX and EML require a later reviewed format policy; offer a URL
+link or PDF export meanwhile. Reject executables, scripts, HTML, SVG, archives
+and unsupported formats with a specific explanation.
 
-No automatic content transfer to an LLM, conversation, scheduler, or provider.
-If requested later, let the human select exact revisions, preview what will be
-shared and the destination, and explicitly authorize processing. Keep model
-input separate from attachment storage. Treat file content as untrusted data,
-not instructions. Do not invent a composer capability or substitute filesystem
-access to bypass a missing host API.
+Archive/Restore is reversible metadata state. Archived content still consumes
+quota. No purge, automatic cleanup or version-replacement editor is required for
+this increment; upload changed content as a new attachment. Never silently merge
+records, attachment identities or provenance.
 
-## Proposed data and operations
+## Transactional storage proposal
 
-Use a separate additive, versioned registry rather than new overloaded Notes
-fields. Validate the schema on SQLite and PostgreSQL. Reads must not create it.
+Prefer a small DB-resident store over authoritative profile-local blob files for
+this increment. Use additive versioned tables with exact workspace/profile scope,
+canonical IDs, target kind/ID, title/source metadata, archive state and immutable
+payload identity. Validate all five target kinds and current target version in
+the write transaction. Metadata is not an independent authorization boundary.
 
-- Attachment: scoped UUID, version, title, source type (`external_url` or
-  `managed_file`), creator/actor, timestamps, archive timestamp, and provenance.
-- Exact link: attachment ID plus target kind and ID within the same scope.
-  Allow all five record kinds. Validate the target's current reviewed version
-  and existence. Never link by company/person name or silently inherit links
-  from another related record. Multiple record links do not duplicate provenance.
-- Revision: immutable URL or managed-content reference, original filename,
-  server-derived byte count/hash, declared/detected MIME, capture time, and source
-  attribution. Replacing content creates a new revision; old revisions remain.
-- Managed blob: opaque generated storage ID scoped to workspace/profile. Do not
-  expose host paths in model-facing results. Metadata ownership is not an ACL.
-- Provenance: source URL when appropriate, supplied author/source label, capture
-  or upload timestamp, and a description of origin. A label is a claim, not
-  verified authorship, public availability, or permission to share.
-- Operation receipt: scoped stable key, canonical request digest, state, original
-  result, and bounded diagnostic metadata. Never log raw content or signed URLs.
+Store immutable bytes as canonical base64 in a separate bounded String payload
+column, with server-computed SHA-256 and decoded byte count. Keep payloads out of
+metadata queries and results. Base64 costs approximately one-third extra space,
+but fits the existing JSON export and recovery column contract. Raw LargeBinary
+would require additional serialization and recovery type support; it is not a
+drop-in change. SQLite and PostgreSQL both hold metadata and bytes transactionally,
+avoiding a distributed file/DB commit or separate blob restoration protocol.
 
-Use reviewed versions for link/unlink, metadata edits, archive/restore, and new
-revisions. Retain audit history without copying file contents into activity
-summaries. Define ordering/locking alongside the current catalog lock so a record
-cannot change between validation and linking.
+**Ordinary database content is plaintext**, including base64 bytes, filenames,
+URLs and metadata. Base64 is not encryption. Existing protected-notes keys do not
+protect attachments. DB replication/backups and remote database configuration
+remain relevant exposure surfaces.
 
-Retries with the same key and payload return the original result; changed
-payloads conflict. For uncertain upload outcomes, freeze the original intent and
-check its receipt rather than create a replacement. Specify reserved/staged/
-committed/failed states and crash recovery for the filesystem/DB boundary.
-Atomic rename alone is not a transaction with PostgreSQL or SQLite. Unregistered
-or tampered bytes must fail closed, and cleanup must never remove referenced
-revisions. Recovery must not silently reread a changed source file.
+Use scoped operation IDs and canonical request digests covering target identity,
+expected version and exact content/link intent. Same-key same-request retry returns
+the original receipt; changed intent conflicts. After uncertain outcomes, freeze
+that operation and recover its receipt rather than starting another upload. Never
+reread a changed source file as a retry of the original bytes.
 
-Deduplicate bytes only within scope if useful; identical hashes do not merge
-attachment identities, provenance, or record links. Do not expose cross-workspace
-existence through dedupe responses. Initial implementation may avoid physical
-blob dedupe entirely while still preventing duplicate operations.
+Simple operation idempotency is required; physical byte deduplication is optional.
+If implemented later, deduplicate only verified identical bytes within the exact
+scope, without merging identities, titles, attribution or record associations.
+Never reveal cross-scope existence through deduplication responses. Initial
+accounting may count each independently stored payload, including duplicates.
 
-Archive and restore are recoverable metadata actions. Unlinking one record
-retains the attachment and other links. Archiving retains bytes and revisions;
-there is no automatic purge or garbage collection in the first release. Show
-archived/missing targets explicitly rather than cascading content deletion.
+Reads must not initialize schema. Reject partial/incompatible schema families.
+Reuse [relationship storage](../hermes_crm/relationship_store.py),
+[report storage](../hermes_crm/report_store.py) and catalog locking patterns for
+scope, transactions and optimistic concurrency. Keep audit records bounded and
+content-free. Avoid raw content, signed URLs and sensitive metadata in diagnostics.
 
-## Storage topology and privacy
+## Upload, download and privacy boundaries
 
-Managed bytes reside in an explicitly configured profile-local plugin data
-subdirectory on the serving Hermes host. Local Desktop and remote gateway
-connections are different destinations. Uploading from a desktop to a remote
-Hermes host transmits the file; disclose that destination in the review UI.
+Enforce request size before multipart parsing/spooling, not merely after
+`request.body()` buffers the request. Bound actual streaming bytes as well as
+metadata/field counts, reject malformed or duplicate fields, and verify the
+decoded file limit independently. Client checks improve UX but are not enforcement.
+Quota accounting and writes must be serialized appropriately on both databases.
 
-PostgreSQL stores metadata; it does not replicate profile-local files. Two
-Hermes hosts pointing at one database need a deliberately supported shared
-storage topology or must be rejected for managed-file access. A connection
-switch must not guess that another host's same-named directory contains the
-same bytes. Missing storage is a visible error, not permission to fall back to
-another folder, storage service, or external provider. No new cloud bucket,
-paid service, credential, or persistent file grant is part of this plan.
+All content operations use opaque attachment IDs and the verified scope. Never
+accept a filesystem path to read. Original filenames are bounded display/download
+metadata, never storage paths. Validate ownership and target association on each
+read/download/archive operation.
 
-Default agent listings should return only reviewed minimal metadata. Filenames,
-URLs, descriptions, and provenance can themselves be sensitive. Keep bytes,
-protected notes, hidden paths, and unreviewed private metadata out of default
-projections. Content fetch and research are separate explicit capabilities.
+For native download, materialize verified DB bytes into a bounded private
+profile-owned cache using reviewed patterns from
+[contact_transfer_runtime.py](../hermes_crm/contact_transfer_runtime.py): generated
+names, owner/mode/link checks, no-follow opens, byte-count/hash verification and
+concurrency protection. Return only server-generated persisted paths to the
+captured download function. This cache is expendable, not authoritative storage,
+and is not part of the attachment backup. Missing cache can be regenerated from
+verified DB bytes; corrupt content must fail closed. Cache retention and storage
+limits require explicit handling, without deleting authoritative attachments.
 
-Avoid persistent browser caches and localStorage for selected bytes. Clear
-selection and invalidate pending UI on close, disposal, record change, or any
-connection/profile/gateway activation transition. Address request-body logs,
-errors, telemetry, reverse-proxy buffering, and temporary-file retention in
-native tests. Do not promise secure erasure of memory or filesystem copies.
+Clear picked bytes and invalidate UI on close, disposal, record change or
+connection/profile/gateway transitions, including A-to-B-to-A. Prevent stale
+submission and late responses updating a newer view. Avoid browser persistent
+storage. Review request logs, proxy buffering, telemetry and temporary-file
+retention; do not promise secure erasure.
 
-## Encryption, portability, and release gates
+Keep new content and unreviewed private metadata out of existing agent defaults,
+record projections, activity summaries and scheduler/research prompts. See
+[agent_read_policy.py](../hermes_crm/agent_read_policy.py). Metadata-only listing
+is not content access. A later explicit research handoff must identify exact
+content and destination, obtain applicable permission and treat content as
+untrusted data. No automatic provider upload or model ingestion is in this scope.
 
-Existing optional protection covers protected notes and encrypted CRM content
-exports, not ordinary Notes, fields, or file bytes. Protected notes currently
-cover contacts/deals/tasks, not Company/Event. Existing exports use a table
-allowlist and do not automatically include new attachment tables. See
-`hermes_crm/protection.py`, `desktop/protection.js`, and `docs/CONTACT_TRANSFER.md`.
+## Encrypted export and existing recovery
 
-Do not call attachment storage encrypted merely because an encrypted export
-exists. Filenames, URLs, metadata, staging files, backups, and downloads are
-separate exposure surfaces. Existing encrypted exports remain host artifacts;
-downloading produces another copy. Export is not a complete Hermes backup and
-there is no current restore workflow.
+Fresh-target content recovery **already exists**; see
+[BACKUP_RESTORE.md](BACKUP_RESTORE.md) and [recovery.py](../hermes_crm/recovery.py).
+It validates an encrypted snapshot and restores into a new private destination,
+with execution/provider state quarantined. It is not full Hermes disaster recovery
+or automatic live cutover. Archive Restore is a different operation.
 
-Release gates must state exact coverage:
+Attachments must be included coherently in supported content export/recovery
+before claiming their recoverability. Required implementation changes:
 
-1. URL-reference release: explicitly decide whether link/revision metadata is
-   included in the supported content export. Update the allowlist and validation
-   if included; otherwise clearly disclose exclusion. Test archive/revision data.
-2. Managed-upload release: ship a documented byte-preservation and reconciliation
-   procedure, or clearly label exports metadata-only and attachments as excluded.
-   Do not claim recoverability until a consistent DB-plus-bytes snapshot and
-   restoration drill verifies hashes, links, versions, and scope.
-3. Future portable bundle: versioned manifest, exact immutable revision coverage,
-   bounded entries, authenticated encryption if promised, key separation, safe
-   path handling, and explicit restore destination/conflict rules. Never treat a
-   ZIP archive as an automatically safe restore or import format.
+1. Add the complete attachment schema family to
+   [protection.owned_tables()](../hermes_crm/protection.py), schema checks and
+   scoped snapshot selection. Export metadata, immutable payloads, associations,
+   archive state and relevant operation receipts in one consistent snapshot.
+2. Extend snapshot validation for exact scope, canonical IDs, valid target kinds
+   and existing record associations, payload references, canonical base64,
+   decoded size, signatures/types and SHA-256. Reject orphan/partial families,
+   tampered bytes and inconsistent receipts; do not trust polymorphic references
+   simply because SQL constraints pass.
+3. Extend recovery's schema-family completeness and semantic validation before
+   writing the fresh target. Preserve content and original scope; never restore
+   source filesystem paths or download-cache files. Keep existing quarantine and
+   no-live-cutover behavior unchanged.
+4. Verify encrypted export/decrypt/fresh-target recovery with active and archived
+   attachments, all five target kinds, links, receipts and duplicate payloads.
+   Confirm ordinary recovered bytes remain plaintext in the database.
 
-Archive restore only restores metadata state. It cannot recover deleted bytes,
-revoked document access, missing keys, or expired external URLs.
+The current whole-snapshot plaintext export cap is **32 MiB**. The proposed
+8 MiB decoded attachment quota adds roughly 10.7 MiB base64 plus metadata; it does
+not guarantee space for an arbitrarily growing CRM. Measure serialization memory
+and enforce existing export limits. Surface an explicit capacity failure, never
+silently omit files or claim a metadata-only export is complete. Export encryption
+does not encrypt the live DB, download cache or downloaded copies. External links
+are backed up as references, not destination content or access grants.
 
 ## Migration and rollback
 
-Create new owned tables only on an explicit feature write/configuration path.
-Keep legacy record tables unchanged. Use scoped state/version markers; reject
-partial or incompatible registries and require an explicit migration plan.
-Do not silently populate attachments from Notes or email-history links.
+Create additive tables only on an explicit feature write/configuration path;
+keep existing record tables unchanged. No auto-import from Notes or email history.
+Gate writes on supported transport and scope binding. Rollback disables the UI
+and writes while preserving new data and receipts. Older builds must not falsely
+claim complete attachment exports. No destructive migration is part of this plan.
 
-Deploy additive storage and read-only views before writes. Gate writes by host
-capability and scope binding. Rollback disables writes/UI while preserving new
-tables, receipts, and bytes; it must not drop data. Validate that an older build
-ignoring new tables does not falsely claim complete exports. Restore/cleanup
-procedures need independent review before any destructive migration.
+## Acceptance and release gates
 
-## Acceptance tests before claiming support
+- SQLite/PostgreSQL parity: no read-time initialization, schema-family integrity,
+  transaction/locking races, all five record kinds, missing/archived targets,
+  optimistic versions, forged tokens and cross-profile/workspace references.
+- Same-key retry, conflicting intent, repeated clicks, interrupted upload, failed
+  DB commit and uncertain outcome recovery; concurrent quota enforcement.
+- Oversized streams rejected before multipart parsing/spooling; declared versus
+  actual lengths, malformed/duplicate fields, excessive metadata, filename
+  traversal/controls, MIME/extension spoofing, invalid UTF-8 and signatures.
+- Archive/Restore and retained-byte accounting, duplicate files without silent
+  merging, deterministic metadata pagination and payload-free ordinary queries.
+- No URL fetch/DNS/preview at save/list time; no automatic extraction, active
+  rendering, model call, provider upload or arbitrary local read.
+- Native local and remote synthetic-file tests: selection cancellation, review
+  before transmission, real multipart round trip, bridge/proxy size failures,
+  close/reopen, double clicks, profile/connection changes, A-to-B-to-A and plugin
+  disposal. Missing capability names the required host feature, not a generic
+  refusal. Source inspection alone does not satisfy this gate.
+- Captured download binding, explicit gesture, safe name, cancellation without a
+  false saved claim, cache regeneration, corruption, symlinks/hardlinks,
+  FIFOs/devices, wrong owner/mode and concurrent materialization.
+- No payload in agent defaults, audit/error/metadata responses, logs, telemetry,
+  browser persistent caches or scheduled prompts; existing notes boundaries hold.
+- Encrypted export/recovery drill and negative tests for changed hashes, scope,
+  target links, payload references, partial schema families and snapshot size.
+  Verify recovered bytes exactly and keep execution/provider state quarantined.
 
-- SQLite and PostgreSQL parity: schema isolation, no read-time initialization,
-  transaction races, catalog lock ordering, exact kind/ID, stale versions,
-  archived/nonexistent targets, forged workspace tokens, and cross-profile IDs.
-- All five record kinds, multi-link visibility, unlink/archive/restore semantics,
-  immutable revisions, minimal audit records, and deterministic pagination.
-- Same-key retries, conflicting payloads, interrupted upload, failed DB commit,
-  missing/tampered blobs, orphan reconciliation, and uncertain receipt recovery.
-- Traversal/absolute/UNC paths, filename controls, symlink and hard-link attacks,
-  FIFOs/devices, races between validation/open, private modes and directory owner.
-- Client MIME/extension spoofing, malformed and truncated files, Unicode names,
-  actual versus declared lengths, request and workspace quotas, decompression
-  bombs, active files, and unsupported archives. Never extract to validate.
-- No URL auto-fetch, network preview, active rendering, OCR, model calls,
-  provider uploads, or arbitrary local reads from any create/list/open operation.
-- Native file input cancellation and scope changes during selection/upload;
-  A→B→A transitions; plugin disposal; remote destination shown correctly; no
-  stale client upload; missing supported transport disables writes safely.
-- Download capability binding, user action, safe filename, hash verification,
-  no claim of confirmed save, and retention/copy warnings.
-- No content in logs/caches/telemetry/agent defaults; ordinary/protected note
-  boundaries unchanged; export metadata/byte coverage and missing-file restore
-  limitations accurately reported.
-
-Implementation order: approve contracts and limits, implement URL references,
-verify native single-file transport, implement managed storage, then run the
-cross-engine/native/privacy/export gates. Model ingestion is not in that scope.
+Implementation order: validate contracts and limits, add HTTPS references with
+export/recovery coverage, verify native upload transport, implement bounded
+transactional files and downloads, then pass cross-engine/native/privacy/recovery
+gates. Research ingestion is a separately designed increment.

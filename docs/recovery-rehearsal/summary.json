@@ -1,0 +1,43 @@
+{
+  "success": true,
+  "scope": "process-separated content recovery, not host installation/activation or Desktop acceptance",
+  "phases": [
+    {
+      "phase": "seed",
+      "exit": 0
+    },
+    {
+      "phase": "reopen",
+      "exit": 0
+    },
+    {
+      "phase": "recovery-cli",
+      "exit": 1
+    },
+    {
+      "phase": "recovery-cli",
+      "exit": 0
+    },
+    {
+      "phase": "restored",
+      "exit": 0
+    },
+    {
+      "phase": "restored",
+      "exit": 0
+    }
+  ],
+  "guard_sha256": "5f0c4fd97681dfafeb3cd487026279b685e260a6518d7ac72b56c4d4c9cca14b",
+  "jobs_created": 0,
+  "network_endpoints_started": 0,
+  "all_children_joined": true,
+  "forbidden_events": 0,
+  "key_retention": "synthetic old keys retained; new active notes key preserves old decrypt and operation receipt",
+  "payload_commit": "55dfe558c8c8019b454b3daf40bfab76eb0dc247",
+  "payload_tree": "e07ab221de1a96fe947ec4ec6b7cbf50b70bc6f5",
+  "host_commit": "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19",
+  "python_version": "3.14.9",
+  "phase_sha256": "7a72f0ab86f37c1bcb6603ba2e332eec17d113914a4e8f42d5baedec5a7404b5",
+  "runner_sha256": "0a7043758da63fe4c3dedd37bd3dfb9a8aaf01b8cb550adabcb43de6548032e3",
+  "guard_ready_pid_checked_each_phase": true
+}

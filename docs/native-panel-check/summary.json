@@ -1,0 +1,135 @@
+{
+  "record_type": "synthetic_native_component_pixel_verification",
+  "source": {
+    "commit": "73a7f611af1941e636d4496424d9420f25187564",
+    "tree": "e07ab221de1a96fe947ec4ec6b7cbf50b70bc6f5",
+    "checkout_unchanged_after_verification": true,
+    "sha256": {
+      "desktop/report-review.js": "feff35136cc8be2179064eddb8e847e32f809c37f93d42069f29cd07b21449bc",
+      "desktop/scheduled-research.js": "5a5d631e4b73a88fa9154fa3a32bd67701cf2effde3fa246710f557e342ca6f6",
+      "desktop/design-system.css": "c385819185a451d7bf122ae751090a2085360846ee01c69383e3f2e49dc28689"
+    }
+  },
+  "runtime": {
+    "platform": "macOS",
+    "electron": "44.9.3",
+    "chromium": "152.0.7977.167",
+    "embedded_node": "24.22.0",
+    "react": "19.3.0",
+    "react_dom": "19.3.0",
+    "esbuild": "0.28.2"
+  },
+  "method": {
+    "components": [
+      "ReportReviewPanel with native report binding",
+      "ReportReviewPanel with scheduled_research report binding",
+      "ScheduledResearchPanel"
+    ],
+    "assets": "Production CSS and generated production SVG Wordmark",
+    "data": "Synthetic in-memory fixtures and mock clients only",
+    "renderer": "Standalone Electron offscreen renderer with an in-memory secure custom scheme",
+    "capture": "Electron webContents.capturePage PNG output",
+    "scope": "Component rendering, not live-host integration",
+    "summary_derivation": "Derived from final renderer results; visual observations from sampled PNG inspection. Not a byte-identical raw log."
+  },
+  "matrix": {
+    "case_count": 60,
+    "components": 3,
+    "states": [
+      "normal",
+      "long",
+      "stale",
+      "unknown",
+      "error"
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "viewport_widths_css_px": [
+      360,
+      1100
+    ],
+    "case_count_per_component": 20,
+    "case_count_per_state": 12,
+    "case_count_per_theme": 30,
+    "case_count_per_width": 30,
+    "screenshots_saved": 60
+  },
+  "measured_results": {
+    "cases_with_secure_context": 60,
+    "cases_with_sandbox_enabled": 60,
+    "cases_with_context_isolation_enabled": 60,
+    "cases_with_node_integration_disabled": 60,
+    "cases_with_hidden_window": 60,
+    "external_requests_recorded_by_session_interceptor": 0,
+    "elements_measured_beyond_viewport_right_edge": 0,
+    "normal_report_cancel_focus_return_checks_passed": 8,
+    "normal_report_cancel_focus_return_checks_total": 8,
+    "cancel_focus_target": "Mark result reviewed",
+    "minimum_report_button_height_css_px": 44,
+    "minimum_research_button_height_css_px": 36,
+    "unknown_state_cases_containing_unconfirmed_notice": 12,
+    "stale_report_confirm_buttons_disabled": 8,
+    "stale_research_save_and_refresh_controls_disabled": 4
+  },
+  "sampled_pixel_inspection": {
+    "all_60_individually_inspected": false,
+    "coverage": "Representative samples span every state, both themes and both widths",
+    "examples": [
+      "native-normal-light-360",
+      "native-normal-dark-1100",
+      "native-long-light-360",
+      "native-stale-dark-360",
+      "native-unknown-dark-360",
+      "native-error-dark-360",
+      "scheduled-report-unknown-dark-1100",
+      "research-long-dark-360",
+      "research-stale-light-360",
+      "research-unknown-light-360",
+      "research-error-dark-1100"
+    ],
+    "observations": [
+      "No blocking visual defect found in inspected component pixels",
+      "Long unbroken report text wraps within the narrow pane",
+      "Stale-source warnings and disabled confirmations remain readable",
+      "Uncertain acknowledgements expose exact retry rather than a replacement action",
+      "Unavailable review status is not displayed as an assumed review state",
+      "Confirmation heading receives DOM focus",
+      "White area beneath short dark components is standalone harness canvas, not component styling"
+    ]
+  },
+  "isolation_and_cleanup": {
+    "activation_policy": "prohibited",
+    "browser_window_show": false,
+    "browser_window_offscreen": true,
+    "browser_permissions_denied": true,
+    "external_browser_requests_denied": true,
+    "network_server_started": false,
+    "host_application_started": false,
+    "provider_discovery_performed": false,
+    "credentials_or_real_records_used": false,
+    "existing_windows_interacted_with": false,
+    "final_renderer_exit": "successful",
+    "synthetic_profile_and_cache_directories_removed": true,
+    "evidence_and_harness_retained_locally": true,
+    "screenshots_uploaded": false
+  },
+  "limitations": [
+    "Not live-host, installed-plugin, production-profile or provider integration verification",
+    "Scheduled research history used empty synthetic history; scheduled-report acknowledgement was mounted separately",
+    "Research unknown-save rendering used a retained synthetic attempt",
+    "Full keyboard traversal, touch emulation and screen-reader behavior were not verified",
+    "DOM focus checks do not certify complete accessibility",
+    "Research buttons measured 36px with desktop pointer styling; coarse-pointer behavior was not tested",
+    "Initial data-URL harness attempts failed URL-size or secure-context requirements; the final complete run used a secure offline custom scheme",
+    "External-request count describes the instrumented browser session, not an operating-system packet capture",
+    "Raw results and harness contain local paths and are not included in this public record"
+  ],
+  "evidence_sha256": {
+    "build.cjs": "735140f1126e2bd50b271629404cfb2d331dd96b16b5c39c7badf61915880513",
+    "main.cjs": "7e7e67f886c34293f0ba060b27eb7c486bd11ba2c00d03b41fe059bb7177a910",
+    "index.html": "1128080d00bae7889592a81462891bc844ff4961515bf8b0bbb6ae373729aa7b",
+    "results.json": "119f6538ad8cca2ead9c60d22a444d5bc3acadcaaa53a86f8d4c0dceed9d6149"
+  }
+}

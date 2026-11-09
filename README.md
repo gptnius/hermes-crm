@@ -61,6 +61,11 @@ remain linked here as work progresses.
 **Operational release work is in progress:** current-host agent workflows,
 Company/Event detail access, qualification of the new explicitly scoped timed-research mode,
 operator restore/cutover drills, credential-free CI and final native UX acceptance.
+The [process-separated content recovery rehearsal](docs/recovery-rehearsal/REPORT.md)
+now verifies encrypted export and fresh-target restore with retained test keys,
+exact record/receipt persistence and inactive runtime quarantine. It does not
+establish supported installer activation, host restart or real-data cutover.
+
 These are separate release gates, not a production-readiness claim. Follow the
 [release readiness plan](docs/RELEASE_READINESS.md) for the execution order,
 integration/permission limits and required evidence.

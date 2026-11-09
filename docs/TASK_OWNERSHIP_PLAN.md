@@ -143,8 +143,11 @@ turn off a user's required-owner guarantee while allowing unenforced writes.
 Document the compatibility behavior before rollout.
 
 Exports use explicit registries: add approved owner/policy coverage deliberately
-and label any exclusions. Existing encrypted content export is not a complete
-backup and has no current restore workflow. This feature does not change that.
+and label any exclusions. Owner/policy content now participates in the supported
+[fresh-target CRM content restore](BACKUP_RESTORE.md). The encrypted content
+export is not a complete Hermes backup; restore preserves the original scope
+and quarantines executable runtime state. Key custody and host cutover remain
+separate operator steps.
 
 ## Acceptance tests
 

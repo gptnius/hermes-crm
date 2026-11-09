@@ -127,6 +127,14 @@ export, key custody material and this recovery provenance separately if needed.
   no-overwrite and interrupted output. Real-data, real-host cutover and disaster
   recovery remain operator drills, not claims made by these tests.
 
+## Reproducible content rehearsal
+
+A [six-process synthetic rehearsal](recovery-rehearsal/REPORT.md) verifies
+orderly-close/reopen, encrypted export, wrong-key refusal, fresh-target CLI
+restore, retained-key reads and inactive native-work quarantine on a pinned
+source tree. It includes portable scripts and sanitized results. This is not an
+installed-host restart or real-data cutover; those operator gates remain open.
+
 ## Scheduled research history
 
 Encrypted exports include `crm_scheduled_research_v1` and

@@ -2,6 +2,40 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Process-separated content recovery rehearsal (November 9, 2026)
+
+The exact report-acknowledgement source tree
+`e07ab221de1a96fe947ec4ec6b7cbf50b70bc6f5` passed a six-process rehearsal with
+synthetic data and test-only keys. It seeded and reopened linked Company,
+Contact, Event and owned Task content, custom values and research evidence;
+produced an encrypted artifact through the supported export function; rejected
+the wrong key without creating a target; restored through the documented CLI;
+and reopened the restored content in two separate processes.
+
+Assertions cover exact record versions and local idempotency/protected receipts,
+retained-key decryption, SQLite integrity/foreign keys and content hashes.
+Changing the supplied keyring's active key while retaining its historical key
+preserved old-note reads; this was not persisted host key rotation or
+re-encryption. The saved native-work intent was quarantined, with no live
+assignment or task schedule restored. No actual job or endpoint was started.
+All six processes produced guard-ready markers and exited; no forbidden audit
+event occurred. The original child guard was unchanged.
+
+Independent review covered the portable runner, preflight pins and recorded
+results; it was not a second independent execution. The
+[report and reproduction bundle](recovery-rehearsal/REPORT.md) retain exact
+source/runtime hashes, the sanitized summary and limits. Raw profiles, logs,
+databases and generated keyring files are excluded. The executed local archive
+has the verified tree of public `73a7f61`; remote installation was not exercised.
+
+This proves bounded content/process recovery, not supported plugin installation,
+host activation/restart, authenticated native download, real-data cutover or
+power-loss durability. No report acknowledgement, proposal, scheduled-research
+run or previously active schedule was created in this rehearsal; their existing
+unit/integration coverage remains separate. The current native React behavior
+suites also passed, but the cloud visual attempt could not reach its isolated
+HTTP fixture server. Generated HTML is not pixel or accessibility acceptance.
+
 ## Durable report acknowledgement and undo (November 9, 2026)
 
 The separate review ledger records **Mark result reviewed** and **Undo
@@ -77,10 +111,55 @@ is a combined live-model research workflow in the intended review profile.
 
 Final documentation and two JavaScript test updates are reviewed separately
 from the corrected PostgreSQL snapshot; backend and UI runtime bytes are unchanged.
-Current light/dark pixel/native-window acceptance, real-profile model research,
+Current installed-window acceptance, real-profile model research,
 operational restart/live cutover and general security certification remain open.
-Hosted CI must be checked on the exact new public commit before calling it green.
+Exact-head hosted CI passed on published
+[`73a7f611af1941e636d4496424d9420f25187564`](https://github.com/gptnius/hermes-crm/commit/73a7f611af1941e636d4496424d9420f25187564):
+**2,675 Python tests passed, 24 skipped**, with four known warnings; all 13
+generators and 36 JavaScript/React commands passed. The
+[verified run](https://github.com/gptnius/hermes-crm/actions/runs/42555603291)
+used PostgreSQL 16.15 x86_64 with explicit loopback-only port mapping and
+successful container teardown. The pinned actions' Node 20-to-24 annotation
+was nonblocking. This is not live-provider, installed-app or visual acceptance.
 See [the UI workflow](REPORT_REVIEW_UI.md) and [ledger/retention plan](REPORT_REVIEW_PLAN.md).
+
+### Isolated native-component pixel check
+
+On the same public `73a7f61` tree, **60 offscreen Mac renders** covered native
+report acknowledgement, scheduled-report acknowledgement and the scheduled
+research form. Each component had normal, long, stale, unknown and error states
+at 360px and 1100px in light/dark themes. The actual component modules,
+production CSS and production wordmark were used with synthetic in-memory
+clients, not a live Hermes gateway or customer records.
+
+Every case recorded Chromium sandboxing enabled, Node integration disabled,
+context isolation enabled, a secure context, a hidden window, zero external
+requests recorded by the browser-session interceptor and zero measured
+right-edge overflow. Electron app activation was
+prohibited. Representative screenshots across all states, widths and themes
+were visually inspected with no blocking defect; not every screenshot received
+individual inspection. Long unbroken text wrapped. Confirmation heading focus
+and Cancel returning to **Mark result reviewed** passed all eight normal report
+combinations. Report buttons were at least 44px; research buttons used the
+approved 36px desktop-pointer styling. Touch behavior was not emulated.
+
+Versions were Electron 44.9.3, Chromium 152.0.7977.167, React/ReactDOM 19.3.0 and
+esbuild 0.28.2. The first harness used a non-secure data origin and could not
+reach the uncertain-write state because `crypto.randomUUID` was unavailable.
+The final run used an offline secure custom scheme with external requests
+denied; no CRM source change or sandbox relaxation was made. The white canvas
+below short dark panels was the standalone harness background, not a component
+surface. Research assignment history was empty in the form fixture; populated
+scheduled-report acknowledgement was tested separately.
+
+The renderer exited and its synthetic profile/cache directories were removed.
+The public checkout was unchanged before/after, and no existing app, window,
+profile, provider or credential was used. This is component-pixel verification,
+not installed-host integration, full keyboard traversal, OS focus behavior,
+screen-reader or full accessibility acceptance. The
+[sanitized derived measurement record](native-panel-check/summary.json) includes
+case counts, source/harness hashes and explicit fixture limits, without private
+paths, screenshots or raw browser state.
 
 ## Task-linked scheduled public research (November 9, 2026)
 
