@@ -76,3 +76,11 @@ A separate Hermes home isolates CRM records but is not a complete credential bou
 For repeatable tests, prefer a credential-free test environment and restrict outbound access where the test permits it. Do not assume that clearing environment variables or choosing a fresh Hermes home disables all host auto-discovery. Do not sign in, copy credentials or expand provider access merely to make a test pass. A live model or scheduler execution test requires separately authorized setup. Existing installations, production data and remote services are not part of these test instructions.
 
 Primary reference: https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk
+
+### Contact detail layout and custom fields
+
+Contact properties, recent CRM history and linked-record summaries stay at the top. Company links, contact logs and each relationship list share a single responsive grid across the pane below them; email history remains a full-width record-specific section. Narrow panes stack in the same reading and keyboard order. Light and dark modes use the existing Workbench tokens.
+
+The Custom fields section is omitted when a record has neither active field definitions nor retained values. Defined but empty fields show “Not set”; archived definitions with stored values and stored values without a current definition remain visible. Boolean false and numeric zero are retained. This is display-only and does not delete or modify record data. The standalone contact dialog follows the same visibility rules and uses a grid within its available width.
+
+Focused checks: `node tests/contact_detail_layout.mjs` exercises real React mounting/updating/unmounting with synthetic data; `node tests/contact_detail_grid_rendered.cjs` is a separate Playwright CSS fixture for narrow/wide, light/dark, empty/long content and keyboard order. The latter needs a browser-capable runtime; it is not a full native-host or assistive-technology certification.

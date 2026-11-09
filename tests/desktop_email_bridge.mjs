@@ -12,17 +12,20 @@ assert.match(source,/\.hc-bridge-consent\{display:flex;flex-direction:row;gap:8p
 const context=vm.createContext({crypto:webcrypto,URLSearchParams,console});
 const module=new vm.SourceTextModule(source,{context});
 await module.link(()=>new vm.SyntheticModule(['createElement','useEffect','useRef','useState'],function(){for(const k of ['createElement','useEffect','useRef','useState'])this.setExport(k,React[k]);},{context}));await module.evaluate();
-const {createBridgeSession,emailBridgeMemory,EmailBridgePanel,EmailBridgePolling,CompanyEmailBridgePanel}=module.namespace;
+const {createBridgeSession,emailBridgeMemory,EmailBridgePanel,EmailBridgePolling,CompanyEmailBridgePanel,EmailBridgeConnections}=module.namespace;
 const clone=x=>JSON.parse(JSON.stringify(x));
+assert.match(source,/To change accounts, disconnect locally first, then verify the intended existing Hermes connection\. Retained history stays until you explicitly clear it\./);
+assert.doesNotMatch(source,/disconnect locally and clear retained metadata before verifying again/);
 assert.doesNotMatch(source,/dangerouslySetInnerHTML|\bfetch\s*\(|localStorage|window\.|child_process|\.send\(|\.draft\(/);
 const base=()=>({revision:0,enabled:false,polling_enabled:false,mailbox:null,account_namespace:null,checkpoint:null,lease_state:null,runtime:{available:false}});
 function fixture(){
  const state={status:base(),posts:[],gets:[],receipts:new Map(),current:true,history:{items:[],total:0,explicit_aliases:[],contact_version:2},unresolved:{items:[],total:0},focus:[],timers:[]};
  const memory=emailBridgeMemory({});
  const client={current:()=>state.current,async request(path,options){
-  if(!options){state.gets.push(path);if(path.includes('/operations/'))return clone(state.receipts.get(path.split('/operations/')[1].split('?')[0])||null);if(path.includes('/contacts/'))return clone(state.history);if(path.includes('/unresolved'))return clone(state.unresolved);return clone(state.status);}
+  if(!options){state.gets.push(path);if(state.failReads)throw Error('synthetic local status failure');if(path.includes('/operations/'))return clone(state.receipts.get(path.split('/operations/')[1].split('?')[0])||null);if(path.includes('/contacts/'))return clone(state.history);if(path.includes('/unresolved'))return clone(state.unresolved);return clone(state.status);}
   state.posts.push({path,body:clone(options.body)});if(state.delay)await new Promise(resolve=>state.resolve=resolve);if(state.fail)throw Error('synthetic network failure');
   const body=options.body;let result;state.status.revision++;
+  if(state.terminal){result={status:state.terminal};state.receipts.set(body.operation_key,result);return clone(result);}
   if(path.endsWith('/verify')){Object.assign(state.status,{mailbox:body.own_mailbox,account_namespace:'account',own_aliases:body.own_aliases,enabled:true,checkpoint:'123'});result={revision:state.status.revision,account_namespace:'account'};}
   else if(path.endsWith('/sync'))result={outcome:{status:state.outcome||'complete',coverage:'incremental',revision:state.status.revision}};
   else if(path.endsWith('/control')){if(body.action==='start_polling')state.status.polling_enabled=true;if(body.action==='stop_polling')state.status.polling_enabled=false;result={revision:state.status.revision,enabled:state.status.enabled};}
@@ -76,7 +79,7 @@ const approve=async()=>act(async()=>tree.root.findByProps({type:'checkbox'}).pro
 const confirm=async()=>act(async()=>tree.root.findByType('form').props.onSubmit({preventDefault(){}}));
 async function mount(){f=fixture();props={...f,workspaceToken:'ws',contact:{id:'contact-one',version:2},routeKey:'routeA',storageBackend:'sqlite',open:(...args)=>f.state.opened=args};await act(async()=>{tree=Renderer.create(h(EmailBridgePanel,props),{createNodeMock:()=>({focus:()=>f.state.focus.push('approve')})});});}
 await mount();assert.equal(f.state.posts.length,0);assert.equal(button('Verify existing connection').props.disabled,true);assert.match(text(),/Not verified/);
-f.state.status.runtime.available=true;await click('Refresh local history');await click('Verify existing connection');assert.equal(f.state.focus.at(-1),'approve');assert.equal(button('Confirm action').props.disabled,true);
+f.state.status.runtime.available=true;await click('Refresh local history');await click('Verify existing connection');assert.equal(f.state.focus.at(-1),'approve');assert.equal(button('Confirm verification (no messages read)').props.disabled,true);
 await act(async()=>tree.root.findByProps({type:'email'}).props.onChange({target:{value:'me@example.test'}}));
 await act(async()=>tree.root.findByType('textarea').props.onChange({target:{value:'alias@example.test'}}));await approve();await confirm();
 assert.equal(f.state.posts.length,1);assert.ok(f.state.posts[0].path.endsWith('/verify'));assert.deepEqual(f.state.posts[0].body.own_aliases,['alias@example.test']);assert.match(text(),/Verified mailbox/);assert.equal(f.state.status.polling_enabled,false);
@@ -127,4 +130,48 @@ for(const pager of ['Next history','Next review']) for(const kind of ['verify','
  await act(async()=>tree.unmount());active=false;resolve({items:[item],total:1,association_basis:'current_explicit_company_contacts'});
  assert.equal(tree.toJSON(),null);
 }
+// Connections has no contact-shaped placeholder, alias endpoint or second poller.
+for (const terminal of [null,'failed','cancelled','unknown']) {
+ f=fixture();f.state.status.runtime.available=true;
+ props={...f,workspaceToken:'settings-ws',routeKey:'routeA',storageBackend:'sqlite'};
+ await act(async()=>{tree=Renderer.create(h(EmailBridgeConnections,props),{createNodeMock:el=>({focus:()=>f.state.focus.push(el.props.type||el.type),scrollIntoView:()=>f.state.focus.push('scroll')})});});
+ assert.equal(f.state.posts.length,0);assert.equal(f.state.timers.length,0);
+ assert.ok(f.state.gets.every(path=>path.includes('/status')));
+ assert.equal(tree.root.findAllByType('textarea').length,0);
+ assert.doesNotMatch(text(),/Edit contact email aliases|retained observations for this contact/);
+ await click('Verify existing connection');assert.equal(f.state.focus.at(-1),'email');assert.ok(f.state.focus.includes('scroll'));
+ await act(async()=>tree.root.findByType('form').props.onKeyDown({key:'Escape',preventDefault(){}}));
+ assert.equal(tree.root.findAllByType('form').length,0);assert.equal(f.state.focus.at(-1),'return');
+ await click('Verify existing connection');
+ await act(async()=>tree.root.findByProps({type:'email'}).props.onChange({target:{value:'synthetic@example.test'}}));await approve();
+ f.state.terminal=terminal==='unknown'?null:terminal;f.state.fail=terminal==='unknown';
+ await confirm();assert.equal(f.state.posts.length,1);assert.equal(f.state.status.polling_enabled,false);
+ if(terminal==='unknown'){assert.match(text(),/unknown/);assert.equal(f.memory.attempts.size,1);}
+ else if(terminal){assert.match(text(),new RegExp(terminal));assert.doesNotMatch(text(),/Verification succeeded|Verified mailbox/);}
+ else {assert.match(text(),/Verification succeeded/);assert.match(text(),/No messages read/);}
+ await act(async()=>tree.unmount());
+ await act(async()=>{tree=Renderer.create(h(EmailBridgeConnections,props));});
+ assert.equal(f.state.posts.length,1,'route remount never resends');
+ if(!terminal)assert.match(text(),/Verification succeeded/);
+ if(terminal==='failed')assert.match(text(),/Last verify action failed/);
+ await act(async()=>tree.unmount());
+}
+// Initial local read failure is unavailable, never an indefinitely loading headline.
+f=fixture();f.state.failReads=true;props={...f,workspaceToken:'read-error',routeKey:'A',storageBackend:'sqlite'};
+await act(async()=>{tree=Renderer.create(h(EmailBridgeConnections,props));});
+assert.match(text(),/Local status unavailable/);assert.doesNotMatch(text(),/Loading local status/);assert.equal(f.state.posts.length,0);
+f.state.failReads=false;await click('Refresh local status');assert.match(text(),/Not verified/);assert.doesNotMatch(text(),/Local status unavailable|Local email history is unavailable/);
+Object.assign(f.state.status,{enabled:true,mailbox:'synthetic@example.test',account_namespace:'verified-local',checkpoint:'123'});
+await click('Refresh local status');f.state.failReads=true;await click('Refresh local status');
+assert.match(text(),/Verified mailbox: synthetic@example.test/);assert.match(text(),/Showing last known account status/);assert.equal(f.state.posts.length,0);
+await act(async()=>tree.unmount());
+// Scope replacement rejects stale Settings confirmation and preserves contact isolation.
+f=fixture();f.state.status.runtime.available=true;props={...f,workspaceToken:'ws-a',routeKey:'A',storageBackend:'sqlite'};
+await act(async()=>{tree=Renderer.create(h(EmailBridgeConnections,props));});
+await click('Verify existing connection');await approve();
+const staleSettingsSubmit=tree.root.findByType('form').props.onSubmit;
+await act(async()=>tree.update(h(EmailBridgeConnections,{...props,workspaceToken:'ws-b',routeKey:'B'})));
+await act(async()=>staleSettingsSubmit({preventDefault(){}}));assert.equal(f.state.posts.length,0);
+assert.equal(tree.root.findAllByType('form').length,0);assert.ok(f.state.gets.every(path=>!path.includes('/contacts/')&&!path.includes('/unresolved')));
+await act(async()=>tree.unmount());
 console.log('Gmail bridge React/VM synthetic safety contracts passed.');

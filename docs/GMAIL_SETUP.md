@@ -60,14 +60,25 @@ installation. Never paste credentials into CRM, chat, source or screenshots.
 
 ### Verify, then choose what to read
 
-1. Open a Contact's **Email history → Account & sync settings**. Review the
+1. Open native **Settings → Connections**. No Contact is needed. The same
+   controls remain available under a Contact's **Email history → Account & sync settings**. Review the
    storage destination: the selected SQLite database or PostgreSQL database,
    which may be remote. Metadata is ordinary CRM data, not protected notes.
 2. Choose **Verify existing connection**, enter the exact own mailbox and any
-   explicit own aliases, then review and confirm. This reads the provider's
+   explicit own aliases, select the approval checkbox in the surfaced review,
+   then choose **Confirm verification (no messages read)**. The review scrolls
+   into view and focuses the mailbox field; Escape cancels before dispatch. This reads the provider's
    mailbox profile and current history checkpoint, **not messages**. Aliases are
    user-supplied, not provider-verified. The default starting point is new changes
-   from verification onward, not a historical import.
+   from verification onward, not a historical import. Successful verification
+   enables local use but does not enable app-open sync or read messages. Check
+   **Verified mailbox** for the recorded identity. Host configuration alone is
+   never displayed as verified. In-progress, failed, cancelled and unknown
+   outcomes are distinct; unknown operations remain locked and are not resent.
+   Recent receipt feedback survives route changes within the current pane
+   lifetime; verified identity is loaded from durable local account state.
+   Host flags and external account authorization must still be configured
+   through Hermes; this panel cannot grant access or sign in.
 3. Separately approve **Sync new metadata** for changes since that checkpoint.
    For older observations, explicitly choose **Read last 7 days** or **Read last
    30 days**. These are bounded workspace reads, not only a read of the Contact
@@ -77,7 +88,7 @@ installation. Never paste credentials into CRM, chat, source or screenshots.
 4. Optionally approve **Sync while CRM is open**. Checks occur at least five
    minutes apart while the native CRM pane is open and eligible to poll. There
    is no daemon, cron, startup job or promise of sync while the app is closed.
-   Opening the pane or **Refresh local history** only loads local state; it
+   Opening Settings/the pane or **Refresh local status/history** only loads local state; it
    does not itself read Google. An already approved poller can read later.
 5. Review receipts, coverage and **Participants & match evidence**. A partial or
    unknown operation is not a completed read. Refresh reconciles the saved

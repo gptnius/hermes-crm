@@ -2,6 +2,52 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Contact layout and Connections settings (November 9, 2026)
+
+Native Settings now exposes workspace-level Connections without requiring a
+Contact record. Navigation reads local status and receipts, not provider data,
+Contact history or aliases. Verification review is surfaced and focused, with
+explicit confirmation and distinct successful, failed, cancelled and unknown
+outcomes. Message reads and polling retain separate approval. A failed local
+status read no longer appears to be indefinitely loading; a failed refresh labels
+retained state as last known. Account-switch guidance preserves history unless
+the user explicitly chooses to clear it.
+
+Contact detail hides the Custom fields section only when there are no relevant
+definitions or stored values. Defined empty fields, archived/stored values,
+false and zero remain visible. Lower contact cards share a responsive grid;
+email panels remain full-width. Related sections retain DOM and keyboard order.
+Long breadcrumb names and company subtitles wrap instead of clipping.
+
+The local Python aggregate passed **2,129 tests, with 888 optional skips**.
+All **14 generated-section checks and 38 JavaScript/React runner commands** passed;
+focused bridge and generated-bundle checks were repeated after the final wording
+correction. Independent source review covered field visibility, Settings routing,
+latest-read fencing, receipt recovery, one polling owner and consent separation.
+These totals overlap earlier runs and must not be added together. Runtime Python,
+schema, plugin permissions and manifest are unchanged in this increment.
+
+An isolated, hidden Mac Electron renderer exercised real contact and connection
+components with synthetic clients. A **54-case** light/dark matrix at 360, 800 and
+1440 pixels covered empty/populated/long contact data and six connection states.
+It found and verified corrections for clipped breadcrumb/subtitle text, a
+staggered card margin and the misleading loading headline. Four additional cases
+checked failed refresh followed by successful recovery. After a final wording-only
+correction, all source hashes were reconciled and four affected verified Settings
+layouts were rerendered at 360/1440 pixels in both themes. There was no viewport,
+element or text-range overflow in the accepted checks. Mailbox focus and
+Cancel/Escape focus restoration passed; rendered inputs had labels.
+
+All owned renderer invocations exited successfully after destroying their hidden
+windows. They reported no visible windows, external requests or client writes.
+Independent OS process enumeration was unavailable. The source archive contained
+322 files; only the component, generated bundle and regression test changed in
+the final wording correction. No private diagnostic files or screenshots are
+distributed. This is synthetic component acceptance, not installed-host, live
+mailbox, physical-keyboard or screen-reader certification. The standalone layout
+has source/contract coverage; its optional browser fixture was not executed here.
+The earlier unresolved intermittent transport failure remains disclosed below.
+
 ## Existing-connection Gmail bridge (November 9, 2026)
 
 The default-off native bridge was developed and reviewed using synthetic mail

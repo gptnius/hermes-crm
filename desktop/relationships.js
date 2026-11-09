@@ -343,7 +343,7 @@ export function ContactRelationships({ client, workspaceToken, contact, open, di
   const ref = useRef(null); if (!ref.current) ref.current = relationshipSession(client, workspaceToken, () => true, operationStore);
   const session = ref.current;
   useEffect(() => { session.activate(); return () => session.close(); }, [session]);
-  return h('div', null,
+  return h('div', { className: 'hc-contact-relationships' },
     h(RelationshipRows, { session, path: `/contacts/${encodeURIComponent(contact.id)}/relationship-tasks`, title: 'All associated tasks · contact and Event relationships', kind: 'tasks', open, disabled }),
     h(RelationshipRows, { session, path: '/events', params: { contact_id: contact.id }, title: 'Related local Events', kind: 'events', open, disabled }),
     h(RelationshipRows, { session, path: '/relationship-activities', params: { contact_id: contact.id }, title: 'Relationship Activities · self-reported', open, disabled }));

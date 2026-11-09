@@ -95,9 +95,11 @@ function stageBadge(key) {
 }
 function customFieldDetails(kind, record) {
   const values = record.custom_fields || {};
-  const fields = (catalog.fields[kind] || []).filter(f => Object.hasOwn(values, f.key));
+  const fields = (catalog.fields[kind] || []).filter(f => !f.archived || values[f.key] != null);
+  const known = new Set(fields.map(f => f.key));
+  fields.push(...Object.keys(values).filter(key => !known.has(key) && values[key] != null).map(key => ({key, label: key + " (stored field)"})));
   if (!fields.length) return "";
-  return `<section><h3>Custom fields</h3><dl class="detail-meta">${fields.map(f => `<div><dt>${esc(f.label)}${f.archived ? " (archived)" : ""}</dt><dd>${esc(typeof values[f.key] === "boolean" ? (values[f.key] ? "Yes" : "No") : values[f.key])}</dd></div>`).join("")}</dl><p class="subtitle">Edit custom fields in Hermes Desktop.</p></section>`;
+  return `<section><h3>Custom fields</h3><dl class="detail-meta">${fields.map(f => `<div><dt>${esc(f.label)}${f.archived ? " (archived)" : ""}</dt><dd>${esc(values[f.key] == null ? "Not set" : typeof values[f.key] === "boolean" ? (values[f.key] ? "Yes" : "No") : values[f.key])}</dd></div>`).join("")}</dl><p class="subtitle">Edit custom fields in Hermes Desktop.</p></section>`;
 }
 const label = (s) =>
   String(s || "")
@@ -635,7 +637,7 @@ async function contactDetail(id) {
     if (scope !== relationshipWorkspace || c?.id !== id) return;
     showModal(
       modalHead(c.name) +
-        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}<section><h3>Company</h3>${c.company_id ? relationshipRecordButton("companies",{id:c.company_id,name:c.company_name || "Open linked Company"}) : `<p>Unlinked legacy company text: ${esc(c.company || "Not set")}</p>`}<button class="button" id="contact-company">Link or unlink Company</button><button class="button" id="contact-events">Events & Activities</button><button class="button" id="contact-create-event">Create Event</button></section>${customFieldDetails("contacts", c)}${contactActivity(list(result.activity), c.id)}<h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}<h3>Tasks</h3>${taskRows(list(result.tasks))}</div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button" id="contact-research">Research</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
+        `<div class="detail-body"><div class="person"><span class="avatar">${esc(initials(c.name))}</span><div>${esc(c.title || "Contact")}${c.company ? " at " + esc(c.company) : ""}<div>${badge(c.lifecycle)}</div></div></div><dl class="detail-meta"><div><dt>Email</dt><dd>${esc(c.email || "Not added")}</dd></div><div><dt>Created</dt><dd>${date(c.created_at)}</dd></div></dl>${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ""}<div class="contact-detail-grid"><section><h3>Company</h3>${c.company_id ? relationshipRecordButton("companies",{id:c.company_id,name:c.company_name || "Open linked Company"}) : `<p>Unlinked legacy company text: ${esc(c.company || "Not set")}</p>`}<button class="button" id="contact-company">Link or unlink Company</button><button class="button" id="contact-events">Events & Activities</button><button class="button" id="contact-create-event">Create Event</button></section>${customFieldDetails("contacts", c)}<section>${contactActivity(list(result.activity), c.id)}</section><section><h3>Deals</h3>${dealCards(list(result.deals)) || empty("No linked deals.")}</section><section><h3>Tasks</h3>${taskRows(list(result.tasks))}</section></div></div><div class="form-actions"><button class="button" data-action="close">Close</button><button class="button" id="contact-research">Research</button><button class="button primary" id="edit-contact">Edit contact</button></div>`,
     ); // Fresh detail records replace cached versions before later edits.
     state.deals = mergeRecords(state.deals, list(result.deals));
     state.tasks = mergeRecords(state.tasks, list(result.tasks));

@@ -247,3 +247,8 @@ footer .demo-label { white-space: normal; overflow-wrap: anywhere; }
 #relationship-discard:not([hidden]){display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 #relationship-discard>p{flex-basis:100%;margin:0}
 #relationship-form :is(input,select,button){min-height:44px}
+
+.contact-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px;align-items:start;margin-top:16px}
+.contact-detail-grid>section{min-width:0;overflow-wrap:anywhere;padding:16px;border:1px solid var(--line);border-radius:4px;background:var(--panel)}
+.contact-detail-grid>section>h3:first-child{margin-top:0}
+@media(max-width:640px){.contact-detail-grid{grid-template-columns:minmax(0,1fr)}}
