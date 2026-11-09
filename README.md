@@ -42,7 +42,7 @@ and normal host prompts. This does not enable new capabilities or grants. See
 - Agent detail reads: exact ordinary notes for Contacts, Deals, Tasks, Companies and Events, plus Event outcome summaries and existing core custom fields. Reads return the current version so requested updates can preserve existing content; default summaries stay compact and scheduled scopes stay unchanged.
 - Layered protection: reduced default agent output, explicit ordinary-field reads, optional separately encrypted protected notes and encrypted CRM content exports. An offline [fresh-target content restore](docs/BACKUP_RESTORE.md) is implemented with synthetic test evidence. Keys remain user-managed; no full-host backup, live-cutover or general security guarantee. See [scope and recovery limits](docs/PROTECTION.md).
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
-- Optional Gmail metadata history: default off, manual own-mailbox verification and reviewed contact/date reads through host-owned OAuth, a separate durable ledger and native contact timeline. Synthetic tests only; no live account connected or verified. See [setup and limits](docs/GMAIL_SETUP.md).
+- Optional Gmail metadata history: default-off native bridge to the active profile’s existing Hermes Workspace connection through trusted gws 0.22.5. Separate mailbox verification, new-from-now incremental reads, explicit 7/30-day history and opt-in app-open polling; exact Contact/alias matching and Company views through linked Contacts. No bodies or sends. Synthetic tests only; no live account verified. The separate CRM OAuth pilot remains Advanced. See [setup and limits](docs/GMAIL_SETUP.md).
 
 **Checks:** a [credential-free CI workflow](docs/CI.md) runs the supported
 contract suites with read-only repository permissions and a disposable PostgreSQL
@@ -156,7 +156,7 @@ Additional work and remaining limits:
   dates before historical funnels; broader date controls, dashboard-wide filter
   semantics and scale testing. Advanced formulas, arbitrary joins and custom
   objects are deferred. See [report limits](docs/FLEXIBLE_REPORTS.md).
-- **Future communication integrations:** automatic inbound/outbound email history,
+- **Future communication integrations:** always-running email synchronization,
   provider-backed proposal activity, and optional calling/texting integrations
   (for example, Telnyx). These need explicit account authorization, reviewed
   actions, durable provider identifiers and delivery/outcome evidence. They are
@@ -256,6 +256,7 @@ Supabase is supported as a PostgreSQL connection option, not via its REST SDK. A
 ```bash
 python -m pytest -q
 python scripts/build_email_panel.py --check
+python scripts/build_email_bridge_panel.py --check
 python scripts/build_report_panels.py --check
 python scripts/build_customization_panel.py --check
 python scripts/build_protection_panel.py --check
@@ -270,6 +271,7 @@ node --experimental-vm-modules tests/desktop_protection.mjs
 node --experimental-vm-modules tests/desktop_reports.mjs
 node --experimental-vm-modules tests/desktop_contact_log.mjs
 node --experimental-vm-modules tests/desktop_email_history.mjs
+node --experimental-vm-modules tests/desktop_email_bridge.mjs
 node --experimental-vm-modules tests/desktop_relationships_react.mjs
 node tests/standalone_relationship_ui.cjs
 node --check hermes_crm/static/app.js

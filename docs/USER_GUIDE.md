@@ -290,8 +290,8 @@ is not exposed in the record-history summary.
 
 **Logged contact** remains a separate self-reported history. Optional Gmail
 observations are separate provider metadata, subject to their own setup,
-authorization and provenance. Automatic inbound/outbound email, calls, texts
-and proposals are future integrations, not fabricated timeline events.
+authorization and provenance. The optional bridge observes email metadata only;
+calls, texts and proposals are not fabricated timeline events.
 
 ## Record an actual conversation
 
@@ -474,27 +474,56 @@ prototype for scheduled work.
 
 ## Optional Gmail history
 
-Skip this section if you only need the CRM. Gmail is **off by default**, is
-native-only, and has been tested with synthetic providers rather than a real
-Google account. Do not assume an existing Gmail or Workspace login is connected.
+Gmail is **off by default and native-only**. Tests use synthetic providers; no
+real account has been connected or verified during development. Follow
+[Gmail setup and privacy](GMAIL_SETUP.md) before authorizing access.
 
-The pilot requires your own Google OAuth Desktop app setup, Hermes-managed
-secret fields and a separately authorized host-owned sign-in. Follow
-[Gmail setup and privacy](GMAIL_SETUP.md) for the complete sequence. Do not paste
-credentials or tokens into CRM, chat, source files or screenshots.
+The primary Contact **Email history** panel reuses the active profile's existing
+Hermes Workspace `google_token.json` through an explicitly configured trusted
+gws 0.22.5 executable. CRM does not read/copy token bytes, discover accounts,
+install the CLI or request a new grant. gws does use the existing credential and
+can refresh an access token, so real-account authorization is still required.
 
-After setup, the contact panel has separate **Verify own mailbox** and
-**Read Gmail history** review steps. Reads are manual 7- or 30-day queries for
-one contact's email. The implementation requests selected message headers and
-metadata, not bodies or attachments. However, the requested Gmail readonly
-OAuth scope is broader and can read bodies; review Google's consent carefully.
+Under **Account & sync settings**, first approve **Verify existing connection**
+with your exact mailbox and explicit own aliases. This verifies the profile and
+captures a starting checkpoint without reading messages. Then separately approve
+**Sync new metadata**, or explicitly choose **Read last 7 days** / **Read last
+30 days**. Reads cover workspace matching, not only the open Contact. Optional
+**Sync while CRM is open** polls at least five minutes apart, only while the CRM
+pane is open. There is no always-on service or startup sync. Refreshing local
+history does not initiate a provider read.
 
-There is no automatic sync, send, reply, draft, mark-read or mailbox modification.
-Observed Sent items are not proof that CRM sent them or that they were delivered.
-Metadata stays in the selected CRM datastore and is not automatically added to
-agent context or the self-reported contact log. **Disconnect locally** and
-**Forget local email history** do not revoke Google's grant; host/Google grant
-management is separate. Read the full guide's retention and cancellation limits.
+Only selected headers and metadata are requested, never bodies, snippets, Bcc
+or attachments. Unrelated metadata can be examined in memory during a read.
+Exact Contact emails and explicit aliases determine links; no dot/plus/local-case
+inference is used, and own aliases are excluded. Multiple Contacts can match one
+message. Retained ambiguous/case-mismatch candidates and changed identities are
+reviewable; unsupported or unmatched messages may be omitted. Explicit Contact
+aliases persist until edited or removed, even after a primary email changes.
+Company history uses current explicit Contact–Company links, never inferred domains.
+
+Review operation receipts and coverage. Unknown or partial does not mean complete;
+refresh reconciles rather than resending. Receipts have bounded retention: up to
+10,000 ordinary receipts, with older terminal receipts compacted and active/unknown
+operations protected, plus 128 control receipts. After ordinary receipt
+compaction, a missing lookup may report `expired_or_unknown`; otherwise it may
+return null. Absence never proves no action; stale revisions prevent replay.
+An expired checkpoint requires a newly approved bounded resync. Sent labels do not prove delivery or a CRM-approved send.
+There is no send, draft, reply, mark-read or mailbox modification.
+
+**Pause sync**, **Stop app-open sync**, **Disconnect locally** and **Clear retained
+metadata** have different effects. Disconnect retains observations; clear deletes
+workspace observations and resets the checkpoint but can retain identity,
+aliases and receipts. Neither revokes Google's grant or deletes Google messages.
+Metadata is ordinary data in the selected SQLite/PostgreSQL backend, which may
+be remote, and is not automatically added to agent context. Encrypted backups
+include scoped metadata; restore quarantines it and leaves the bridge disabled
+without restoring account, cursor, lease or polling state.
+
+**Advanced: separate CRM email connection** retains the older manual OAuth pilot.
+It requires its own Desktop OAuth app and host-owned authorization, does not
+reuse the bridge connection, and keeps its separate ledger and controls. See the
+setup guide for that optional path and full retention/cancellation limits.
 
 ## Import and export contact CSV
 
@@ -662,6 +691,7 @@ environment:
 python -m pip install -e '.[test]'
 python -m pytest -q
 python scripts/build_email_panel.py --check
+python scripts/build_email_bridge_panel.py --check
 python scripts/build_report_panels.py --check
 python scripts/build_customization_panel.py --check
 python scripts/build_protection_panel.py --check
@@ -673,6 +703,7 @@ npm install --prefix "$HERMES_CRM_REACT_TEST_ROOT" --ignore-scripts --no-audit -
 node --experimental-vm-modules tests/desktop_reports.mjs
 node --experimental-vm-modules tests/desktop_contact_log.mjs
 node --experimental-vm-modules tests/desktop_email_history.mjs
+node --experimental-vm-modules tests/desktop_email_bridge.mjs
 node --check hermes_crm/static/app.js
 ```
 

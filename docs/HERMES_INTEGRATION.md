@@ -50,7 +50,7 @@ Native PostgreSQL schema is `crm_` followed by the first 24 hex characters of SH
 
 ## Contact report contract
 
-`crm_contact_report` and `/reports/contacts` share server-side filtering and return `items`, `total`, `limit` and `offset`. Filters cover linked deal stage, Contact type, company, email presence, text and open-follow-up state. Results count contacts once even when multiple deals match and include distinct linked stages plus follow-up aggregates. The legacy contact `lifecycle` field stores Contact type; it is not a deal stage. Existing list tools retain array responses and the 500-record bound.
+`crm_contact_report` and `/reports/contacts` share server-side filtering and return `items`, `total`, `limit` and `offset`. Filters cover linked deal stage, Contact type, company, email presence, text and open-follow-up state. Results count contacts once even when multiple deals match and include distinct linked stages plus follow-up aggregates. The base agent tool intentionally returns a minimized item projection: notes, custom values and canonical Company-link metadata stay out of that default response. Shared allowed fields, totals, filters and pagination match the human REST result; full dictionaries are not identical. Requested ordinary notes and supported custom values use `crm_record_fields`. The legacy contact `lifecycle` field stores Contact type; it is not a deal stage. Existing list tools retain array responses and the 500-record bound.
 
 The added report tool makes the current read toolset eight tools. Historical live-scheduler evidence in VERIFICATION.md used an earlier seven-read-tool revision and is not a new live-scheduler verification of this addition.
 

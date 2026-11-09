@@ -2,6 +2,146 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Existing-connection Gmail bridge (November 9, 2026)
+
+The default-off native bridge was developed and reviewed using synthetic mail
+metadata, credentials and transports. It does not create an OAuth grant or send
+mail. No real mailbox, credential, provider configuration or installed Hermes
+profile was used for its development checks. The existing separate CRM OAuth
+pilot remains available under Advanced.
+
+Final local checks passed **2,129 Python tests, with 888 optional skips**, plus
+all 14 generator and 37 JavaScript/React commands in the credential-free runner
+(**52 commands** including Python). The Python command was rerun after the last
+runtime/test-only corrections; UI and generator inputs were unchanged. Independent review found and
+verified fixes for duplicate-header handling, cursor regression, receipt
+capacity, late lease expiry, provider-session cleanup and pagination during an
+in-flight native action. Eight React regressions cover both pagers, verification
+and sync, and known/unknown responses; unknown requests retain their exact
+operation key without automatic resubmission.
+
+On a separate disposable PostgreSQL 17.11 ARM64 instance, the full Python suite
+passed **2,991 tests, with 24 optional or not-applicable skips and four known
+warnings** on the 320-file QA snapshot before the final deadline correction
+described below. This includes the focused
+**281 bridge checks**: 227 local cases, 49 PostgreSQL storage cases and five
+PostgreSQL-source-to-fresh-SQLite recovery cases. These totals overlap and must
+not be added. All 320 frozen source hashes remained unchanged. Both owned, loopback-only, tmpfs database containers were
+removed. This is not 2,991 exclusively PostgreSQL-backed tests; the aggregate
+also includes SQLite, compiler, adapter and local fixtures. Same-process
+concurrency is not cross-process or distributed stress testing.
+
+The recovery checks verify mixed-profile metadata scoping, including Unicode
+profile names, encrypted export, rejection of partial/newer/foreign-scope
+snapshots and disabled operational restoration. Retained Gmail evidence is
+quarantined; account selection, cursors, leases and polling do not resume.
+Only the bridge schema marker is initialized in the restored live table family.
+Neither credentials nor CLI cache files are exported.
+
+Before the final snapshot, a temporary-directory portability issue was reproduced
+and fixed: runtime resolves only its own newly created working directory before
+strict transport validation. Supplied executable and credential symlink
+restrictions remain unchanged. All 77 runtime/API/transport tests passed,
+including an owned alias-parent reproduction, cleanup and negative supplied-path
+cases; the final Mac run includes these regressions. The final snapshot also
+contains the reviewed consent CSS/test and host-fixture corrections described
+below. Subsequent changes are the two-line transport deadline correction and
+two deterministic tests described next, plus verification/setup documentation.
+Schema, UI, manifest and all other runtime/test bytes remain unchanged.
+
+### Deadline correction and unresolved intermittent failure
+
+A later publication check observed one unexpected `gws_execution_failed` in the
+synthetic short-deadline/cache-cleanup test. The sanitized traceback did not
+retain the original OS error's stage or errno. Twenty isolated repetitions and
+one full diagnostic rerun did not reproduce it. Its cause remains unknown;
+these passing reruns are not evidence that the original failure was fixed.
+
+Independent investigation found a separate reproducible deadline bug: a process
+finishing after the final pipe drain could return success without one last
+deadline check. A two-line check now rejects that late result. A deterministic
+regression reproduced the failure before the correction; both final regression
+cases passed afterward, covering an exact deadline and an overrun, with process-group signalling, reaping, pipe
+closure and temporary-directory cleanup. The corrected source passed all
+**79 focused transport/runtime/API checks** and the full local suite above.
+
+A reviewed private diagnostic then ran **three serialized full Mac suites** on
+the corrected source. Each passed **2,129 tests, with 888 optional skips and two
+known warnings**. Fixed-field logs captured failure stage/errno before redaction,
+recorded complete test outcomes and confirmed trace restoration. All owned
+runner groups exited, temporary homes were removed and all 320 candidate hashes
+remained unchanged. The target had 15 open descriptors, with observed counts
+between 11 and 18 and no descriptor pressure observed at the sampled points.
+Two runs recorded only the expected,
+handled process-already-exited error during group cleanup before the successful
+timeout assertion. No unexpected OS error recurred.
+
+This was bounded non-reproduction, not root-cause resolution. Instrumentation
+adds timing overhead and can affect race manifestation; intermittent OS or
+cleanup failures cannot be ruled out. The private diagnostic and logs are not
+distributed with the plugin. The bridge remains default-off. An approved real
+mailbox read and installed-host check are still required before treating it as
+a verified operational connection; no production mailbox reliability claim is
+made from these runs.
+
+### Native component pixels
+
+An isolated Mac renderer produced **32 synthetic component cases**: eight states
+in light/dark themes at 360px and 1100px. Default-off, populated/ambiguous long
+headers, verification, history consent, unknown, partial and Company views were
+covered. Representative actual pixels were inspected. No horizontal viewport
+overflow or clipped button labels was measured; long unbroken text wrapped.
+A checkbox-stacking issue was corrected with an explicit row direction, then
+all **eight consent cases** were rerendered and visually rechecked. The corrected
+component SHA-256 is
+`ebbd29a095c970a889606dc6f921385c77ddd49954d314b3cfbcff43f025a8cb`.
+Consent focus and Cancel focus restoration passed; minimum button height was
+36px. Physical keyboard focus-ring behavior and screen-reader acceptance remain
+unverified.
+
+Electron 44.9.3 used hidden windows, sandboxing, context isolation, disabled
+Node integration and a secure offline scheme. App activation was prohibited;
+the external-request log was empty. Windows were destroyed and renderer
+processes returned exit code zero. An additional process-list query was not
+available, so no broader process inventory claim is made. The existing Hermes
+app, user records, profile and credentials were untouched. This is component
+rendering, not installed-host or real-account acceptance.
+
+### Actual CLI and remaining integration gates
+
+A Linux GNU binary from the official-repository
+[gws 0.22.5 release](https://github.com/googleworkspace/cli/releases/tag/v0.22.5)
+matched its companion archive SHA-256
+`de78ecdbd2f1a84cca0063a7ecbc440240fc14b6ebccbb17f4646b792a8c5c1f`.
+With an empty owned HOME/config/cwd and environment, actual `--version` and
+`--help` passed. The exact version output includes **“This is not an officially
+supported Google product.”** Top-level help confirms the Gmail family and
+parameter/JSON-format options. Endpoint-specific help could not fetch public
+Google Discovery metadata because DNS was unavailable in that environment.
+No account or mailbox request was made; endpoint parsing, existing-token refresh
+and real Gmail response behavior are therefore not established by this check.
+
+Both genuine pinned-host smoke modes, `in_process` and `host`, passed against
+Hermes commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. This exercised real
+plugin discovery, authenticated route mounting, default-off bridge behavior,
+reserved profile routing, workspace fencing and secondary-profile IPC. All five
+guarded child processes exited; no forbidden-action logs or scheduler jobs were
+created. No model, mailbox or physical Desktop interaction occurred.
+
+Earlier attempts exposed two fixture issues: an unrecognized official read-only
+CalVer `git describe` probe and an older assertion equating full human REST
+reports with intentionally minimized base-agent reports. Independently reviewed
+test-only corrections added a source/caller/cwd/executable/argument-bound probe
+allowance and exact allowed-field parity assertions. All 22 guard and seven
+report-assertion regressions passed. The guard permits no `git show`, networking,
+model launch or generic process execution; the report assertion still rejects
+leaked notes/custom fields and incorrect pagination, IDs, dates or aggregates.
+
+A separately authorized mailbox verification, bounded real read and installed
+native UI check remain required. The bridge is not an always-on synchronization
+service: opt-in polling belongs to the open CRM pane. See
+[setup and privacy](GMAIL_SETUP.md) and [the design](GMAIL_BRIDGE_PLAN.md).
+
 ## Empty-first distribution and preserved workspace records (November 9, 2026)
 
 Normal standalone instructions now select SQLite explicitly, use an ignored

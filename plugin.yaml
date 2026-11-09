@@ -108,6 +108,16 @@ config_schema:
     env: HERMES_CRM_DATABASE_URL
     label: PostgreSQL connection URL
     description: Optional. Used only when PostgreSQL is selected. Keep credentials in the host secret store.
+  gmail_bridge_enabled:
+    type: bool
+    default: false
+    label: Existing Hermes Gmail bridge
+    description: Optional reuse of this profile's existing Workspace connection. Explicit verification and metadata read approval are required in CRM. Never sends mail.
+  gmail_bridge_gws_path:
+    type: str
+    default: ''
+    label: Trusted Google Workspace CLI path
+    description: Absolute path to the administrator-installed Google Workspace CLI 0.22.5. No executable or account discovery, installation or new grant occurs.
   gmail_history_enabled:
     type: bool
     default: false

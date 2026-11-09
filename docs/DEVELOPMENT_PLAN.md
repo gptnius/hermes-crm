@@ -2,6 +2,11 @@
 
 Status: focused prototype in development. Target: working, reviewable open-source plugin before November 11, 2026. Official announcement cutoff verified as November 11 at 5 PM EST (22:00 UTC); submission requirements are documented in HERMES_INTEGRATION.md. No submission or deployment is part of this build.
 
+This is the original implementation plan and retains its historical scope.
+The current feature inventory, design direction and prioritized roadmap are in
+[README](../README.md); completed increments and remaining gates are recorded in
+[VERIFICATION](VERIFICATION.md). Deferred items below may have since shipped.
+
 ## Product promise
 An agent-native relationship workspace: people, pipeline and follow-through in one small local application. A person's existing Hermes agent can work on the same records shown in the UI. One active Hermes profile maps to one workspace by default. The UI should feel considered and legible: calm navy navigation, warm off-white canvas, teal focus, chart cards and useful drillthrough. HubSpot and Salesforce are functional references, not assets to copy.
 

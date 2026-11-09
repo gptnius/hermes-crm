@@ -41,12 +41,13 @@ def _validate(snapshot, notes_ring):
     from .task_ownership import OWNED_TABLES as owners
     from .scheduled_research import TABLES as scheduled_research
     from .report_review_schema import TABLES as report_reviews
+    from .gmail_bridge_schema import OWNED_TABLES as gmail_bridge
     families = [set(domain.metadata.tables)]
     for module in (customization, execution, gmail_history, native_work,
                    protection, report_store, report_interactions):
         families.append({name for name in module.metadata.tables
                          if name not in domain.metadata.tables})
-    families.extend({t.name for t in group} for group in (relationships, research, owners, scheduled_research, report_reviews))
+    families.extend({t.name for t in group} for group in (relationships, research, owners, scheduled_research, report_reviews, gmail_bridge))
     if not (families[0] | set(customization.metadata.tables)) <= tables.keys():
         _invalid()
     for family in families:
@@ -196,6 +197,7 @@ def restore_content(artifact, *, backup_ring, workspace, profile, target, notes_
             table.to_metadata(schema)
         engine = create_engine(URL.create('sqlite', database=str(db)))
         quarantined = []
+        safe_initialized = []
         try:
             with engine.begin() as conn:
                 schema.create_all(conn, tables=[schema.tables[name] for name in snapshot['tables']])
@@ -203,6 +205,12 @@ def restore_content(artifact, *, backup_ring, workspace, profile, target, notes_
                     quarantine = name.startswith(('crm_native_', 'crm_agent_', 'crm_gmail_', 'crm_scheduled_research_', 'crm_report_review_'))
                     if quarantine:
                         quarantined.append(name)
+                        if name == 'crm_gmail_bridge_schema':
+                            # Preserve all original rows in recovery_* evidence,
+                            # but allow a new disabled bridge to be configured.
+                            # No account, cursor, lease or polling flag is restored.
+                            conn.execute(schema.tables[name].insert().values(id=1, version=1))
+                            safe_initialized.append(name)
                         continue
                     values = [dict(row) for row in rows]
                     if name == 'crm_tasks':
@@ -230,6 +238,7 @@ def restore_content(artifact, *, backup_ring, workspace, profile, target, notes_
                         live_restore=False, full_backup=False,
                         content_restored=True, exact_profile_required=True,
                         quarantined_tables=sorted(quarantined),
+                        safe_initialized_tables=sorted(safe_initialized),
                         task_schedules_reset=True)
         # This completion marker is published last. It is provenance, not a
         # signature, and does not protect against a local attacker replacing both.

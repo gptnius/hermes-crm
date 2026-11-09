@@ -122,6 +122,32 @@ def forbidden(action):
         handle.write(str(action) + '\n')
     raise AssertionError('Forbidden in read-only Desktop host validation: ' + str(action))
 
+# Bounded exception for the pinned host's read-only CalVer identity probe.
+# No shell, arbitrary git show, alternate checkout, or unpinned caller is allowed.
+def desktop_version_probe(executable, argv, cwd):
+    if (executable != 'git' or list(argv) != ['git', 'describe', '--tags', '--long',
+            '--match', 'v2[0-9][0-9][0-9].*', 'HEAD'] or not cwd):
+        return False
+    source = Path(os.environ['CRM_DESKTOP_TEST_SOURCE']).resolve()
+    if Path(cwd).resolve() != source:
+        return False
+    version_file = source / 'hermes_cli/version_info.py'
+    frame = sys._getframe(1)
+    try:
+        while frame is not None:
+            if (frame.f_code.co_name == '_run_git'
+                    and Path(frame.f_code.co_filename).resolve() == version_file):
+                import hashlib
+                try:
+                    return hashlib.sha256(version_file.read_bytes()).hexdigest() == (
+                        'c9063a4a9b0ae7dd7027bf58955f3890b0ac671caa9be5fbd3f5bce02bcea0da')
+                except OSError:
+                    return False
+            frame = frame.f_back
+        return False
+    finally:
+        del frame
+
 def audit(event, args):
     if event in {'open', 'os.listdir', 'os.scandir'} and args and isinstance(args[0], (str, bytes)):
         if Path(os.fsdecode(args[0])).resolve().is_relative_to(forbidden_home):
@@ -132,6 +158,8 @@ def audit(event, args):
         forbidden(event)
     if event == 'subprocess.Popen':
         executable, argv, cwd, env = args
+        if desktop_version_probe(executable, argv, cwd):
+            return
         import re
         git_read = (list(argv) in [
             ['git', 'rev-parse', 'HEAD'], ['git', 'rev-parse', '--short=7', 'HEAD'],
@@ -226,6 +254,18 @@ with patch.object(socket, 'create_connection', deny_network), \
         assert response.status_code == expected, (method, path, response.status_code, response.text)
         return response.json()
 
+    def assert_contact_report_projection(rest, agent):
+        # Base tools intentionally minimize ordinary record fields. REST retains
+        # the full human view; compare exact allowed values and reject leakage.
+        fields = {'id', 'version', 'created_at', 'updated_at', 'name', 'email',
+                  'company', 'title', 'lifecycle', 'deal_count',
+                  'open_followup_count', 'overdue_followup_count',
+                  'next_followup_at', 'deal_stages'}
+        expected = {key: rest[key] for key in ('total', 'limit', 'offset')}
+        expected['items'] = [{key: value for key, value in row.items() if key in fields}
+                             for row in rest['items']]
+        assert agent == expected, (agent, expected)
+
     assert client.get(prefix + '/meta').status_code == 401
     assert client.get(prefix + '/work', params={'workspace_token': 'not-authentication'}).status_code == 401
     assert client.get(prefix + '/work/not-an-assignment', params={'workspace_token': 'not-authentication'}).status_code == 401
@@ -251,6 +291,25 @@ with patch.object(socket, 'create_connection', deny_network), \
     assert request('GET', '/email/contacts/' + contact_id, params={'workspace_token': token})['items'] == []
     request('POST', '/email/verify', 503, json={'workspace_token': token, 'operation_id': '11111111-1111-4111-8111-111111111111',
         'expected_revision': 0, 'mailbox': 'own@example.test', 'consent': True})
+    bridge_paths = ('/email-bridge/status', '/email-bridge/setup',
+                    '/email-bridge/contacts/' + contact_id, '/email-bridge/unresolved',
+                    '/email-bridge/operations/missing')
+    for bridge_path in bridge_paths:
+        assert client.get(prefix + bridge_path, params={'workspace_token': token}).status_code == 401
+        request('GET', bridge_path, 409, params={'workspace_token': 'stale-profile-token'})
+        request('GET', bridge_path, params={'workspace_token': token})
+    bridge_status = request('GET', '/email-bridge/status', params={'workspace_token': token})
+    assert bridge_status['enabled'] is False and bridge_status['polling_enabled'] is False
+    assert bridge_status['revision'] == 0 and bridge_status['account_namespace'] is None
+    assert bridge_status['runtime']['available'] is False
+    assert request('GET', '/email-bridge/contacts/' + contact_id, params={'workspace_token': token})['items'] == []
+    bridge_verify = dict(workspace_token=token, operation_key='host-disabled-verify',
+        expected_revision=0, own_mailbox='own@example.test', consent=True)
+    assert client.post(prefix + '/email-bridge/verify', json=bridge_verify).status_code == 401
+    request('POST', '/email-bridge/verify', 409, json=bridge_verify)
+    request('POST', '/email-bridge/sync', 409, json=dict(workspace_token=token,
+        operation_key='host-disabled-sync', expected_revision=0, consent=True))
+    assert request('GET', '/email-bridge/status', params={'workspace_token': token}) == bridge_status
     assert tool('crm_contact_get', {'id': contact_id})['name'] == 'Synthetic Native Contact'
     updated = tool('crm_contact_update', {'id': contact_id, 'version': created['version'], 'company': 'Synthetic LLC'})
     detail = request('GET', '/contacts/' + contact_id)
@@ -327,11 +386,15 @@ with patch.object(socket, 'create_connection', deny_network), \
                       'limit': 1, 'offset': 0}
     report = request('GET', '/reports/contacts',
                      params={**report_filters, 'workspace_token': token})
-    assert report == tool('crm_contact_report', report_filters), report
+    assert_contact_report_projection(report, tool('crm_contact_report', report_filters))
     assert report['total'] == 1 and report['items'][0]['id'] == contact_id, report
     assert report['items'][0]['deal_stages'] == ['proposal']
     from hermes_cli.web_server_profiles import serving_profile_name
     for profile_alias in dict.fromkeys(('current', '', serving_profile_name())):
+        assert request('GET', '/email-bridge/status',
+            params={'workspace_token': token, 'profile': profile_alias}) == bridge_status
+        assert request('GET', '/email-bridge/contacts/' + contact_id,
+            params={'workspace_token': token, 'profile': profile_alias})['items'] == []
         assert request('GET', '/reports/contacts',
             params={**report_filters, 'workspace_token': token, 'profile': profile_alias}) == report
         assert request('GET', '/contacts',
@@ -453,6 +516,17 @@ with patch.object(socket, 'create_connection', deny_network), \
     request('GET', '/email/status', 409, params={'workspace_token': other_token})
     assert request('GET', '/email/contacts/' + other_contact['id'],
         params={'workspace_token': other_token, 'profile': 'crm-test-other'})['items'] == []
+    other_bridge = request('GET', '/email-bridge/status', params=other_work_scope)
+    assert other_bridge['enabled'] is False and other_bridge['polling_enabled'] is False
+    for bridge_path in ('/email-bridge/status', '/email-bridge/setup', '/email-bridge/unresolved'):
+        request('GET', bridge_path, 409, params={**other_work_scope, 'workspace_token': token})
+        request('GET', bridge_path, 409, params={'workspace_token': other_token})
+    assert request('GET', '/email-bridge/contacts/' + other_contact['id'], params=other_work_scope)['items'] == []
+    request('POST', '/email-bridge/verify?profile=crm-test-other', 409, json=bridge_verify)
+    request('POST', '/email-bridge/verify?profile=crm-test-other', 409,
+            json={**bridge_verify, 'workspace_token': other_token})
+    request('GET', '/email-bridge/status', 400, params={**other_work_scope, 'unknown': 'x'})
+    assert request('GET', '/email-bridge/status', params={'workspace_token': token}) == bridge_status
     other_queue = request('GET', '/reports/coverage', params=other_work_scope)
     assert other_queue['total'] == 1 and other_queue['items'][0]['contacts'][0]['id'] == other_contact['id']
     assert other_queue['items'][0]['kind'] == 'missing_next_action'
@@ -476,7 +550,8 @@ with patch.object(socket, 'create_connection', deny_network), \
     request('GET', '/reports/contacts', 409, params={'workspace_token': other_token})
     request('GET', '/reports/contacts', 400, params={**other_filters, 'unknown_filter': 'x'})
     current_report = request('GET', '/reports/contacts', params={**report_filters, 'workspace_token': token})
-    assert current_report == report == tool('crm_contact_report', report_filters)
+    assert current_report == report
+    assert_contact_report_projection(current_report, tool('crm_contact_report', report_filters))
     assert request('GET', '/reports/contacts', params={'workspace_token': token, 'stage': 'won'})['total'] == 0
     other_rows = request('GET', '/contacts?profile=crm-test-other')
     assert 'Synthetic Native Contact' not in json.dumps(other_rows), other_rows

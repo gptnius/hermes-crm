@@ -121,10 +121,11 @@ def owned_tables():
     from .research_schema import OWNED_TABLES as RESEARCH_TABLES
     from .scheduled_research import TABLES as SCHEDULED_RESEARCH_TABLES
     from .report_review_schema import TABLES as REVIEW_TABLES
+    from .gmail_bridge_schema import OWNED_TABLES as GMAIL_BRIDGE_TABLES
     return {t.name:t for module in (domain, customization, execution, gmail_history,
         native_work, native_work_operations, report_interactions, report_store)
         for t in module.metadata.tables.values()} | {t.name:t for t in metadata.tables.values()} | {
-            t.name:t for t in (*OWNED_TABLES, *OWNER_TABLES, *RESEARCH_TABLES, *SCHEDULED_RESEARCH_TABLES, *REVIEW_TABLES)}  # Never export the private registry's legacy FK clones.
+            t.name:t for t in (*OWNED_TABLES, *OWNER_TABLES, *RESEARCH_TABLES, *SCHEDULED_RESEARCH_TABLES, *REVIEW_TABLES, *GMAIL_BRIDGE_TABLES)}  # Never export the private registry's legacy FK clones.
 
 
 def _native_export_predicates(crm, conn, workspace, exported_tables):
@@ -299,6 +300,14 @@ class ProtectionStore:
             from .scheduled_research import TABLES as SCHEDULED_RESEARCH_TABLES
             from .report_store import check_tables
             from .report_review_schema import TABLES as REVIEW_TABLES, check_schema as check_review_schema
+            from .gmail_bridge_schema import OWNED_TABLES as GMAIL_BRIDGE_TABLES, check_schema as check_bridge_schema
+            from .gmail_history import metadata as gmail_metadata
+            check_bridge_schema(self.crm, conn)
+            gmail_names = set(gmail_metadata.tables) | {table.name for table in GMAIL_BRIDGE_TABLES}
+            # Both Gmail ledgers use ASCII-escaped canonical scope serialization.
+            # Their scope differs from report scope for non-ASCII profile names.
+            gmail_scope = hashlib.sha256(json.dumps([self.workspace, self.crm.profile],
+                sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
             check_review_schema(self.crm,conn)
             check_tables(self.crm,SCHEDULED_RESEARCH_TABLES,connection=conn)
             check_research_schema(self.crm, conn)
@@ -311,7 +320,9 @@ class ProtectionStore:
                 if not inspector.has_table(name, schema=schema): continue
                 rows = []
                 query = select(table)
-                if name in relationship_names and 'scope' in table.c:
+                if name in gmail_names and 'scope' in table.c:
+                    query = query.where(table.c.scope == gmail_scope)
+                elif name in relationship_names and 'scope' in table.c:
                     query = query.where(table.c.scope == relationship_scope)
                 elif name in native_predicates:
                     query = query.where(*native_predicates[name])
