@@ -4,12 +4,12 @@ This increment uses Hermes Desktop's own conversation view beside a CRM workspac
 
 ## Safe first slice
 
-Start with an already loaded primary Hermes conversation in the same connection and profile as the CRM. The plugin verifies that ownership before opening a companion workspace. It does not create a conversation, choose another session or change providers. A missing or ambiguous conversation, a focused secondary tile or unavailable host capabilities is a visible blocker rather than an implicit fallback to another chat.
+Start with a loaded primary Hermes conversation or a visible native chat tab in the same connection and profile as CRM. An unsent native tab already has a stored/runtime identity in the tested host and can be shown beside CRM without sending it. Layout verifies ownership and keeps secondary tabs in their existing panes; it does not create a conversation, promote a tab into main or change providers. A blank main draft without an identity, hidden/closed tab, ambiguous owner or unavailable host capability remains a visible blocker. Select an existing main conversation or visible native tab and return to CRM. Context copying, agent-request preparation and scheduling retain the stricter loaded-primary binding; opening a layout does not authorize those actions.
 
-1. Open the intended existing main conversation, then return to CRM.
+1. Select the intended existing main conversation or visible native chat tab, then return to CRM.
 2. Save or cancel any open record form. Select a record if you want to discuss one.
 3. Choose **Chat with Hermes**. CRM opens on the right beside the same native conversation, retaining the section, search, filters, page and selected detail.
-4. Choose **Copy record reference**. The plugin verifies the matching chat, re-reads the scoped record and checks its version before copying. **Preview record reference** is optional; **Hide preview** collapses it.
+4. For a verified main conversation, choose **Copy record reference**. The plugin verifies the matching chat, re-reads the scoped record and checks its version before copying. **Preview record reference** is optional; **Hide preview** collapses it.
 5. Paste into the native composer, add your request, review and use its normal Send action.
 
 The copied reference contains only connection, profile, record kind, ID and version. It excludes record text, contact details and the workspace token.
@@ -18,7 +18,7 @@ The existing CRM view and selected record can move into the companion workspace.
 
 The plugin does not call the native composer write or submit helpers. On the tested source revision, their addressed insertion can defer through a mutable main-composer target and append from a draft reference. The copy-and-review flow avoids silently changing a different session or overwriting newer typing. It also works without pretending that an unmounted composer accepted text.
 
-Record context is data, not authorization to take an action. The user still tells the native agent what to do, and the host retains its normal approval behavior. Existing CRM tools can read and modify records in the current profile. This UI fetches records for display and copy validation, but does not dispatch agent work or modify records merely by opening the view or copying a reference. This conversation companion does not invoke the separate optional Gmail metadata reader, capture sent/received mail or send outreach. Any Gmail read needs its own configured account and explicit review; no sending adapter is enabled.
+Record context is data, not authorization to take an action. The user still tells the native agent what to do, and the host retains its normal approval behavior. Existing CRM tools can read and modify records in the current profile. This UI fetches records for display and copy validation, but does not dispatch agent work or modify records merely by opening the view or copying a reference. This core edition has no mailbox reader or sending adapter. The conversation companion does not capture sent/received mail or send outreach.
 
 ## Task-specific requests
 
@@ -34,7 +34,7 @@ the source/profile/session guards and does not read or change native drafts.
 
 ## Routing and lifecycle
 
-The integration uses public `host.openWorkspace`, an explicit side dock, `host.revealPane`, `host.navigate`, read-only host state and the plugin's existing scoped CRM transport. It checks the connection, profile, active and focused session ownership, workspace identity and activation generation. Changes invalidate old actions before they can copy a stale record reference. Repeated open/close, old disposer callbacks and plugin unload must not leave orphan workspaces or close a replacement workspace.
+The integration uses public `host.openWorkspace`, an explicit side dock, `host.revealPane`, `host.navigate`, read-only host state and the plugin's existing scoped CRM transport. It checks the connection, profile, focused session ownership, workspace identity and activation generation. Layout can dock beside an already visible native session tile using the pinned host’s verified pane identity; only the primary path navigates. Copy and work actions still require the focused runtime to match the active main session. Changes invalidate old actions before they can copy a stale record reference. Repeated open/close, old disposer callbacks and plugin unload must not leave orphan workspaces or close a replacement workspace.
 
 The tested host is official commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, not a claimed numeric release minimum. Optional APIs are feature-detected. A host that ignores side docking or cannot show both surfaces must report the limitation rather than present a tab switch as a working split.
 

@@ -1,5 +1,8 @@
 # HermesCRM: setup and user guide
 
+> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. Host/catalog validation of this exact candidate is tracked separately from historical full-edition evidence. No numeric release compatibility or catalog acceptance is established by a development-host pass.
+
+
 **Intelligent Relationship Management**
 
 HermesCRM keeps contacts, deals, follow-ups and activity in one workspace that
@@ -8,8 +11,7 @@ install it, try a small example and understand what the current prototype does.
 
 **This is a local-user prototype, not production or multi-tenant CRM software.**
 Start with invented data. It does not send outreach, import a mailbox, or run an
-agent just because you save a record. Gmail is an optional, default-off pilot
-with no live-account verification yet.
+agent just because you save a record. This core edition has no mailbox integration.
 
 ## Contents
 
@@ -22,7 +24,7 @@ with no live-account verification yet.
 - [Build reports and dashboard cards](#build-reports-and-dashboard-cards)
 - [Work with your Hermes agent](#work-with-your-hermes-agent)
 - [Save and schedule future internal work](#save-and-schedule-future-internal-work)
-- [Optional Gmail history](#optional-gmail-history)
+- [Provider integration](#provider-integration)
 - [Import and export contact CSV](#import-and-export-contact-csv)
 - [Optional protected notes and exports](#optional-protected-notes-and-exports)
 - [Storage, profiles and backups](#storage-profiles-and-backups)
@@ -58,7 +60,7 @@ with no live-account verification yet.
 **The standalone local view** is a smaller, loopback-only way to try the core
 contacts, pipeline, follow-ups, activity and preset dashboard views without
 Hermes Desktop. It does not provide the native report builder, contact-log
-panel, customization editor/custom-value controls, Gmail pilot, chat companion
+panel, customization editor/custom-value controls, chat companion
 contact CSV, protected-note/export controls or native assignment/scheduler controls. It displays configured stages and
 preserves retained custom values during ordinary edits.
 It is not a hosted web application or a substitute for native integration tests.
@@ -288,10 +290,7 @@ a record, completing a task or updating a protected note does not prove that an
 email was sent, a call occurred or a proposal was delivered. Protected-note text
 is not exposed in the record-history summary.
 
-**Logged contact** remains a separate self-reported history. Optional Gmail
-observations are separate provider metadata, subject to their own setup,
-authorization and provenance. The optional bridge observes email metadata only;
-calls, texts and proposals are not fabricated timeline events.
+**Logged contact** remains a separate self-reported history. No provider observations are fetched. Calls, texts and proposals are not fabricated timeline events.
 
 ## Record an actual conversation
 
@@ -472,58 +471,9 @@ receipts are durable. See [Assignment workflow](ASSIGNMENT_UI.md) and
 [CRM-confirmed operations](CRM_CONFIRMED_OPERATIONS.md) before relying on this
 prototype for scheduled work.
 
-## Optional Gmail history
+## Provider integration
 
-Gmail is **off by default and native-only**. Tests use synthetic providers; no
-real account has been connected or verified during development. Follow
-[Gmail setup and privacy](GMAIL_SETUP.md) before authorizing access.
-
-The primary Contact **Email history** panel reuses the active profile's existing
-Hermes Workspace `google_token.json` through an explicitly configured trusted
-gws 0.22.5 executable. CRM does not read/copy token bytes, discover accounts,
-install the CLI or request a new grant. gws does use the existing credential and
-can refresh an access token, so real-account authorization is still required.
-
-Under **Account & sync settings**, first approve **Verify existing connection**
-with your exact mailbox and explicit own aliases. This verifies the profile and
-captures a starting checkpoint without reading messages. Then separately approve
-**Sync new metadata**, or explicitly choose **Read last 7 days** / **Read last
-30 days**. Reads cover workspace matching, not only the open Contact. Optional
-**Sync while CRM is open** polls at least five minutes apart, only while the CRM
-pane is open. There is no always-on service or startup sync. Refreshing local
-history does not initiate a provider read.
-
-Only selected headers and metadata are requested, never bodies, snippets, Bcc
-or attachments. Unrelated metadata can be examined in memory during a read.
-Exact Contact emails and explicit aliases determine links; no dot/plus/local-case
-inference is used, and own aliases are excluded. Multiple Contacts can match one
-message. Retained ambiguous/case-mismatch candidates and changed identities are
-reviewable; unsupported or unmatched messages may be omitted. Explicit Contact
-aliases persist until edited or removed, even after a primary email changes.
-Company history uses current explicit Contact–Company links, never inferred domains.
-
-Review operation receipts and coverage. Unknown or partial does not mean complete;
-refresh reconciles rather than resending. Receipts have bounded retention: up to
-10,000 ordinary receipts, with older terminal receipts compacted and active/unknown
-operations protected, plus 128 control receipts. After ordinary receipt
-compaction, a missing lookup may report `expired_or_unknown`; otherwise it may
-return null. Absence never proves no action; stale revisions prevent replay.
-An expired checkpoint requires a newly approved bounded resync. Sent labels do not prove delivery or a CRM-approved send.
-There is no send, draft, reply, mark-read or mailbox modification.
-
-**Pause sync**, **Stop app-open sync**, **Disconnect locally** and **Clear retained
-metadata** have different effects. Disconnect retains observations; clear deletes
-workspace observations and resets the checkpoint but can retain identity,
-aliases and receipts. Neither revokes Google's grant or deletes Google messages.
-Metadata is ordinary data in the selected SQLite/PostgreSQL backend, which may
-be remote, and is not automatically added to agent context. Encrypted backups
-include scoped metadata; restore quarantines it and leaves the bridge disabled
-without restoring account, cursor, lease or polling state.
-
-**Advanced: separate CRM email connection** retains the older manual OAuth pilot.
-It requires its own Desktop OAuth app and host-owned authorization, does not
-reuse the bridge connection, and keeps its separate ledger and controls. See the
-setup guide for that optional path and full retention/cancellation limits.
+This core edition does not ship Gmail connections, authorization, history reads or polling. Existing pilot metadata remains stored unchanged; encrypted exports retain it, and recovery quarantines it rather than enabling provider activity.
 
 ## Import and export contact CSV
 
@@ -655,8 +605,6 @@ before configuring one.
 - **No reminder or report at the expected time:** check the gateway, exact
   native job state, approved time and provider availability. A saved task is not
   a schedule, and a scheduled job is not evidence of execution.
-- **Gmail unavailable:** leave it off unless you intend to complete the optional
-  setup. A local status refresh does not authorize Google access or test a grant.
 
 ## Limits and verification
 
@@ -681,8 +629,7 @@ before configuring one.
 The repo's [verification report](VERIFICATION.md) records actual checks and
 remaining gaps. Synthetic tests, controlled scheduler runs and a limited real
 model check are not proof of general model quality, cross-platform usability,
-visible notifications, restart recovery or production readiness. Live Gmail
-OAuth/mailbox behavior and hosted Supabase are unverified.
+visible notifications, restart recovery or production readiness. Hosted Supabase is unverified. Provider integration is not shipped.
 
 For local development checks, from the repository root in your virtual
 environment:
@@ -690,8 +637,6 @@ environment:
 ```bash
 python -m pip install -e '.[test]'
 python -m pytest -q
-python scripts/build_email_panel.py --check
-python scripts/build_email_bridge_panel.py --check
 python scripts/build_report_panels.py --check
 python scripts/build_customization_panel.py --check
 python scripts/build_protection_panel.py --check
@@ -702,8 +647,6 @@ export HERMES_CRM_REACT_TEST_ROOT="$(mktemp -d /tmp/hermes-crm-react-tests.XXXXX
 npm install --prefix "$HERMES_CRM_REACT_TEST_ROOT" --ignore-scripts --no-audit --no-fund react@19.3.0 react-test-renderer@19.3.0
 node --experimental-vm-modules tests/desktop_reports.mjs
 node --experimental-vm-modules tests/desktop_contact_log.mjs
-node --experimental-vm-modules tests/desktop_email_history.mjs
-node --experimental-vm-modules tests/desktop_email_bridge.mjs
 node --check hermes_crm/static/app.js
 ```
 

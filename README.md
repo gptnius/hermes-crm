@@ -1,5 +1,8 @@
 # HermesCRM
 
+> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. The tested core snapshot passed the official Hermes v0.23.0 validator, genuine host checks and a PostgreSQL-enabled regression suite. See the verification report for exact scope; these results are not maintainer acceptance or production certification.
+
+
 **Intelligent Relationship Management**
 
 A small, local-first CRM that your existing Hermes agent can use. Contacts, pipeline, follow-ups and activity share one datastore inside a native Hermes Desktop pane, with an optional standalone local view.
@@ -22,13 +25,13 @@ and normal host prompts. This does not enable new capabilities or grants. See
 
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
 - Workbench UI: coordinated light/dark pages, bright dark-mode metadata, flat cards, larger underlined navigation on its own row, clearly separated contact rows with blue name links, structured record/transfer drawers and an original licensed HermesCRM wordmark. See the [design system and coverage](docs/DESIGN_SYSTEM.md).
-- Native conversation companion: open CRM beside an existing verified main Hermes chat; copy a validated minimal record reference in one click, with an optional hideable preview, for manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
+- Native conversation companion: open CRM beside an existing matching main conversation or visible native chat tab, preserving an unsent tab draft. Copying validated record references and preparing agent requests still require a verified main conversation, with manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
 - Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
 - Main dashboard: preset stage/attention views plus a typed report builder, shared saved definitions, version-pinned table/KPI/bar/line/donut cards and live contributing-record drilldowns. See [flexible reports](docs/FLEXIBLE_REPORTS.md).
 - Upcoming Tasks: the earliest six open tasks, including visibly overdue work, with current linked-contact context and direct task links. Task human owners are explicit labels, never inferred from creators, reminders or the current Hermes profile. Saved agent-work intent and its human owner remain separate from task ownership, scheduling and execution.
 - Record history: recent administrative changes retain verified current-contact links. Relationship Activities separately shows completed local Events and self-reported contact logs, not fabricated communication evidence.
 - Companies and Events: explicit Company groups, reviewed primary contact links, paged related records, local appointments/calls with Scheduled, Needs rescheduling, Completed and Cancelled states, versioned corrections and genuine associated tasks. No automatic name merging, invitations, calls or agent execution. See [setup and use](docs/COMPANIES_EVENTS.md).
-- Logged contact: explicit self-reported interactions with corrections, kept separate from CRM edits and optional Gmail observations.
+- Logged contact: explicit self-reported interactions with corrections, kept separate from CRM edits and imported historical evidence.
 - Research evidence: supplied source claims and separate hypotheses for exact Companies/Contacts, immutable evidence, and version-bound note proposals with explicit review/application. No web fetching, sends or scheduled-tool expansion. See [research review and limits](docs/RESEARCH_EVIDENCE.md).
 - Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.
 - Customization: versioned optional text/number/boolean/date/single-select fields on contacts, deals and tasks; native record forms and typed reports use the same catalog as agents. Archive retains definitions/values; used deal stages cannot be archived. See [custom fields and stages](docs/CUSTOMIZATION.md).
@@ -42,8 +45,6 @@ and normal host prompts. This does not enable new capabilities or grants. See
 - Agent detail reads: exact ordinary notes for Contacts, Deals, Tasks, Companies and Events, plus Event outcome summaries and existing core custom fields. Reads return the current version so requested updates can preserve existing content; default summaries stay compact and scheduled scopes stay unchanged.
 - Layered protection: reduced default agent output, explicit ordinary-field reads, optional separately encrypted protected notes and encrypted CRM content exports. An offline [fresh-target content restore](docs/BACKUP_RESTORE.md) is implemented with synthetic test evidence. Keys remain user-managed; no full-host backup, live-cutover or general security guarantee. See [scope and recovery limits](docs/PROTECTION.md).
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
-- Native **Settings → Connections** exposes the existing Gmail account controls without opening a Contact. Verification reviews are surfaced and focused, with explicit success/failure/unknown feedback; history reads and app-open sync remain separately approved. Host setup and authorization remain outside CRM.
-- Optional Gmail metadata history: default-off native bridge to the active profile’s existing Hermes Workspace connection through trusted gws 0.22.5. Separate mailbox verification, new-from-now incremental reads, explicit 7/30-day history and opt-in app-open polling; exact Contact/alias matching and Company views through linked Contacts. No bodies or sends. Synthetic tests only; no live account verified. The separate CRM OAuth pilot remains Advanced. See [setup and limits](docs/GMAIL_SETUP.md).
 
 **Checks:** a [credential-free CI workflow](docs/CI.md) runs the supported
 contract suites with read-only repository permissions and a disposable PostgreSQL
@@ -164,10 +165,10 @@ Additional work and remaining limits:
   not implemented by the audit timeline; no calls, texts or email sends are
   enabled by this roadmap.
 - **Conversation and email:** safer host-supported draft insertion only when a
-  session-bound contract exists; separately approved live Gmail validation and
+  session-bound contract exists; future provider integration and
   later provider-backed communication features. No automatic sending, account
   grants or inbox access is authorized by this roadmap. See
-  [native chat](docs/NATIVE_CHAT.md) and [Gmail setup](docs/GMAIL_SETUP.md).
+  [native chat](docs/NATIVE_CHAT.md).
 - **Release quality:** the Workbench design system is applied across native pages,
   dialogs and the standalone surface. Continue physical-host accessibility,
   responsive/dark-mode and
@@ -178,7 +179,7 @@ Additional work and remaining limits:
 
 Install the unified package and enable both its agent/backend and Desktop components in Capabilities → Plugins. Open CRM from the sidebar or command palette. No localhost service, iframe, separate API token or new model provider is required. The active app connection/profile controls this workspace, and a profile change clears previous records and unfinished forms.
 
-Desktop and Agent version labels differ. Compatibility is verified against the exact host source revision below, not inferred from a release label. Desktop must supply the required routing capabilities; unsupported builds show a notice and disable CRM operations. See [exact host compatibility](docs/COMPATIBILITY.md).
+Desktop and Agent version labels differ. Compatibility checks passed on the official Hermes v0.23.0 release source and runtime identified below; the release label alone does not establish Desktop SDK capabilities. Desktop must supply the required routing capabilities; unsupported builds show a notice and disable CRM operations. See [exact host compatibility](docs/COMPATIBILITY.md).
 
 An empty workspace starts with ordinary record creation. Existing workspace records are preserved when updating the plugin. See [native Desktop setup](docs/NATIVE_DESKTOP.md).
 
@@ -203,7 +204,7 @@ Without a path override, storage is the active HERMES_HOME/plugin-data/hermes-cr
 
 ## Install as a native Hermes plugin
 
-Verified integration target: official Hermes source commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, including its Desktop SDK. The isolated native test runtime identified as `vgit.2bd378e`; the source manifests say `0.0.0`. Earlier documentation called this v0.23.0, which was not a reliable identity for the tested build. The repository uses a native plugin.yaml and register(ctx) entry point. Its existing `requires_hermes: >=0.23.0` declaration is retained, but is not proof of a tested numeric minimum or compatibility with every later release.
+Verified integration target: official Hermes v0.23.0, whose tag resolves to source commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, including its Desktop SDK. The clean validation runtime reports `0.23.0`. The official validator passed all 16 checks with no warnings, and five genuine host checks passed using synthetic records. The repository uses a native plugin.yaml and register(ctx) entry point. Its `requires_hermes: >=0.23.0` declaration was exercised at 0.23.0; this is not exhaustive compatibility testing of every earlier or later release. See [verification scope and results](docs/VERIFICATION.md#core-only-candidate-checks-november-9-2026).
 
 After reviewing a local Git checkout, install it with a file URI and enable it in the intended profile. On the tested host, a bare absolute path was misparsed as a GitHub identifier; this file-URI form worked:
 
@@ -227,7 +228,7 @@ Try in an interactive Hermes session:
 
 The agent must resolve ambiguous people and times rather than guess. Scheduling is a separate explicit operation from saving a due date. CRM tools never send an email or other external message.
 
-Real one-shot scheduler execution, CRM reads and saved local outputs passed controlled tests using deterministic loopback model responses. The newer assigned-work tests also passed default deferred discovery and authenticated reporting in both plugin isolation modes. Earlier setup tests invoke registered scheduling handlers with a real active-agent context. Separate command-to-run tests now prepare through authenticated CRM REST and schedule through a real durable native user session, then execute the actual scheduler/agent/report path. Neither fixture tests a model choosing to schedule or a physical native confirmation click. A separate isolated Terra 6.1 check passed for synthetic internal analysis; broad real-model quality, visible Desktop reminders and restart recovery remain unverified. See the verification report for the exact test scope.
+Historical full-edition checks verified real one-shot scheduler execution, CRM reads and saved local outputs using deterministic loopback model responses. These are not new model or scheduler runs for this core candidate. The newer assigned-work tests also passed default deferred discovery and authenticated reporting in both plugin isolation modes. Earlier setup tests invoke registered scheduling handlers with a real active-agent context. Those command-to-run tests prepared through authenticated CRM REST and scheduled through a real durable native user session, then executed the actual scheduler/agent/report path. Neither fixture tests a model choosing to schedule or a physical native confirmation click. A separate isolated Terra 6.1 check passed for synthetic internal analysis; broad real-model quality, visible Desktop reminders and restart recovery remain unverified. See the verification report for the exact test scope.
 
 ### Desktop and agent use the same records
 
@@ -256,8 +257,6 @@ Supabase is supported as a PostgreSQL connection option, not via its REST SDK. A
 
 ```bash
 python -m pytest -q
-python scripts/build_email_panel.py --check
-python scripts/build_email_bridge_panel.py --check
 python scripts/build_report_panels.py --check
 python scripts/build_customization_panel.py --check
 python scripts/build_protection_panel.py --check
@@ -271,8 +270,6 @@ node --experimental-vm-modules tests/desktop_contact_transfer.mjs
 node --experimental-vm-modules tests/desktop_protection.mjs
 node --experimental-vm-modules tests/desktop_reports.mjs
 node --experimental-vm-modules tests/desktop_contact_log.mjs
-node --experimental-vm-modules tests/desktop_email_history.mjs
-node --experimental-vm-modules tests/desktop_email_bridge.mjs
 node --experimental-vm-modules tests/desktop_relationships_react.mjs
 node tests/standalone_relationship_ui.cjs
 node --check hermes_crm/static/app.js

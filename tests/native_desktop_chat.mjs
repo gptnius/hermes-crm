@@ -37,6 +37,19 @@ if (pinned) {
   assert.ok(method.includes('options.dock ??'));
   pinnedOpenWorkspace = stripTypeScriptTypes(`export const host = { ${method} };`);
   model = await load(stripTypeScriptTypes(await readFile(`${pinned}/apps/desktop/src/components/pane-shell/tree/model.ts`, 'utf8')), {});
+  // Execute the pinned focused-ID derivation, rather than guessing native
+  // pane names. Chrome focus retains the prior tile's stored identity.
+  const activeGroup = atom('main'), layoutTree = atom(model.group(['workspace', 'session-tile:draft-A'], { id: 'main', active: 'session-tile:draft-A' }));
+  const focus = await load(stripTypeScriptTypes(await readFile(`${pinned}/apps/desktop/src/store/session-focus.ts`, 'utf8')), {
+    nanostores: { atom, computed(inputs, fn) { const stores = Array.isArray(inputs) ? inputs : [inputs]; return { get: () => fn(...stores.map(store => store.get())) }; } },
+    '@/components/pane-shell/tree/model': { findGroup: model.findGroup, findGroupOfPane: model.findGroupOfPane },
+    '@/components/pane-shell/tree/store': { $activeTreeGroup: activeGroup, $layoutTree: layoutTree },
+    '@/components/pane-shell/workspace-scope': { $workspaceMode: atom('sessions') },
+    './session': { $selectedStoredSessionId: atom('stored-main') },
+  });
+  assert.equal(focus.TILE_PANE_PREFIX, 'session-tile:');
+  assert.equal(focus.$focusedStoredSessionId.get(), 'draft-A');
+  console.log('PASS actual pinned focused native tile identity derivation.');
   // Execute the actual pinned composer SDK with a deferred host bus to expose
   // the primary-target race, rather than assuming insertText is an atomic append.
   const active = atom('runtime-A'), selected = atom('stored-A'), states = atom({ 'runtime-A': { storedSessionId: 'stored-A' } });
@@ -70,12 +83,14 @@ async function fixture({ old = false, ignoreDock = false, noClipboard = false } 
     activeSessionId: atom('runtime-A'), focusedSessionId: atom('runtime-A'), focusedStoredSessionId: atom('stored-A'),
     focusedSessionOwner: atom({ connectionId: 'source-a', profile: 'work' }) };
   const epoch = atom(1), disposers = [], timers = new Set(), intervals = new Set(), copies = [], calls = [], navigation = [];
+  const tiles = new Set();
   const panes = new Map(), closers = new Map(); let currentTab = 'workspace', opens = 0, removals = 0, movedToCenter = false;
   let tree = model?.group(['workspace']);
   const reveal = id => { currentTab = id; if (model && model.findGroupOfPane(tree, id)) tree = model.setActivePane(tree, model.findGroupOfPane(tree, id).id, id); };
-  const visible = id => model ? model.findGroupOfPane(tree, id)?.active === id : panes.has(id) ? (!(ignoreDock || movedToCenter) || currentTab === id) : id === 'workspace' && (!(ignoreDock || movedToCenter) || currentTab === id);
+  const visible = id => model ? model.findGroupOfPane(tree, id)?.active === id : panes.has(id) ? (!(ignoreDock || movedToCenter) || currentTab === id) : (id === 'workspace' || tiles.has(id)) && (!(ignoreDock || movedToCenter) || currentTab === id);
   const env = { state, epoch, disposers, timers, intervals, copies, calls, navigation, panes, closers,
     get opens() { return opens; }, get removals() { return removals; }, get tree() { return tree; },
+    addTile(id) { tiles.add(id); if (model) tree = model.insertAtGroup(tree, model.findGroupOfPane(tree, "workspace").id, id, "center"); reveal(id); },
     copyGate: null, readGate: null, relationshipVersion: 1, token: 'workspace-secret-not-for-chat', version: 3,
     moveToCenter(id) { if (model) { tree = model.removePane(tree, id); tree = model.insertAtGroup(tree, model.findGroupOfPane(tree, 'workspace').id, id, 'center'); } else movedToCenter = true; },
   };
@@ -143,7 +158,7 @@ async function fixture({ old = false, ignoreDock = false, noClipboard = false } 
 {
   const e = await fixture(), identity = e.mod.routeIdentity(e.ctx);
   const binding = e.mod.openChatWorkspace(e.ctx, identity, () => null);
-  assert.equal(binding.sessionId, 'stored-A'); assert.equal(e.navigation[0], '/stored-A');
+  assert.equal(binding.pane, 'workspace'); assert.equal(e.navigation[0], '/stored-A');
   assert.equal(e.state.activeSessionId.get(), 'runtime-A'); assert.equal(e.opens, 1);
   if (model) assert.equal(e.tree.type, 'split');
   e.mod.openChatWorkspace(e.ctx, identity, () => null); assert.equal(e.opens, 1);
@@ -181,6 +196,80 @@ for (const mutation of [
   const e = await fixture(); mutation(e);
   assert.throws(() => e.mod.openChatWorkspace(e.ctx, e.mod.routeIdentity(e.ctx), () => null));
   assert.equal(e.opens, 0); assert.equal(e.navigation.length, 0); await e.finish();
+}
+// Pre-send and saved secondary tabs share the same verified native pane.
+// Layout never promotes a tile, authorizes context, touches drafts or sends.
+for (const stored of ['draft-A', 'saved-secondary-A']) {
+  const e = await fixture();
+  e.state.focusedSessionId.set('tile-runtime'); e.state.focusedStoredSessionId.set(stored);
+  e.addTile(`session-tile:${stored}`);
+  const identity = e.mod.routeIdentity(e.ctx), before = e.calls.length;
+  assert.throws(() => e.mod.captureChatBinding(e.ctx, identity), /main Hermes chat/);
+  const layout = e.mod.openChatWorkspace(e.ctx, identity, () => null);
+  assert.equal(layout.pane, `session-tile:${stored}`); assert.equal(layout.route, null);
+  assert.equal(layout.sessionId, undefined); assert.equal(layout.profile, undefined);
+  assert.equal(e.navigation.length, 0); assert.equal(e.calls.length, before);
+  assert.equal(e.state.activeSessionId.get(), 'runtime-A');
+  e.mod.openChatWorkspace(e.ctx, identity, () => null); assert.equal(e.opens, 1);
+  e.closers.get([...e.panes.keys()][0])();
+  e.mod.openChatWorkspace(e.ctx, identity, () => null); assert.equal(e.opens, 2);
+  e.state.gateway.set('closed'); e.state.gateway.set('open');
+  assert.equal(e.panes.size, 0); assert.equal(layout.current(), false);
+  await e.finish();
+}
+// Closing/hiding a tile inside a synchronous host callback must not resurrect it.
+{
+  const e = await fixture(), tile = 'session-tile:draft-A';
+  e.state.focusedSessionId.set('tile-runtime'); e.state.focusedStoredSessionId.set('draft-A'); e.addTile(tile);
+  const open = e.host.openWorkspace, visibility = e.host.paneVisibility, reveal = e.host.revealPane;
+  let hidden = false, tileReveals = 0;
+  e.host.paneVisibility = id => id === tile && hidden ? { get: () => false } : visibility(id);
+  e.host.revealPane = id => { if (id === tile) tileReveals++; reveal(id); };
+  e.host.openWorkspace = (...args) => { const close = open(...args); hidden = true; return close; };
+  assert.throws(() => e.mod.openChatWorkspace(e.ctx, e.mod.routeIdentity(e.ctx), () => null), /no longer visible/);
+  assert.equal(tileReveals, 0); assert.equal(e.panes.size, 0); assert.equal(e.navigation.length, 0);
+  await e.finish();
+}
+// Hidden-at-start tiles are never revealed or recreated.
+{
+  const e = await fixture(), tile = 'session-tile:draft-A';
+  e.state.focusedSessionId.set('tile-runtime'); e.state.focusedStoredSessionId.set('draft-A'); e.addTile(tile);
+  const visibility = e.host.paneVisibility;
+  e.host.paneVisibility = id => id === tile ? { get: () => false } : visibility(id);
+  assert.throws(() => e.mod.openChatWorkspace(e.ctx, e.mod.routeIdentity(e.ctx), () => null), /not visible/);
+  assert.equal(e.opens, 0); assert.equal(e.navigation.length, 0); await e.finish();
+}
+// Real React opens a secondary draft layout and retains the selected CRM record.
+{
+  const e = await fixture();
+  e.state.focusedSessionId.set('tile-runtime'); e.state.focusedStoredSessionId.set('draft-A'); e.addTile('session-tile:draft-A');
+  await e.mount(); await e.openRecord();
+  const calls = e.calls.length;
+  await e.click('Chat with Hermes');
+  assert.match(e.text(), /existing native chat tab is beside CRM/);
+  assert.equal(e.calls.length, calls); assert.equal(e.navigation.length, 0); assert.equal(e.copies.length, 0);
+  const pane = [...e.panes.values()][0]; await e.unmount(); await e.mount(pane.render());
+  assert.match(e.text(), /Ada Example/);
+  assert.equal(e.root().root.findAll(n => n.props['aria-label'] === 'Record details').length, 1);
+  await e.click('Preview record reference');
+  assert.match(e.text(), /Open an existing conversation in the main Hermes chat/);
+  assert.equal(e.copies.length, 0); assert.equal(e.navigation.length, 0);
+  await e.finish();
+}
+// A true blank main has no safe identity; never manufacture a session.
+{
+  const e = await fixture();
+  for (const key of ['activeSessionId', 'focusedSessionId', 'focusedStoredSessionId']) e.state[key].set(null);
+  assert.throws(() => e.mod.openChatWorkspace(e.ctx, e.mod.routeIdentity(e.ctx), () => null), /blank main draft/);
+  assert.equal(e.opens, 0); assert.equal(e.navigation.length, 0); assert.equal(e.calls.length, 0);
+  await e.finish();
+}
+// Selection can change in the same tick inside the host layout callback.
+{
+  const e = await fixture(), open = e.host.openWorkspace;
+  e.host.openWorkspace = (...args) => { const close = open(...args); e.state.focusedStoredSessionId.set('other'); return close; };
+  assert.throws(() => e.mod.openChatWorkspace(e.ctx, e.mod.routeIdentity(e.ctx), () => null), /selected chat changed/);
+  assert.equal(e.panes.size, 0); assert.equal(e.navigation.length, 0); await e.finish();
 }
 for (const key of ['profile', 'connectionId', 'gateway', 'cwd', 'focusedSessionId', 'focusedStoredSessionId', 'focusedSessionOwner']) {
   const e = await fixture(), bound = e.mod.captureChatBinding(e.ctx, e.mod.routeIdentity(e.ctx)), original = e.state[key].get();

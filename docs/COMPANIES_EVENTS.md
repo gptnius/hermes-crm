@@ -124,9 +124,8 @@ list and are not presented as proof of an actual interaction.
 
 **Record history** contains administrative changes. Existing API `/activity`
 responses retain that audit meaning for compatibility. A CRM edit is not an
-email, a phone call or a completed meeting. Optional Gmail metadata remains in
-its separate, explicitly configured Email history surface and is never fetched
-by opening a Company or Event.
+email, a phone call or a completed meeting. This core edition has no provider history surface and never fetches mail
+when opening a Company or Event.
 
 Event completion does not manufacture a duplicate Contact Log entry. Existing
 "Last logged contact" report fields retain their original Contact Log meaning.

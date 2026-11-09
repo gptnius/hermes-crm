@@ -1,5 +1,8 @@
 # Release readiness and operational acceptance
 
+> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. Host/catalog validation of this exact candidate is tracked separately from historical full-edition evidence. No numeric release compatibility or catalog acceptance is established by a development-host pass.
+
+
 This is the work plan for a useful, reliable single-user HermesCRM release.
 It is not a production-readiness certificate. Completed source changes, local
 contracts, actual-host tests and a successful live workflow are different evidence.
@@ -81,9 +84,8 @@ keys. A database rollback cannot undo an external message or a dispatched job.
 
 ## Integrations and permission gates
 
-- **Email:** a separately configured host tool may support mail, while CRM's
-  optional Gmail reader has its own grant and validation requirements. CRM does
-  not yet supply a send adapter or automatic sent/received activity capture.
+- **Email:** a separately configured host tool may support mail, but this core edition
+  ships no mailbox reader, send adapter or automatic sent/received activity capture.
   Keep direct user review/approval of recipient, sending account and content.
   A draft or research request is not permission to send.
 - **Attachments:** general managed uploads, file viewing and agent file access

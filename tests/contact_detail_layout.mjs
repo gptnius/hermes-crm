@@ -11,7 +11,7 @@ const body=source.slice(source.indexOf('function Detail('),source.indexOf('\n// 
 const h=React.createElement, noop=()=>{};
 const component=name=>props=>h('div',{'data-component':name},props.children);
 const context={h,useRef:React.useRef,useEffect:React.useEffect,workspaceCatalog:data=>data.meta.catalog,label:String,date:String,money:String,stageLabel:(_,s)=>s,taskOwnerText:()=>'',analyticsOperationStore:()=>({}),emailBridgeMemory:()=>({}),lifetimes:new Map(),badge:x=>h('span',null,x),button:(text,onClick,props)=>h('button',{...props,onClick},text),Properties:({rows})=>h('dl',null,rows.map(([k,v])=>h('div',{key:k},h('dt',null,k),h('dd',null,v)))),RecordSection:({title,children})=>h('section',null,h('h3',null,title),children),Timeline:component('Timeline')};
-for(const name of ['ContactCompany','ContactRelationships','ContactLogPanel','EmailBridgePanel','EmailHistoryPanel','TaskEventRelationship','TaskScheduledResearch','TaskWork'])context[name]=component(name);
+for(const name of ['ContactCompany','ContactRelationships','ContactLogPanel','TaskEventRelationship','TaskScheduledResearch','TaskWork'])context[name]=component(name);
 const Detail=vm.runInNewContext(body+';Detail',context);
 const base={disabled:false,ctx:{},identity:'test',client:{},detail:{kind:'contacts',workspaceToken:'synthetic',row:{contact:{id:'c1',name:'Casey Lane',version:1,custom_fields:{}},deals:[],tasks:[],activity:[]}},data:{contacts:[],deals:[],tasks:[],activity:[],meta:{catalog:{fields:{contacts:[]}}}},viewRequest:{current:1},close:noop,edit:noop,open:noop,create:noop,startRelatedCreate:noop,protect:noop,research:noop};
 let tree;
@@ -31,7 +31,7 @@ for(const [fields,values,expected] of [
  const grid=tree.root.findByProps({className:'hc-contact-grid'});
  assert.equal(grid.findAllByProps({'data-component':'ContactCompany'}).length,1);
  assert.equal(grid.findAllByProps({'data-component':'ContactRelationships'}).length,1);
- assert.deepEqual(grid.findAll(node=>node.type==='div' && node.props['data-component']).map(node=>node.props['data-component']), ['ContactCompany','ContactLogPanel','ContactRelationships','EmailBridgePanel','EmailHistoryPanel']);
+ assert.deepEqual(grid.findAll(node=>node.type==='div' && node.props['data-component']).map(node=>node.props['data-component']), ['ContactCompany','ContactLogPanel','ContactRelationships']);
  const history=tree.root.findByProps({'aria-label':'Record history and next steps'});
  assert.equal(history.findAllByProps({'data-component':'ContactRelationships'}).length,0);
  assert.deepEqual(values,props.detail.row.contact.custom_fields);

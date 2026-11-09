@@ -59,17 +59,4 @@ assert.match(text(tree.root), /masking is not encryption/);
 assert.match(text(tree.root), /No protected note yet/);
 assert.equal(tree.root.findAllByType('textarea').length, 0, 'Presentation must never reveal protected text');
 await act(async () => tree.unmount());
-const {EmailHistoryPanel, emailHistoryCSS} = await load('email-history');
-await act(async () => { tree = Renderer.create(h(EmailHistoryPanel, {...common, routeKey: 'fixture', storageBackend: 'sqlite', contact: {id: 'fixture', version: 1, email: 'person@example.test'}, client: {
-  current: () => true, request: async path => path.includes('/contacts/') ? {total: 1, items: [{message_id: 'fixture', labels: ['SENT'], display_headers: {Subject: 'Untrusted subject'}, provenance: {adapter: 'fixture', kind: 'metadata'}}]} : {enabled: true, connected: false, mailbox: null, revision: 0},
-}})); });
-const evidence = tree.root.findByProps({className: 'hc-email-evidence'});
-assert.equal(evidence.type, 'details');
-assert.match(text(evidence.findByType('summary')), /Observation provenance/);
-assert.match(text(evidence), /not a delivery receipt/);
-assert.match(text(tree.root), /gmail.readonly scope can read message bodies/);
-assert.match(text(tree.root), /Untrusted subject/);
-assert.match(emailHistoryCSS, /color:var\(--hc-secondary\);opacity:1/);
-assert.doesNotMatch(emailHistoryCSS, /gradient|box-shadow/);
-await act(async () => tree.unmount());
-console.log('PASS Workbench settings/transfer/protection/email structure, native disclosures, readable theme tokens and preserved safety controls.');
+console.log('PASS Workbench settings/transfer/protection structure and safety controls.');

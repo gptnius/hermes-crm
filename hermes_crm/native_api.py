@@ -104,16 +104,6 @@ router.include_router(build_relationship_router(service, require_workspace, acto
 from .native_work_operations_api import build_router
 router.include_router(build_router(service, require_workspace))
 
-# Separate authenticated endpoints: mailbox metadata never enters crm_read or
-# the ordinary contact/snapshot responses. Loading routes performs no OAuth.
-from .gmail_history_api import build_router as build_email_router
-from .gmail_runtime import gmail_runtime
-router.include_router(build_email_router(service, require_workspace, gmail_runtime))
-
-# Existing Hermes connection bridge is separate, default-off and native-only.
-from .gmail_bridge_api import build_router as build_gmail_bridge_router
-router.include_router(build_gmail_bridge_router(service, require_workspace))
-
 from .analytics_api import build_router as build_analytics_router
 router.include_router(build_analytics_router(service, require_workspace))
 

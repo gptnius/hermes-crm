@@ -301,8 +301,9 @@ class ProtectionStore:
             from .report_store import check_tables
             from .report_review_schema import TABLES as REVIEW_TABLES, check_schema as check_review_schema
             from .gmail_bridge_schema import OWNED_TABLES as GMAIL_BRIDGE_TABLES, check_schema as check_bridge_schema
-            from .gmail_history import metadata as gmail_metadata
+            from .gmail_history import metadata as gmail_metadata, check_schema as check_history_schema
             check_bridge_schema(self.crm, conn)
+            check_history_schema(self.crm, conn)
             gmail_names = set(gmail_metadata.tables) | {table.name for table in GMAIL_BRIDGE_TABLES}
             # Both Gmail ledgers use ASCII-escaped canonical scope serialization.
             # Their scope differs from report scope for non-ASCII profile names.

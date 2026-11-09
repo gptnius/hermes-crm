@@ -152,15 +152,41 @@ export function captureChatBinding(ctx, identity) {
     current: () => lifetime.alive && identity === routeIdentity(ctx) && host.state.gateway.get() === "open" &&
       generation === lifetime.chatGeneration.get() && selection === chatSelection() };
 }
+// Layout is not authorization to copy context or dispatch work. A pre-send
+// native tab already has a stored/runtime identity in the pinned host. Keep it
+// in its own tile; never promote it into main or create a replacement draft.
+export function captureChatLayout(ctx, identity) {
+  if (chatCapabilities().length) throw new Error("This Desktop build cannot safely open CRM alongside native chat. Update Desktop; the CRM remains available here.");
+  const lifetime = lifetimes.get(ctx);
+  if (!lifetime?.alive || identity !== routeIdentity(ctx) || host.state.gateway.get() !== "open")
+    throw new Error("The connection or profile changed. Refresh the CRM before opening chat.");
+  const stored = host.state.focusedStoredSessionId.get(), runtime = host.state.focusedSessionId.get();
+  const owner = host.state.focusedSessionOwner.get();
+  if (!stored || !runtime)
+    throw new Error("Select an existing main conversation or an already open native chat tab, then return to CRM. This Desktop build cannot safely identify a blank main draft; nothing has been created or sent.");
+  if (!owner?.connectionId || !owner.profile || owner.connectionId !== host.state.connectionId.get() || owner.profile !== host.state.profile.get())
+    throw new Error("The selected chat does not have the same verified connection and profile as this CRM. Select a matching chat, then return here.");
+  const primary = runtime === host.state.activeSessionId.get();
+  // Verified pinned host session-focus.ts maps focused tile IDs this way.
+  // Visibility proves this is an existing live pane before any reveal can
+  // undismiss a closed pane. Unknown/hidden/closed tiles fail closed.
+  const pane = primary ? "workspace" : `session-tile:${stored}`;
+  if (!primary && !host.paneVisibility(pane)?.get?.())
+    throw new Error("The selected native chat tab is not visible. Select that open tab, then return to CRM and try again. No chat has been created or moved.");
+  const selection = chatSelection(), generation = lifetime.chatGeneration.get();
+  return { pane, route: primary ? `/${encodeURIComponent(stored)}` : null,
+    current: () => lifetime.alive && identity === routeIdentity(ctx) && host.state.gateway.get() === "open" &&
+      generation === lifetime.chatGeneration.get() && selection === chatSelection() };
+}
 export function openChatWorkspace(ctx, identity, render) {
-  const binding = captureChatBinding(ctx, identity);
+  const layout = captureChatLayout(ctx, identity);
   const lifetime = lifetimes.get(ctx);
   const id = `hermes-crm:chat:${lifetime.id}`, paneId = `plugin-workspace:${id}`;
   let entry = lifetime.chatWorkspace;
-  if (entry && entry.identity !== identity) { entry.close(); entry = null; }
+  if (entry && (entry.identity !== identity || entry.pane !== layout.pane)) { entry.close(); entry = null; }
   if (!entry) {
     let dispose = null, closed = false;
-    entry = { identity, close() {
+    entry = { identity, pane: layout.pane, close() {
       if (closed) return;
       closed = true;
       if (lifetime.chatWorkspace === entry) lifetime.chatWorkspace = null;
@@ -169,23 +195,27 @@ export function openChatWorkspace(ctx, identity, render) {
     lifetime.chatWorkspace = entry;
     try {
       dispose = host.openWorkspace(id, { title: "HermesCRM · Agent workspace", minWidth: "24rem",
-        dock: { pane: "workspace", pos: "right" }, render,
+        dock: { pane: layout.pane, pos: "right" }, render,
         onClose: () => { closed = true; if (lifetime.chatWorkspace === entry) lifetime.chatWorkspace = null; } });
       if (typeof dispose !== "function") throw new Error("Desktop did not provide workspace cleanup.");
       if (closed) dispose();
     } catch (error) { entry.close(); throw error; }
   }
   try {
-    if (!binding.current()) throw new Error("The selected chat changed. Open the workspace again from the current CRM.");
+    if (!layout.current()) throw new Error("The selected chat changed. Open the workspace again from the current CRM.");
     host.revealPane(paneId);
-    host.revealPane("workspace");
+    // A synchronous host layout callback may hide/close the selected tile
+    // without changing its remembered identity. Never resurrect it via reveal.
+    if (!layout.route && !host.paneVisibility(layout.pane)?.get?.())
+      throw new Error("The selected native chat tab is no longer visible. Select an open tab and try again.");
+    host.revealPane(layout.pane);
     // Older hosts can expose openWorkspace but ignore its newer dock option.
     // Never navigate away from the existing CRM unless BOTH panes are visible.
-    if (!host.paneVisibility(paneId)?.get?.() || !host.paneVisibility("workspace")?.get?.())
+    if (!host.paneVisibility(paneId)?.get?.() || !host.paneVisibility(layout.pane)?.get?.())
       throw new Error("Desktop could not keep CRM and chat visible together. Use a Desktop build supporting split workspaces, or keep using CRM here.");
-    if (!binding.current()) throw new Error("The selected chat changed. Open the workspace again from the current CRM.");
-    host.navigate(`/${encodeURIComponent(binding.sessionId)}`);
-    return binding;
+    if (!layout.current()) throw new Error("The selected chat changed. Open the workspace again from the current CRM.");
+    if (layout.route) host.navigate(layout.route);
+    return layout;
   } catch (error) { entry.close(); throw error; }
 }
 export function recordChatContext(detail, data, binding) {
@@ -1807,8 +1837,10 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     if (disabled || navigationLock.current || detailLoading || mutationLock.current || viewRevision !== viewRequest.current || !client.current()) return;
     try {
       lifetime.retainedView = { identity, value: view };
-      openChatWorkspace(ctx, identity, () => h(CRMRoot, { ctx, boundIdentity: identity }));
-      setChatNotice("Use the native Hermes chat beside CRM. Nothing has been added to or sent from your draft. Prepare an agent request in the companion workspace.");
+      const layout = openChatWorkspace(ctx, identity, () => h(CRMRoot, { ctx, boundIdentity: identity }));
+      setChatNotice(layout.route
+        ? "Use the native Hermes chat beside CRM. Nothing has been added to or sent from your draft. Prepare an agent request in the companion workspace."
+        : "Your existing native chat tab is beside CRM. Nothing has been added to or sent from your draft. Record references and agent requests still require a matching main conversation.");
       return true;
     } catch (error) { if (client.current()) setChatNotice(error.message); return false; }
   }
@@ -1826,7 +1858,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     companies: ["Companies", "Organizations and their explicitly associated records."],
     events: ["Events", "Local appointments and calls, with explicit status and related tasks."],
     activities: ["Activities", "Self-reported relationship history. Planned Events are separate."],
-    settings: ["Settings", "Workspace connection status and explicit account actions."],
+    settings: ["Settings", "Workspace customization, data transfer and protection."],
     activity: ["Record history", "CRM record changes by people and agents. Mailbox history is not synced."],
   }[page];
   const overview = data?.overview;
@@ -1877,7 +1909,6 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       data?.meta.demo && h("p", null, "Workspace provenance: this workspace was seeded with synthetic records."),
       error && h("p", { role: "alert", className: "hc-notice" }, error),
     )) : null },
-    data?.meta?.workspace_token && h(EmailBridgePolling, { key: `bridge-poll|${identity}|${data.meta.workspace_token}`, ctx, client, workspaceToken: data.meta.workspace_token, memory: emailBridgeMemory(lifetime) }),
     h("div", { className: "hc-brandbar" },
       h("div", { className: "hc-brand" }, h(Wordmark), h("span", { className: "hc-brand-tagline" }, "Intelligent Relationship Management")),
     h(
@@ -2243,11 +2274,10 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
               h(Empty, null, "No matching follow-ups. You’re clear for now."),
           ),
         page === "tasks" && h(CoverageQueue, { client, workspaceToken: data.meta.workspace_token, snapshotGeneration, open, disabled }),
-        routeReady && ["companies", "events", "activities"].includes(page) && h(Relationships, { renderCompanyEmail: (company, locked) => h(CompanyEmailBridgePanel, { client, workspaceToken: data.meta.workspace_token, routeKey: identity, company, open, disabled: locked }), onResearch: row => { if(disabled || navigationLock.current) return; setResearch({key:crypto.randomUUID(),workspaceToken:data.meta.workspace_token,revision:viewRequest.current,returnFocus:shellRef.current?.ownerDocument.activeElement,target:{kind:'companies',id:row.id,name:row.name,version:row.version}}); }, startRelatedCreate, onCreated: openCreated, onCreateRejected: restoreRejectedCreate, createContext: creationContext(), navigateRecord: open, onBack: closeDetail, initialListState: relationshipLists[page], onListStateChange: next => setRelationshipLists(previous => JSON.stringify(previous[page]) === JSON.stringify(next) ? previous : { ...previous, [page]: next }), onEditingChange: setRelationshipEditing, operationStore: analyticsOperationStore(ctx, identity, "relationships"), key: `${identity}:${data.meta.workspace_token}:${page}:${relationshipTarget?.id || "list"}`, client, workspaceToken: data.meta.workspace_token, page, initial: relationshipTarget, open, onSaved: refresh, disabled }),
+        routeReady && ["companies", "events", "activities"].includes(page) && h(Relationships, { onResearch: row => { if(disabled || navigationLock.current) return; setResearch({key:crypto.randomUUID(),workspaceToken:data.meta.workspace_token,revision:viewRequest.current,returnFocus:shellRef.current?.ownerDocument.activeElement,target:{kind:'companies',id:row.id,name:row.name,version:row.version}}); }, startRelatedCreate, onCreated: openCreated, onCreateRejected: restoreRejectedCreate, createContext: creationContext(), navigateRecord: open, onBack: closeDetail, initialListState: relationshipLists[page], onListStateChange: next => setRelationshipLists(previous => JSON.stringify(previous[page]) === JSON.stringify(next) ? previous : { ...previous, [page]: next }), onEditingChange: setRelationshipEditing, operationStore: analyticsOperationStore(ctx, identity, "relationships"), key: `${identity}:${data.meta.workspace_token}:${page}:${relationshipTarget?.id || "list"}`, client, workspaceToken: data.meta.workspace_token, page, initial: relationshipTarget, open, onSaved: refresh, disabled }),
         page === "settings" && h("section", { "aria-label": "Settings" },
-          h("nav", { className:"hc-tabs", "aria-label":"Settings sections" }, h("span", {"aria-current":"page"}, "Connections")),
-          h("p", {className:"hc-muted"}, "Connecting an account is separate from reading history. Host-managed setup and Google authorization remain outside this panel."),
-          h(EmailBridgeConnections, {client, workspaceToken:data.meta.workspace_token, routeKey:identity, storageBackend:data.meta.backend, disabled, memory:emailBridgeMemory(lifetime)})),
+          h("h2", null, "Workspace settings"),
+          h("p", {className:"hc-muted"}, "Manage fields, stages, contact transfer and data protection from the workspace toolbar. This core edition has no mailbox connection or email synchronization.")),
         page === "activity" && h(Activity, { rows: data.activity, open, disabled }),
         ),
       ),
@@ -2689,9 +2719,7 @@ function Detail({ detail, data, disabled, client, onSaved, snapshotGeneration, c
     isContact && h("section", { className: "hc-contact-grid", "aria-label": "Contact relationships and communication" },
       h(ContactCompany, { operationStore: analyticsOperationStore(ctx, identity, "relationships"), key: `company:${row.id}:${row.version}`, client, workspaceToken: detail.workspaceToken, contact: row, open, disabled, onSaved }),
       h(ContactLogPanel, { operationStore: analyticsOperationStore(ctx, identity, "contacts"), key: `contact-log|${identity}|${detail.workspaceToken}|${row.id}|${row.version}`, client, contact: row, workspaceToken: detail.workspaceToken, routeKey: identity, disabled }),
-      h(ContactRelationships, { key: `relationships:${row.id}:${row.version}`, client, workspaceToken: detail.workspaceToken, contact: row, open, disabled }),
-      h("div", { className: "hc-contact-wide" }, h(EmailBridgePanel, { client, contact: row, workspaceToken: detail.workspaceToken, routeKey: identity, storageBackend: data.meta.backend, disabled, open, memory: emailBridgeMemory(lifetimes.get(ctx)) })),
-      h("div", { className: "hc-contact-wide" }, h("details", null, h("summary", null, "Advanced: separate CRM email connection"), h("p", { className: "hc-muted" }, "Separate manual OAuth connection. This does not reuse the existing Hermes Gmail connection above."), h(EmailHistoryPanel, { key: `email-history|${identity}|${detail.workspaceToken}|${row.id}|${row.version}`, client, contact: row, workspaceToken: detail.workspaceToken, routeKey: identity, storageBackend: data.meta.backend, disabled })))));
+      h(ContactRelationships, { key: `relationships:${row.id}:${row.version}`, client, workspaceToken: detail.workspaceToken, contact: row, open, disabled })));
 }
 
 // Use only elements in this pane. The host page's body, scroll, and global
@@ -2942,238 +2970,6 @@ export default {
   },
 };
 
-// BEGIN GENERATED EMAIL HISTORY PANEL
-// A client is bound to a monotonic Desktop route lifetime. Pending/unknown writes
-// survive contact-panel remounts; a network exception is never a retry signal.
-const emailAttempts = new WeakMap();
-export function emailValidStatus(value) {
-  if (!value || typeof value.enabled !== "boolean" || typeof value.connected !== "boolean" ||
-      !Number.isSafeInteger(value.revision) || value.revision < 0 ||
-      !(value.mailbox === null || typeof value.mailbox === "string") ||
-      (value.connected && !value.mailbox)) return false;
-  const op = value.operation;
-  return op == null || (typeof op.id === "string" && typeof op.kind === "string" &&
-    ["running", "finished", "partial", "failed", "cancelled"].includes(op.state));
-}
-export function emailTime(value) {
-  if (value === null || value === undefined || value === "") return "Unavailable";
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toISOString().replace("T", " ").replace(".000Z", " UTC") : "Unavailable";
-}
-export function createEmailHistorySession(client, workspaceToken, contact, isCurrent = () => true) {
-  let alive = true, sequence = 0;
-  const locks = emailAttempts.get(client) || new Map();
-  emailAttempts.set(client, locks);
-  const scope = workspaceToken;
-  const current = () => alive && client.current() && isCurrent();
-  const query = new URLSearchParams({ workspace_token: workspaceToken });
-  return {
-    current,
-    close() { alive = false; sequence++; },
-    pending: () => locks.get(scope),
-    async load() {
-      const ticket = ++sequence;
-      const [status, history] = await Promise.all([
-        client.request(`/email/status?${query}`),
-        client.request(`/email/contacts/${encodeURIComponent(contact.id)}?${query}&limit=100&offset=0`),
-      ]);
-      if (!current() || ticket !== sequence) return null;
-      if (!emailValidStatus(status) || !history || !Array.isArray(history.items) ||
-          !Number.isSafeInteger(history.total) || history.total < 0) throw new Error("Invalid local response");
-      const pending = locks.get(scope);
-      // A durable scoped receipt can reconcile even after another operation.
-      let receipt = status.operation;
-      if (pending?.id && receipt?.id !== pending.id) {
-        try { receipt = await client.request(`/email/operations/${encodeURIComponent(pending.id)}?${query}`); }
-        catch { receipt = null; } // Missing/failed lookup is not permission to retry.
-      }
-      if (!current() || ticket !== sequence) return null;
-      if (pending?.id && locks.get(scope) === pending && receipt?.id === pending.id && receipt.kind === pending.kind &&
-          ["finished", "partial", "failed", "cancelled"].includes(receipt.state)) locks.delete(scope);
-      return { status, history };
-    },
-    async submit(kind, status, values = {}) {
-      const previous = locks.get(scope);
-      const invalidateRead = kind === "disconnect" && previous && ["verify", "sync"].includes(previous.kind);
-      if (!current() || (previous && !invalidateRead) || !emailValidStatus(status)) return null;
-      if (!["verify", "sync", "disconnect", "clear"].includes(kind)) throw new Error("Unsupported operation");
-      const id = crypto.randomUUID();
-      const body = { workspace_token: workspaceToken, expected_revision: status.revision };
-      body.operation_id = id;
-      if (["verify", "sync"].includes(kind)) body.consent = true;
-      if (kind === "verify") body.mailbox = values.mailbox;
-      if (kind === "sync") Object.assign(body, {
-        contact_id: contact.id, expected_contact_version: contact.version, days: values.days,
-      });
-      if (kind === "clear") body.confirm = true;
-      const attempt = { id, state: "running", kind };
-      locks.set(scope, attempt);
-      try {
-        if (kind === "disconnect") {
-          // Cancellation uses a fresh LOCAL revision; this never reads Gmail.
-          const fresh = await client.request(`/email/status?${query}`);
-          if (!emailValidStatus(fresh)) throw new Error("Unconfirmed local state");
-          if (!current() || locks.get(scope) !== attempt) return null;
-          body.expected_revision = fresh.revision;
-        }
-        const result = await client.request(`/email/${kind}`, { method: "POST", body });
-        if (!current() || locks.get(scope) !== attempt) return null;
-        if (!emailValidStatus(result) || result.operation?.id !== id || result.operation.kind !== kind ||
-            !["finished", "partial", "failed", "cancelled"].includes(result.operation.state)) throw new Error("Unconfirmed result");
-        locks.delete(scope);
-        return result;
-      } catch {
-        if (locks.get(scope) !== attempt) return null;
-        locks.set(scope, { id, state: "unknown", kind });
-        throw new Error("Outcome unknown. Refresh local status to check the recorded result. Do not repeat this action or change accounts while it is unresolved.");
-      }
-    },
-  };
-}
-
-export const emailHistoryCSS = `
-.hermes-crm-native .hc-email{border:1px solid var(--hc-border);border-radius:4px;padding:24px;min-width:0;overflow-wrap:anywhere;background:var(--hc-panel);color:var(--hc-ink);font-size:14px;line-height:21px}
-.hermes-crm-native .hc-email h3{font-size:18px;line-height:24px;margin:0 0 16px}
-.hermes-crm-native .hc-email p{margin:0 0 16px}
-.hermes-crm-native .hc-email-actions{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
-.hermes-crm-native .hc-email-review{border:1px solid var(--hc-border);border-radius:4px;padding:16px;margin:24px 0;display:grid;gap:16px;background:var(--hc-bg)}
-.hermes-crm-native .hc-email-review p,.hermes-crm-native .hc-email-review .hc-email-actions{margin:0}
-.hermes-crm-native .hc-email-review label{display:grid;gap:8px;font-size:13px;line-height:18px}
-.hermes-crm-native .hc-email-review input[type=checkbox]{flex:0 0 auto;width:16px;height:16px;margin:2px 0 0;accent-color:var(--hc-action)}
-.hermes-crm-native .hc-email-review input,.hermes-crm-native .hc-email-review select{max-width:100%;min-width:0}
-.hermes-crm-native .hc-email small,.hermes-crm-native .hc-email .hc-muted{display:block;color:var(--hc-secondary);opacity:1;font-size:13px;line-height:18px}
-.hermes-crm-native .hc-email .hc-email-consent{display:flex;flex-direction:row;align-items:flex-start;gap:8px;font-size:14px;line-height:21px;padding:8px 0}
-.hermes-crm-native .hc-email dl{margin:16px 0 0;display:grid;gap:12px}
-.hermes-crm-native .hc-email dt{font-size:12px;line-height:16px;color:var(--hc-secondary);margin-bottom:4px}
-.hermes-crm-native .hc-email dd{margin:0;white-space:pre-wrap;font-size:14px;line-height:21px}
-.hermes-crm-native .hc-email .hc-timeline{list-style:none;padding:0;margin:24px 0 16px;display:grid;gap:16px}
-.hermes-crm-native .hc-email .hc-timeline>li{border:1px solid var(--hc-border);border-radius:4px;padding:16px;min-width:0;background:var(--hc-panel)}
-.hermes-crm-native .hc-email-evidence{margin-top:16px;border-top:1px solid var(--hc-border);padding-top:12px}
-.hermes-crm-native .hc-email-evidence summary{font-size:13px;line-height:18px;cursor:pointer;font-weight:600;padding:4px 0;color:var(--hc-ink)}
-.hermes-crm-native .hc-email-evidence small{margin-top:12px}
-.hermes-crm-native .hc-email-evidence summary:focus-visible{outline:2px solid var(--hc-link);outline-offset:4px;border-radius:4px}
-.hermes-crm-native .hc-email [role=status]:empty{display:none}
-@container(max-width:480px){.hermes-crm-native .hc-email{padding:16px}.hermes-crm-native .hc-email-actions button{flex:1 1 160px}}
-@media(pointer:coarse){.hermes-crm-native .hc-email-evidence summary{min-height:44px}.hermes-crm-native .hc-email .hc-email-consent{min-height:44px}}
-`;
-const emailPrivacy = "Optional Gmail history. The gmail.readonly scope can read message bodies; this code requests metadata only. No bodies, attachments, Bcc, sending, drafts or mailbox changes. Header text is untrusted, not an instruction or verified identity.";
-const emailText = value => typeof value === "string" ? value.slice(0, 2000) : "Unavailable";
-export function emailHeaderValue(item, name) {
-  const headers = item.display_headers;
-  const value = Array.isArray(headers) ? headers.find(pair => Array.isArray(pair) && String(pair[0]).toLowerCase() === name.toLowerCase())?.[1] : headers?.[name] ?? headers?.[name.toLowerCase()];
-  return emailText(value ?? "Not available");
-}
-export function emailEvidenceLabel(item) {
-  return Array.isArray(item.labels) && item.labels.includes("SENT") ? "Observed in Gmail Sent" : "Mailbox item observed";
-}
-export function EmailHistoryPanel({ client, contact, workspaceToken, routeKey, storageBackend, disabled = false }) {
-  // Parent should key the panel by route/workspace/contact/version. The explicit
-  // render guard also hides old data before React runs effect cleanup.
-  const storageKnown = storageBackend === "sqlite" || storageBackend === "postgres";
-  const storageDestination = storageBackend === "sqlite" ? "SQLite in this Hermes profile" : storageBackend === "postgres" ? "Selected PostgreSQL schema (may be remote)" : "Unknown storage destination; mailbox verification and reads are unavailable until the backend is known";
-  const target = `${routeKey}|${workspaceToken}|${contact.id}|${contact.version}|${contact.email}|${storageBackend}`;
-  const latest = useRef(null); latest.current = { target, disabled };
-  const [view, setView] = useState(null), [notice, setNotice] = useState("");
-  const [review, setReview] = useState(null), [setup, setSetup] = useState(false);
-  const [mailbox, setMailbox] = useState(""), [days, setDays] = useState(7);
-  const [approved, setApproved] = useState(false), [busy, setBusy] = useState(false);
-  const session = useRef(null), approveBox = useRef(null), emailActionSequence = useRef(0);
-  useEffect(() => {
-    const own = createEmailHistorySession(client, workspaceToken, contact, () => latest.current.target === target);
-    session.current = own;
-    setView(null); setReview(null); setApproved(false); setMailbox(""); setNotice(""); setBusy(false); setSetup(false);
-    own.load().then(result => { if (result) setView({ ...result, target }); })
-      .catch(() => { if (own.current()) setNotice("Local email history is unavailable. No mailbox read was started."); });
-    return () => own.close();
-  }, [client, target]);
-  useEffect(() => { if (review) approveBox.current?.focus(); }, [review]);
-  const visible = view?.target === target && client.current() ? view : null;
-  const status = visible?.status, history = visible?.history;
-  const pending = session.current?.pending();
-  const cancellingRead = review === "disconnect" && pending && ["verify", "sync"].includes(pending.kind);
-  const formBusy = busy && !cancellingRead;
-  const canDisconnect = !disabled && !!status && client.current() &&
-    (!pending || ["verify", "sync"].includes(pending.kind)) &&
-    (status.connected || status.operation?.state === "running" || !!pending);
-  const blocked = disabled || busy || !status || !client.current() || !!pending || status.operation?.state === "running";
-  const button = (label, onClick, extra = {}) => h("button", { type: "button", onClick, ...extra }, label);
-  async function refresh() {
-    const own = session.current;
-    setBusy(true);
-    try { const result = await own.load(); if (result) { setView({ ...result, target }); setNotice("Local status refreshed. No provider read was started."); } }
-    catch { if (own.current()) setNotice("Local status unavailable. Any pending outcome remains unknown."); }
-    finally { if (own.current()) setBusy(false); }
-  }
-  function open(kind) { setApproved(false); setReview(kind); setNotice(""); }
-  async function submit(event) {
-    event.preventDefault();
-    if ((blocked && !(review === "disconnect" && canDisconnect)) || !approved || !review || latest.current.disabled ||
-        (["verify", "sync"].includes(review) && !storageKnown)) return;
-    const own = session.current;
-    const existingAttempt = own.pending();
-    if (existingAttempt && !(review === "disconnect" && ["verify", "sync"].includes(existingAttempt.kind))) return;
-    const actionTicket = ++emailActionSequence.current;
-    const actionCurrent = () => own.current() && actionTicket === emailActionSequence.current;
-    setBusy(true);
-    try {
-      const result = await own.submit(review, status, { mailbox: mailbox.trim(), days });
-      if (result && actionCurrent()) {
-        setReview(null); setApproved(false);
-        const loaded = await own.load(); if (loaded && actionCurrent()) setView({ ...loaded, target });
-        if (actionCurrent()) setNotice("Recorded result refreshed. Check the operation state and coverage below.");
-      }
-    } catch { if (actionCurrent()) setNotice("Outcome unknown. Refresh local status to reconcile. Do not repeat the action or change accounts until resolved."); }
-    finally { if (actionCurrent()) setBusy(false); }
-  }
-  const operation = history?.last_operation || status?.operation;
-  const items = Array.isArray(history?.items) ? history.items : [];
-  return h("section", { className: "hc-email", "aria-label": "Optional Gmail history" },
-    h("style", null, emailHistoryCSS), h("h3", null, "Email history"),
-    h("p", { className: "hc-muted" }, emailPrivacy),
-    h("p", { className: "hc-muted" }, `Storage destination: ${storageDestination}.`),
-    h("p", null, status ? !status.enabled ? "Disabled · optional plugin setting is off" : status.connected && status.mailbox ? `Verified own mailbox: ${emailText(status.mailbox)}` : "Not verified · no connected mailbox" : "Loading local status…"),
-    h("div", { className: "hc-email-actions" },
-      button(setup ? "Hide setup" : "Setup & privacy", () => setSetup(!setup)),
-      button("Refresh local status", refresh, { disabled: disabled || !client.current() }),
-      button("Verify own mailbox", () => open("verify"), { disabled: blocked || !storageKnown || !status?.enabled || status?.connected || !!status?.mailbox }),
-      button("Read Gmail history", () => open("sync"), { disabled: blocked || !storageKnown || !status?.enabled || !status?.connected || !contact.email })),
-    setup && h("div", { className: "hc-email-review" },
-      h("strong", null, "User-controlled setup"),
-      h("p", null, `Storage destination: ${storageDestination}. This destination holds retained Gmail metadata and identity records.`),
-      h("p", null, "Enable the optional Gmail history plugin setting, register your own Google Desktop app client, and configure its client fields through Hermes host-managed secret settings. Review the requested Gmail readonly, OpenID and email identity permissions. Sign in yourself through the Hermes terminal only after approving that account access and persistent grant. This panel does not start sign-in or grant access."),
-      h("p", null, "Use only your own mailbox. Keep the selected Hermes profile, account and client configuration unchanged during a read. Verification checks the exact mailbox you enter; each contact/date read needs separate approval. Metadata is stored in this CRM workspace. Forget removes locally retained email history and resets the local identity; disconnect stops the local binding. Neither revokes Google's grant. Manage grant revocation separately in your Google account.")),
-    visible && review && h("form", { className: "hc-email-review", onSubmit: submit, "aria-label": "Review email history action" },
-      h("strong", null, review === "verify" ? "Review mailbox verification" : review === "sync" ? "Review this bounded read" : review === "clear" ? "Forget local email history" : "Disconnect local mailbox binding"),
-      review === "verify" && h("label", null, "Exact own mailbox email", h("input", { type: "email", required: true, value: mailbox, disabled: formBusy, onChange: event => { setMailbox(event.target.value); setApproved(false); }, autoComplete: "off" })),
-      review === "verify" && h("p", null, `Verified identity storage destination: ${storageDestination}.`),
-      review === "verify" && h("p", null, "Approves a provider identity and Gmail profile check for this exact mailbox, not a message-history read. Requires your separately authorized Hermes sign-in. After disconnecting, forget retained history before verifying again."),
-      review === "sync" && h("div", null,
-        h("p", null, `Storage destination: ${storageDestination}. Retained observations are saved there until explicitly forgotten.`),
-        h("p", null, `Own mailbox: ${emailText(status.mailbox)}. Exact selected contact address: ${emailText(contact.email)}.`),
-        h("label", null, "Date window ending at read time", h("select", { value: days, disabled: formBusy, onChange: event => { setDays(Number(event.target.value)); setApproved(false); } }, h("option", { value: 7 }, "Last 7 days"), h("option", { value: 30 }, "Last 30 days"))),
-        h("p", null, "Read only selected From, To, Cc, Subject and Date headers, labels, IDs and provider ordering timestamps for this exact address and date range. Store observations in this CRM workspace. Enumeration is bounded and may be partial; absence does not prove no messages exist. No automatic refresh or background sync.")),
-      ["verify", "sync"].includes(review) && h("p", null, "This approved operation can finish and save to the original CRM workspace after you navigate away. Navigation hides stale results; it does not cancel the server operation. Use Disconnect locally to invalidate further reads and publication. An already dispatched provider request cannot be recalled."),
-      review === "clear" && h("p", null, "Remove all locally retained Gmail history in this workspace, not just this contact, and reset the local mailbox identity and binding. Gmail messages and Google's grant are unaffected."),
-      review === "disconnect" && h("p", null, "Disconnect this workspace's local mailbox binding. Retained observations remain until separately forgotten. Any running read is invalidated locally; already dispatched provider requests cannot be recalled. This does not sign out of Hermes or revoke Google's grant."),
-      h("label", { className: "hc-email-consent" }, h("input", { ref: approveBox, type: "checkbox", checked: approved, disabled: formBusy, onChange: event => setApproved(event.target.checked) }), "I reviewed and approve this specific action."),
-      h("div", { className: "hc-email-actions" }, h("button", { type: "submit", className: "hc-primary", disabled: (blocked && !(review === "disconnect" && canDisconnect)) || !approved }, formBusy ? "Working…" : "Confirm reviewed action"), button("Cancel", () => { setReview(null); setApproved(false); }, { disabled: formBusy }))),
-    h("p", { role: "status", "aria-live": "polite" }, pending ? "An operation is pending or its outcome is unknown. Refresh local status; do not resubmit." : notice),
-    operation && h("p", { className: "hc-muted" }, `Last operation: ${emailText(operation.kind)} · ${emailText(operation.state)}${operation.reason ? ` · ${emailText(operation.reason)}` : ""}. Coverage is limited to the approved window; not all-time history or proof of delivery.`),
-    operation?.days && h("p", { className: "hc-muted" }, `Approved ${operation.days}-day window: ${emailTime(operation.start_ms)} to ${emailTime(operation.end_ms)}. ${operation.coverage === "complete_query" ? "Window query finished" : operation.coverage === "partial" ? "Partial window coverage" : "Coverage unknown"}. Not a transactional mailbox snapshot.`),
-    h("p", { className: "hc-muted" }, "Last observed metadata only, not current mailbox state. Labels may have changed since observation. A later query cannot prove deletion or absence of messages it did not return."),
-    h("ul", { className: "hc-timeline", "aria-label": "Gmail metadata observations" }, items.map((item, index) => h("li", { key: `${item.message_id}:${index}` },
-      h("strong", null, emailEvidenceLabel(item)),
-      h("details", { className: "hc-email-evidence" }, h("summary", null, "Observation provenance and read window"),
-      h("small", null, `Provider ordering time: ${emailTime(item.internal_date_ms)} (${emailText(String(item.internal_date_ms ?? "Unavailable"))} ms). Not verified send or receive time.`),
-      h("small", null, `Recorded observation: ${emailTime(item.observed_at)}. Mailbox at observation: ${emailText(item.mailbox ?? item.provenance?.mailbox)}.`),
-      h("small", null, `Provenance: ${emailText(item.provenance?.adapter)} · ${emailText(item.provenance?.kind)}. Read window: ${emailTime(item.provenance?.start_ms)} to ${emailTime(item.provenance?.end_ms)}. This is retained evidence, not a delivery receipt.`)),
-      h("dl", null, ["From", "To", "Cc", "Subject", "Date"].map(name => h("div", { key: name }, h("dt", null, name), h("dd", null, emailHeaderValue(item, name))))),
-      Array.isArray(item.header_issues) && item.header_issues.length > 0 && h("small", null, "Some header metadata was unavailable or rejected.")))),
-    visible && !items.length && h("p", { className: "hc-muted" }, "No locally retained observations for this contact. This does not prove no email exists."),
-    visible && h("small", null, `Showing ${items.length} of ${Number.isSafeInteger(history.total) ? history.total : "unknown"} retained observations (maximum 100). Headers are plain text.`),
-    visible && h("div", { className: "hc-email-actions" }, button("Disconnect locally", () => open("disconnect"), { disabled: !canDisconnect }), button("Forget local email history", () => open("clear"), { disabled: blocked })));
-}
-// END GENERATED EMAIL HISTORY PANEL
 
 // BEGIN GENERATED FLEXIBLE REPORTS PANEL
 // Unknown writes survive remounts and can only be explicitly retried verbatim.
@@ -3981,7 +3777,7 @@ export function createContactTransferSession(client, workspaceToken, isCurrent, 
   return {current,close(){alive=false;},pending:()=>store.get(scope),subscribe(fn){const own=changed=>{if(changed===scope&&current())fn();};listeners.add(own);return()=>listeners.delete(own);},
     async catalog(){if(!current())return null;const result=await client.request(`${transferBase}/catalog?${query}`);if(!current())return null;if(!result||!Array.isArray(result.columns)||!result.columns.every(c=>typeof c.key==='string'&&transferColumn(c.key)&&typeof c.label==='string')||!Array.isArray(result.default_columns)||!result.default_columns.every(k=>k!=='notes'&&!k.startsWith('custom.')&&result.columns.some(c=>c.key===k)))throw new Error('Transfer catalog unavailable.');return result;},
     async preview(body){if(!current()||store.has(scope))return null;const result=await client.request(`${transferBase}/preview`,{method:'POST',body:{...body,workspace_token:workspaceToken}});if(!current())return null;if(!transferPreview(result))throw new Error('Invalid preview response.');return result;},
-    import:body=>write('import',body),export:body=>write('export',body),
+    importRows:body=>write('import',body),export:body=>write('export',body),
     async recover(){const op=store.get(scope);if(!current()||op?.state!=='unknown')return null;const path=op.kind==='import'?`imports/${encodeURIComponent(op.id)}`:`export/operations/${encodeURIComponent(op.id)}`;const result=await client.request(`${transferBase}/${path}?${query}`);if(!current())return null;const verified=receipt(result,op);finish(op);return {kind:op.kind,result:verified};},
   };
 }
@@ -4051,7 +3847,7 @@ export function ContactTransferDrawer({Drawer,client,workspaceToken,current,inva
             row.duplicates.length>0&&h('ul',{'aria-label':`Duplicate matches for row ${row.row_number}`},...row.duplicates.map((duplicate,index)=>h('li',{key:index},`${duplicate.source==='workspace'?'Existing contact':'CSV row '+duplicate.row_number}: matching ${duplicate.reason==='name_company'?'name and company':duplicate.reason}${duplicate.id?' ('+duplicate.id+')':''}`))),
             h(ContactTransferRowValues,{row,mapping,columns:catalog.columns})))),
           h('label',null,h('input',{type:'checkbox','aria-label':'Confirm selected rows',checked:confirmed,disabled,onChange:e=>{if(!valid()||disabled||lock.current)return;if(renderedRevision!==draftRevision.current)return;approvalRevision.current=e.target.checked?draftRevision.current:null;setConfirmed(e.target.checked);}}),'I reviewed ignored columns and row results. Import only my selected valid, nonduplicate rows.'),
-          actButton('Import valid rows',async session=>{if(approvalRevision.current!==draftRevision.current)return;const body={csv_text:csv,mapping,spreadsheet_safe:false,expected_fingerprint:preview.fingerprint,approved_rows:preview.rows.filter(r=>r.status==='duplicate'||(r.status==='ready'&&selected.includes(r.row_number))).map(r=>r.row_number),duplicate_policy:duplicates};clear();const done=await session.import(body);if(done){setResult(done);setNotice('Import completed.');onImported?.();}},disabled||!confirmed||!selected.length||(duplicates==='reject'&&preview.counts.duplicate>0))),
+          actButton('Import valid rows',async session=>{if(approvalRevision.current!==draftRevision.current)return;const body={csv_text:csv,mapping,spreadsheet_safe:false,expected_fingerprint:preview.fingerprint,approved_rows:preview.rows.filter(r=>r.status==='duplicate'||(r.status==='ready'&&selected.includes(r.row_number))).map(r=>r.row_number),duplicate_policy:duplicates};clear();const done=await session.importRows(body);if(done){setResult(done);setNotice('Import completed.');onImported?.();}},disabled||!confirmed||!selected.length||(duplicates==='reject'&&preview.counts.duplicate>0))),
         result&&h('div',{role:'status'},h('p',null,`Batch ${result.batch_id}: ${result.counts.created} created; ${result.counts.skipped} skipped; ${result.counts.excluded} excluded.`),h('ul',null,...[...result.skipped.map(row=>({...row,outcome:'skipped'})),...result.excluded.map(row=>({...row,outcome:'excluded'}))].map((row,index)=>h('li',{key:index},`Row ${row.row_number}: ${row.outcome} (${row.reason})`)))))
       :h('section',{className:'hc-settings-section','aria-label':'Export contacts'},
         h('h3',null,'Export contacts'),
@@ -5287,272 +5083,3 @@ export function ReportReviewPanel({client,workspaceToken,task,profile,expected,m
     observedNow && h('details',null,h('summary',null,'Acknowledgement history & technical details'),h('p',null,`${observedNow.review.history_total} acknowledgement events${observedNow.review.history_truncated?'; latest 50 shown':''}. Recorded by desktop; no authenticated person is claimed.`),h('ol',null,observedNow.review.history.map(event=>h('li',{key:event.id},`${event.action==='acknowledge'?'Reviewed in CRM':'Acknowledgement undone'} · ${event.created_at} · desktop`))),h('pre',null,JSON.stringify(observedNow.context,null,2))));
 }
 // END GENERATED REPORT REVIEW PANEL
-
-// BEGIN GENERATED EMAIL BRIDGE PANEL
-// Lifetime-owned memory survives contact remounts and route ABA, not browser storage.
-export function emailBridgeMemory(owner) {
-  return owner.emailBridgeMemory || (owner.emailBridgeMemory = { attempts: new Map(), pollers: new Map(), listeners: new Set(), receipts: new Map() });
-}
-const bridgeNotify = memory => { for (const listener of memory.listeners) listener(); };
-export function bridgeValidStatus(v) {
-  return !!v && Number.isSafeInteger(v.revision) && v.revision >= 0 && typeof v.enabled === 'boolean' &&
-    typeof v.polling_enabled === 'boolean' && (v.mailbox === null || typeof v.mailbox === 'string') &&
-    (v.account_namespace === null || typeof v.account_namespace === 'string') && (!v.enabled || (!!v.account_namespace && !!v.mailbox));
-}
-export function bridgeTerminal(v, kind) {
-  if (!v || ['running', 'unknown'].includes(v.status)) return false;
-  if (['cancelled','failed'].includes(v.status)) return true;
-  if (kind === 'sync') return ['complete','partial','requires_resync','failed','cancelled'].includes(v.outcome?.status);
-  return Number.isSafeInteger(v.revision) && (kind !== 'verify' || typeof v.account_namespace === 'string');
-}
-export function createBridgeSession({client, workspaceToken, memory, current = () => true}) {
-  let alive = true;
-  const active = () => alive && client.current() && current();
-  const query = new URLSearchParams({workspace_token:workspaceToken});
-  const safetyScope = JSON.stringify([workspaceToken,'safety-control']);
-  const pending = () => memory.attempts.get(safetyScope) || memory.attempts.get(workspaceToken);
-  const get = async path => { const value = await client.request(`/email-bridge/${path}${path.includes('?')?'&':'?'}${query}`); return active() ? value : null; };
-  return { active, pending, get, close(){alive=false;},
-    async status() {
-      const status = await get('status');
-      if (!active()) return null;
-      if (!bridgeValidStatus(status)) throw Error('Local status unavailable.');
-      for (const attemptScope of [workspaceToken,safetyScope]) {
-        const attempt = memory.attempts.get(attemptScope);
-        if (!attempt) continue;
-        const receipt = await get(`operations/${encodeURIComponent(attempt.body.operation_key)}`);
-        if (!active()) return null;
-        if (memory.attempts.get(attemptScope) === attempt && bridgeTerminal(receipt, attempt.kind)) {
-          memory.receipts?.set(workspaceToken, {kind:attempt.kind, result:receipt});
-          memory.attempts.delete(attemptScope); bridgeNotify(memory);
-        }
-      }
-      return status;
-    },
-    async submit(kind, status, values={}) {
-      const previous = pending();
-      const safety = kind==='control' && ['pause','disconnect','stop_polling'].includes(values.action) &&
-        previous && ['verify','sync'].includes(previous.kind) && !memory.attempts.has(safetyScope);
-      if (!active() || (previous && !safety) || !bridgeValidStatus(status)) return null;
-      const attemptScope = safety ? safetyScope : workspaceToken;
-      if (!['verify','sync','control','aliases'].includes(kind)) throw Error('Unsupported operation');
-      const body = { ...values, workspace_token:workspaceToken, expected_revision:status.revision, operation_key:crypto.randomUUID() };
-      if (kind === 'verify' || kind === 'sync') body.consent = true;
-      const attempt = {kind, body:JSON.parse(JSON.stringify(body)), state:'running'};
-      memory.attempts.set(attemptScope, attempt); bridgeNotify(memory);
-      let dispatched=false;
-      try {
-        if(safety){
-          const fresh=await get('status');
-          if(!active()){memory.attempts.delete(attemptScope);bridgeNotify(memory);return null;}
-          if(!bridgeValidStatus(fresh)||fresh.account_namespace!==status.account_namespace||fresh.mailbox!==status.mailbox)throw Error('Account changed');
-          attempt.body.expected_revision=fresh.revision;
-        }
-        if(!active()){memory.attempts.delete(attemptScope);bridgeNotify(memory);return null;}
-        dispatched=true;
-        const result = await client.request(`/email-bridge/${kind}`,{method:'POST',body:attempt.body});
-        if (!active() || memory.attempts.get(attemptScope) !== attempt) return null;
-        if (!bridgeTerminal(result, kind)) throw Error('Unconfirmed receipt');
-        memory.receipts?.set(workspaceToken, {kind, result});
-        memory.attempts.delete(attemptScope); bridgeNotify(memory);
-        return result;
-      } catch {
-        if(!dispatched){memory.attempts.delete(attemptScope);bridgeNotify(memory);throw Error('No action was sent. Refresh local history and review the current account again.');}
-        if (memory.attempts.get(attemptScope) === attempt) { attempt.state='unknown'; bridgeNotify(memory); }
-        throw Error('Outcome unknown. Refresh the recorded receipt; this request will not be resent. Sync is paused until resolved.');
-      }
-    },
-  };
-}
-
-// One owner per selected workspace, shared across companion panes. There is no
-// provider call on mount, and a generic enabled/connected flag is insufficient.
-export function EmailBridgePolling({ctx,client,workspaceToken,memory}) {
-  const [enabled,setEnabled]=useState(false),[revision,update]=useState(0);
-  useEffect(()=>{const change=()=>update(n=>n+1);memory.listeners.add(change);return()=>memory.listeners.delete(change);},[memory]);
-  useEffect(()=>{
-    const session=createBridgeSession({client,workspaceToken,memory});
-    session.get('status').then(status=>{if(session.active())setEnabled(bridgeValidStatus(status)&&status.polling_enabled===true&&status.enabled&&!!status.checkpoint&&!status.requires_resync&&!status.polling_blocked_reason&&session.pending()?.state!=='unknown'&&status.runtime?.available===true);}).catch(()=>{if(session.active())setEnabled(false);});
-    return()=>session.close();
-  },[client,workspaceToken,memory,revision]);
-  useEffect(() => {
-    if(!enabled)return;
-    const session = createBridgeSession({client,workspaceToken,memory});
-    let group=memory.pollers.get(workspaceToken);
-    if(!group){
-      group={sessions:new Set(),busy:false,stopped:false};
-      memory.pollers.set(workspaceToken,group);
-      const tick=async()=>{
-        if(group.stopped||group.busy)return;
-        const own=[...group.sessions].find(value=>value.active());
-        if(!own)return;
-        group.busy=true;
-        try{
-          const status=await own.status();
-          if(!status||group.stopped||!own.active()||own.pending()||!status.enabled||status.polling_enabled!==true||
-            !status.checkpoint||status.lease_state||status.requires_resync||status.polling_blocked_reason||status.runtime?.available!==true)return;
-          await own.submit('sync',status,{mode:'incremental',trigger:'poll'});
-        }catch{/* Retain the exact unknown request; never resend. */}
-        finally{group.busy=false;}
-      };
-      group.stop=ctx.setInterval(tick,300000);
-    }
-    group.sessions.add(session);
-    return()=>{
-      session.close();group.sessions.delete(session);
-      if(!group.sessions.size){group.stopped=true;group.stop();if(memory.pollers.get(workspaceToken)===group)memory.pollers.delete(workspaceToken);}
-    };
-  },[ctx,client,workspaceToken,memory,enabled]);
-  return null;
-}
-const bridgeText = value => typeof value==='string' ? value.slice(0,2000) : 'Unavailable';
-const bridgeLabel = value => bridgeText(value).replaceAll('_',' ');
-const bridgeHeaders = (item,name) => (item.raw_headers || []).filter(pair=>Array.isArray(pair)&&String(pair[0]).toLowerCase()===name.toLowerCase()).map(pair=>bridgeText(pair[1])).join('; ') || 'Unavailable';
-const bridgeDate = value => typeof value==='number'&&Number.isFinite(value)&&Number.isFinite(new Date(value).getTime()) ? new Date(value).toISOString().replace('T',' ').replace('.000Z',' UTC') : 'Unavailable';
-const bridgeButton=(text,click,disabled=false,extra={})=>h('button',{type:'button',onClick:click,disabled,...extra},text);
-export const bridgeCSS=`
-.hermes-crm-native .hc-bridge{padding:20px;border:1px solid var(--hc-border);border-radius:4px;background:var(--hc-panel);color:var(--hc-ink);min-width:0;overflow-wrap:anywhere}
-.hermes-crm-native .hc-bridge h3{margin:0;font-size:18px}.hermes-crm-native .hc-bridge p{font-size:13px;line-height:20px;margin:8px 0}
-.hermes-crm-native .hc-bridge-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.hermes-crm-native .hc-bridge summary{cursor:pointer;padding:10px 0;font-weight:600}
-.hermes-crm-native .hc-bridge summary:focus-visible{outline:2px solid var(--hc-link);outline-offset:2px}.hermes-crm-native .hc-bridge-list{list-style:none;padding:0;margin:12px 0;display:grid;gap:8px}
-.hermes-crm-native .hc-bridge-list>li,.hermes-crm-native .hc-bridge-review{border:1px solid var(--hc-border);border-radius:4px;padding:12px;background:var(--hc-bg)}
-.hermes-crm-native .hc-bridge-review{display:grid;gap:12px}.hermes-crm-native .hc-bridge label{display:grid;gap:6px;font-size:13px}.hermes-crm-native .hc-bridge .hc-bridge-consent{display:flex;flex-direction:row;gap:8px;align-items:flex-start}.hermes-crm-native .hc-bridge input[type=checkbox]{width:16px;height:16px;flex-shrink:0}
-.hermes-crm-native .hc-bridge small{display:block;color:var(--hc-secondary);line-height:18px}.hermes-crm-native .hc-bridge input,.hermes-crm-native .hc-bridge textarea{width:100%;box-sizing:border-box}.hermes-crm-native .hc-bridge dl{margin:8px 0;font-size:13px}.hermes-crm-native .hc-bridge dt{color:var(--hc-secondary)}.hermes-crm-native .hc-bridge dd{margin:0 0 8px;white-space:pre-wrap}
-`;
-export function EmailBridgePanel(props) {
-  return h(BridgePanelView,{...props,key:JSON.stringify([props.routeKey,props.workspaceToken,props.contact?.id,props.contact?.version])});
-}
-export function EmailBridgeConnections(props) {
-  return h(EmailBridgePanel, {...props, contact:null});
-}
-function BridgePanelView({client,workspaceToken,contact,memory,open,storageBackend,disabled=false}) {
-  const [localReadFailed,setLocalReadFailed]=useState(false);
-  const [view,setView]=useState(null),[notice,setNotice]=useState(''),[review,setReview]=useState(null),[approved,setApproved]=useState(false);
-  const [mailbox,setMailbox]=useState(''),[ownAliases,setOwnAliases]=useState(''),[aliases,setAliases]=useState(''),[busy,setBusy]=useState(false),[page,setPage]=useState(0),[reviewPage,setReviewPage]=useState(0),[reviewRevision,setReviewRevision]=useState(null);
-  const [operationGeneration,render]=useState(0), session=useRef(null),latest=useRef(null),approveRef=useRef(null),reviewRef=useRef(null),mailboxRef=useRef(null),returnRef=useRef(null),readSequence=useRef(0),actionSequence=useRef(0);
-  latest.current={disabled,page,reviewPage};
-  useEffect(()=>{const update=()=>render(n=>n+1);memory.listeners.add(update);return()=>memory.listeners.delete(update);},[memory]);
-  useEffect(()=>{
-    const own=createBridgeSession({client,workspaceToken,memory});session.current=own;
-    return()=>{readSequence.current++;own.close();};
-  },[client,workspaceToken,memory]);
-  // Pagination invalidates only local reads, never the in-flight action session.
-  useEffect(()=>{if(session.current?.active())load();},[client,workspaceToken,memory,page,reviewPage]);
-  useEffect(()=>{if(review){reviewRef.current?.scrollIntoView?.({block:"nearest"});(review==='verify'?mailboxRef.current:approveRef.current)?.focus();}},[review]);
-  useEffect(()=>{if(operationGeneration&&session.current?.active())load();},[operationGeneration]);
-  const current=()=>session.current?.active()&&!latest.current.disabled;
-  async function load(own=session.current) {
-    const ticket=++readSequence.current;
-    const selectedPage=latest.current.page, selectedReviewPage=latest.current.reviewPage;
-    try {
-      const status=await own.status();if(!status)return;
-      const [history,unresolved]=contact?await Promise.all([own.get(`contacts/${encodeURIComponent(contact.id)}?limit=25&offset=${selectedPage*25}`),own.get(`unresolved?limit=25&offset=${selectedReviewPage*25}`)]):[{items:[],total:0},{items:[],total:0}];
-      if(!own.active()||ticket!==readSequence.current)return;
-      if(!Array.isArray(history?.items)||!Array.isArray(unresolved?.items)||!Number.isSafeInteger(history.total)||!Number.isSafeInteger(unresolved.total))throw Error();
-      setLocalReadFailed(false);setNotice(previous=>previous==='Local email history is unavailable. No provider read was started. Pending requests remain locked.'?'':previous);setView({status,history,unresolved});
-    }catch{if(own.active()&&ticket===readSequence.current){setLocalReadFailed(true);setNotice('Local email history is unavailable. No provider read was started. Pending requests remain locked.');}}
-  }
-  const status=view?.status,pending=session.current?.pending(),receipt=memory.receipts?.get(workspaceToken);
-  const outcome=receipt?.result;
-  const outcomeText=outcome?.status==='failed'?`Last ${bridgeLabel(receipt.kind)} action failed. No success was confirmed.`:outcome?.status==='cancelled'?`Last ${bridgeLabel(receipt.kind)} action cancelled.`:receipt?.kind==='verify'&&outcome?.account_namespace&&outcome.account_namespace===status?.account_namespace?'Verification succeeded: provider identity and profile checkpoint checked. No messages read.':null;
-  const blocked=disabled||busy||!client.current()||!status||!!pending||!!status.lease_state;
-  const safetyAvailable=(!!status?.lease_state||(!!pending&&['verify','sync'].includes(pending.kind)))&&!disabled&&client.current()&&!!status;
-  const reviewBusy=busy&&!(safetyAvailable&&['pause','disconnect','stop_polling'].includes(review));
-  const reviewBlocked=(blocked&&!(safetyAvailable&&['pause','disconnect','stop_polling'].includes(review)))||reviewRevision!==status?.revision;
-  const storageKnown=['sqlite','postgresql','postgres'].includes(storageBackend);
-  const destination=storageBackend==='sqlite'?'selected CRM SQLite database':['postgres','postgresql'].includes(storageBackend)?'selected CRM PostgreSQL database':'unconfirmed CRM backend';
-  function choose(kind,event){if(!current())return;returnRef.current=event?.currentTarget;setReview(kind);setReviewRevision(status?.revision);setApproved(false);setNotice('');if(kind==='aliases')setAliases((view.history.explicit_aliases||[]).join('\n'));}
-  function cancel(){setReview(null);setApproved(false);returnRef.current?.focus();}
-  async function submit(event){
-    event.preventDefault();if(reviewBlocked||!approved||!current())return;
-    const own=session.current,kind=review,ticket=++actionSequence.current;const active=()=>own.active()&&ticket===actionSequence.current;setBusy(true);
-    const split=text=>text.split(/[\n,]/).map(s=>s.trim()).filter(Boolean);
-    try{
-      let result;
-      if(kind==='verify')result=await own.submit('verify',status,{own_mailbox:mailbox.trim(),own_aliases:split(ownAliases)});
-      else if(['incremental','7days','30days'].includes(kind))result=await own.submit('sync',status,{mode:kind,trigger:'manual'});
-      else if(kind==='aliases')result=await own.submit('aliases',status,{contact_id:contact.id,contact_version:contact.version,aliases:split(aliases)});
-      else result=await own.submit('control',status,{action:kind,...(kind==='clear'?{confirm:true}:{})});
-      if(result&&active()){cancel();setNotice(result.status==='failed'?'Action failed. No success was confirmed.':result.status==='cancelled'?'Action cancelled. No success was confirmed.':result.outcome?`Recorded read: ${bridgeLabel(result.outcome.status)}. Coverage is bounded; absence is not evidence of no correspondence.`:kind==='verify'?'Verification receipt recorded. Check the refreshed verified mailbox status above.':`Action recorded: ${bridgeLabel(kind)}. Local status refreshed.`);await load(own);}
-    }catch(error){if(active())setNotice(error.message);}
-    finally{if(active())setBusy(false);}
-  }
-  function action(text,kind,extraBlocked=false){return bridgeButton(text,e=>choose(kind,e),(blocked&&!(safetyAvailable&&['pause','disconnect','stop_polling'].includes(kind)))||extraBlocked);}
-  const providerAction=review==='verify'||['incremental','7days','30days','start_polling'].includes(review);
-  return h('section',{className:'hc-bridge','aria-label':contact?'Existing Hermes email history':'Gmail connection'},h('style',null,bridgeCSS),h('h3',null,contact?'Email history':'Gmail · existing Hermes connection'),
-    h('p',{className:'hc-muted'},'Read-only metadata from your existing Hermes Gmail connection. No bodies, attachments, Bcc, sends, drafts or mailbox changes.'),
-    h('p',{role:'status'},status?.mailbox?`Verified mailbox: ${bridgeText(status.mailbox)} · ${status.enabled?'Enabled':'Paused'}`:status?'Not verified · existing connection not in use':localReadFailed?'Local status unavailable · refresh to try again':'Loading local status…'),
-    status&&h('small',null,`Sync while CRM is open: ${status.polling_enabled?'enabled, at least 5 minutes between checks':'off'}. ${status.lease_state?`Operation: ${bridgeLabel(status.lease_state)}.`:''}`),
-    pending&&h('p',{role:'status'},`${pending.kind==='verify'?'Verification':'Operation'} ${pending.state==='running'?'in progress':pending.state}. Refresh the recorded receipt. No automatic resend; polling is paused.`),
-    localReadFailed&&status&&h('p',{role:'status'},'Showing last known account status. Refresh failed; current state could not be checked.'),
-    outcomeText&&h('p',{role:'status'},outcomeText),
-    h('div',{className:'hc-bridge-actions'},bridgeButton(contact?'Refresh local history':'Refresh local status',()=>load(),disabled||!client.current()),
-      action('Sync new metadata','incremental',!storageKnown||!status?.enabled||!status?.checkpoint||!!status?.requires_resync||!status?.runtime?.available)),
-    review&&h('form',{className:'hc-bridge-review',ref:reviewRef,'aria-label':'Review Gmail bridge action',onSubmit:submit,onKeyDown:e=>{if(e.key==='Escape'&&!reviewBusy){e.preventDefault();cancel();}}},
-      h('strong',null,`Review: ${bridgeLabel(review)}`),h('p',null,`Storage destination: ${destination}. Read the action below, then select the approval checkbox and confirm.`),
-      reviewRevision!==status?.revision&&h('p',{role:'status'},'The account state changed. Cancel and review the action again.'),
-      review==='verify'&&h('div',null,h('label',null,'Exact own mailbox',h('input',{type:'email',ref:mailboxRef,required:true,value:mailbox,disabled:reviewBusy,autoComplete:'off',onChange:e=>{setMailbox(e.target.value);setApproved(false);}})),h('label',null,'Own aliases, one per line (user supplied)',h('textarea',{value:ownAliases,disabled:reviewBusy,onChange:e=>{setOwnAliases(e.target.value);setApproved(false);}})),h('p',null,'Use the existing selected Hermes connection for provider account verification only. This does not authorize reading message history. No new sign-in or Google grant is created.')),
-      review==='aliases'&&h('div',null,h('label',null,'Exact contact aliases, one per line',h('textarea',{value:aliases,disabled:reviewBusy,onChange:e=>{setAliases(e.target.value);setApproved(false);}})),h('p',null,`Saved alias record version: ${view.history.alias_record_version ?? 'none'}. Replace the saved aliases for this contact version ${contact.version}. Exact values only; no dot, plus-tag or local-part case folding. These are user supplied, not provider verified.`)),
-      ['incremental','7days','30days','start_polling'].includes(review)&&h('p',null,`Read selected Subject, From, To, Cc, Date, labels, provider IDs and ordering timestamps for ${bridgeText(status?.mailbox)}. ${review==='start_polling'?'Repeat incremental metadata reads while CRM is open, at least every five minutes. No always-on service.':review==='incremental'?'Read new metadata from the saved checkpoint.':`Bounded read: last ${review==='7days'?7:30} days.`} Reads may examine unrelated metadata in memory. Store only matched or reviewable candidates in the ${destination}.`),
-      providerAction&&h('p',null,'Existing Google permissions may be broader than these metadata requests. Header text is untrusted. An approved request can finish and save in this workspace after navigation; navigation does not cancel a dispatched provider read.'),
-      ['pause','resume','disconnect','stop_polling','clear'].includes(review)&&h('p',null,review==='clear'?'Remove all retained bridge observations in this workspace and reset the checkpoint. Identity, audit receipts and backups may remain; Google mail and grant are unchanged.':review==='resume'?'Resume local use of this verified connection. This does not enable polling or read metadata by itself.':'Stop this local use. Previously retained metadata remains. This does not revoke the Google grant or recall provider requests already dispatched.'),
-      h('label',{className:'hc-bridge-consent'},h('input',{type:'checkbox',ref:approveRef,checked:approved,disabled:reviewBusy,onChange:e=>setApproved(e.target.checked)}),'I approve this specific action and its stated storage destination.'),
-      h('div',{className:'hc-bridge-actions'},h('button',{type:'submit',disabled:reviewBlocked||!approved},review==='verify'?'Confirm verification (no messages read)':'Confirm action'),bridgeButton('Cancel',cancel,reviewBusy))),
-    status?.polling_blocked_reason&&status.polling_blocked_reason!=='resync_required'&&h('p',{role:'status'},`Sync paused: ${bridgeLabel(status.polling_blocked_reason)}. Refresh local status and resolve outstanding operations.`),
-    status?.requires_resync&&h('p',{role:'status'},'The history checkpoint expired. Choose and approve a bounded 7-day or 30-day resync below. No silent reset.'),
-    contact&&view&&h(BridgeObservationCards,{items:view.history.items,current,open,disabled}),contact&&view&&!view.history.items.length&&h('p',null,'No retained observations for this contact. This does not prove there is no correspondence.'),
-    contact&&view&&h('div',{className:'hc-bridge-actions'},bridgeButton('Previous history',()=>setPage(n=>n-1),page===0||disabled),h('small',null,`${view.history.total} retained observations`),bridgeButton('Next history',()=>setPage(n=>n+1),(page+1)*25>=view.history.total||disabled)),
-    h(contact?'details':'section',null,h(contact?'summary':'h4',null,'Account & sync settings'),h('p',null,`Storage: ${destination}. Metadata is ordinary CRM data, not protected notes. Backups may retain previously stored data.`),
-      h('p',null,'The host must enable this optional bridge and configure its trusted existing connection. This panel does not sign in, create an account or request a new Google grant. Credentials remain outside CRM. Keep the selected connection unchanged while a read is running.'),
-      status&&!status.runtime?.available&&h('p',null,'Bridge unavailable. Host configuration and installation checks are required before verification.'),
-      status?.account_namespace&&h('p',null,'This workspace already has a verified binding. To change accounts, disconnect locally first, then verify the intended existing Hermes connection. Retained history stays until you explicitly clear it.'),
-      !storageKnown&&h('p',null,'Actions unavailable: CRM storage destination is not confirmed.'),
-      status?.mailbox&&h('p',null,`Own aliases (user supplied, not provider verified): ${(status.own_aliases||[]).join(', ')||'None'}`),
-      h('div',{className:'hc-bridge-actions'},action('Verify existing connection','verify',!storageKnown||!status?.runtime?.available||!!status?.account_namespace),
-        action('Read last 7 days','7days',!storageKnown||!status?.enabled||!status?.runtime?.available),action('Read last 30 days','30days',!storageKnown||!status?.enabled||!status?.runtime?.available),
-        action(status?.polling_enabled?'Stop app-open sync':'Sync while CRM is open',status?.polling_enabled?'stop_polling':'start_polling',!status?.enabled||!storageKnown||!status?.checkpoint||!!status?.requires_resync),
-        action(status?.enabled||safetyAvailable?'Pause sync':'Resume sync',status?.enabled||safetyAvailable?'pause':'resume',!status?.account_namespace&&!safetyAvailable),action('Disconnect locally','disconnect',!status?.account_namespace&&!safetyAvailable),action('Clear retained metadata','clear'),
-        contact&&action('Edit contact email aliases','aliases',!Array.isArray(view?.history?.explicit_aliases)||view?.history?.contact_version!==contact.version)),
-      h('p',null,'Disconnect and pause stop local use, not the Google grant. Disconnect retains metadata. Clear deletes retained observations in this workspace and resets its checkpoint; identity, audit receipts and backups may remain. Google messages are unaffected.')),
-    contact&&view&&h('details',null,h('summary',null,`Needs review across workspace (${view.unresolved.total})`),h('p',null,'Ambiguous addresses stay unlinked for that address. Review candidates individually; other unambiguous participants may link to several Contacts.'),h(BridgeObservationCards,{items:view.unresolved.items,current,open,disabled}),h('div',{className:'hc-bridge-actions'},bridgeButton('Previous review',()=>setReviewPage(n=>n-1),reviewPage===0||disabled),bridgeButton('Next review',()=>setReviewPage(n=>n+1),(reviewPage+1)*25>=view.unresolved.total||disabled))),
-    notice&&h('p',{role:'status'},notice));
-}
-
-export function BridgeObservationCards({items,current,open,disabled}){return h('ul',{className:'hc-bridge-list'},items.map(item=>h('li',{key:JSON.stringify([item.account_namespace,item.message_id])},
-    h('strong',null,bridgeHeaders(item,'Subject')),h('small',null,`Header direction: ${bridgeLabel(item.current_match?.direction)} · ${bridgeLabel(item.last_observation?.status || item.status)} · Provider ordering date: ${bridgeDate(item.internal_date_ms)}`),
-    Array.isArray(item.labels)&&item.labels.includes('SENT')&&h('small',null,'Observed in Gmail Sent · not proof of delivery'),
-    Array.isArray(item.header_issues)&&item.header_issues.length>0&&h('p',null,`Header issues: ${item.header_issues.map(bridgeLabel).join(', ')}`),
-    (item.needs_review||item.currently_linked===false)&&h('p',null,'Needs review · current identities may differ from the original observation.'),
-    h('details',null,h('summary',null,'Participants & match evidence'),h('dl',null,['From','To','Cc'].map(name=>h('div',{key:name},h('dt',null,name),h('dd',null,bridgeHeaders(item,name))))),
-      h('p',null,'Association basis: exact visible email address. Aliases are user supplied. Header direction and Sent labels do not prove delivery, reading or authenticated identity.'),
-      (item.current_match?.participants||[]).map((p,index)=>h('div',{key:index},h('small',null,`${bridgeText(p.address)} · ${(p.roles||[]).join(', ')} · ${bridgeLabel(p.status)}`),
-        (p.matches||[]).map(match=>bridgeButton(`${p.status==='ambiguous'?'Review candidate':'Contact'} ${match.contact_id}`,()=>{if(current())open('contacts',match.contact_id);},disabled,{key:match.contact_id})))),
-      h('small',null,`Account namespace: ${bridgeText(item.account_namespace)} · Provider message ID: ${bridgeText(item.message_id)}`),h('small',null,'No Company association is inferred from a domain. Deals, Tasks and Events are not linked automatically.')))));}
-
-export function CompanyEmailBridgePanel(props){
-  return h(CompanyBridgeView,{...props,key:JSON.stringify([props.routeKey,props.workspaceToken,props.company.id,props.company.version])});
-}
-function CompanyBridgeView({client,workspaceToken,company,open,disabled=false}){
-  const [page,setPage]=useState(null),[offset,setOffset]=useState(0),[revision,refresh]=useState(0),[error,setError]=useState('');
-  const alive=useRef(false),sequence=useRef(0),latest=useRef(null);latest.current={disabled};
-  useEffect(()=>{
-    alive.current=true;let live=true;const ticket=++sequence.current;setPage(null);setError('');
-    const query=new URLSearchParams({workspace_token:workspaceToken,limit:'25',offset:String(offset)});
-    client.request(`/email-bridge/companies/${encodeURIComponent(company.id)}?${query}`).then(value=>{
-      if(!live||!client.current()||ticket!==sequence.current)return;
-      if(!Array.isArray(value?.items)||!Number.isSafeInteger(value.total)||value.total<0||value.association_basis!=='current_explicit_company_contacts')throw Error();
-      setPage(value);
-    }).catch(()=>{if(live&&client.current()&&ticket===sequence.current)setError('Company email history is unavailable. No provider read was started.');});
-    return()=>{live=false;alive.current=false;};
-  },[client,workspaceToken,company.id,company.version,offset,revision]);
-  const current=()=>alive.current&&client.current()&&!latest.current.disabled;
-  return h('section',{className:'hc-bridge','aria-label':'Company email history'},h('style',null,bridgeCSS),h('h3',null,'Email history'),
-    h('p',null,'Through explicitly linked Contacts'),h('p',{className:'hc-muted'},'Current Contact–Company relationships group these retained observations. This is not direct provider evidence about the Company. Names and domains are never used to infer this association.'),
-    h('p',null,'Read-only view. Manage the existing connection and workspace sync in Settings → Connections, or a Contact’s Account & sync settings.'),
-    bridgeButton('Refresh Company email history',()=>{if(current())refresh(n=>n+1);},disabled||!client.current()),
-    page&&h(BridgeObservationCards,{items:page.items,current,open,disabled}),
-    page&&!page.items.length&&h('p',null,'No retained observations through currently linked Contacts. This does not prove there is no correspondence.'),
-    page&&h('div',{className:'hc-bridge-actions'},bridgeButton('Previous Company history',()=>setOffset(n=>n-25),disabled||offset===0),h('small',null,`${page.total} retained observations`),bridgeButton('Next Company history',()=>setOffset(n=>n+25),disabled||offset+25>=page.total)),
-    error&&h('p',{role:'status'},error));
-}
-// END GENERATED EMAIL BRIDGE PANEL

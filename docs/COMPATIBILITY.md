@@ -1,12 +1,17 @@
 # Host compatibility
 
+> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. The tested core snapshot passed the official Hermes v0.23.0 validator, genuine host checks and a PostgreSQL-enabled regression suite. See the verification report for exact scope; these results are not maintainer acceptance or production certification.
+
+
 Desktop and Agent have different release labels. A backend version alone does not establish that the Desktop SDK supplies the required routing APIs.
 
 ## Supported contract
 
-The integration is tested against official Hermes source commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, including the Desktop SDK in that checkout. The isolated native runtime identifies as `vgit.2bd378e`; the source manifests declare `0.0.0`. This is the verified identity, not a confirmed Agent v0.23.0 release build.
+The tested core snapshot is verified against official Hermes v0.23.0. The official tag resolves to source commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, including the Desktop SDK in that checkout, and the clean validation runtime reports `0.23.0`. This release identity is independently established; it is not inferred from the earlier `vgit.2bd378e` development-runtime label.
 
-The backend manifest's existing `requires_hermes: >=0.23.0` declaration is unchanged. It is not an empirically established numeric minimum or a guarantee for later releases. The pinned host's version gate permits unparseable development versions, so successful loading of `vgit.2bd378e` does not validate that numeric boundary. Use the exact source contract, capability checks and tests when assessing another build.
+The official `plugins validate --install-deps --json` run passed all 16 checks with no warnings, dependencies installed and `host_ready: true`. Five genuine host checks passed: both Desktop isolation modes, both 83-tool registry/workflow modes and one workflow seam. These use synthetic records with no live model or provider calls. See [the candidate verification results](VERIFICATION.md#core-only-candidate-checks-november-9-2026).
+
+The backend manifest's `requires_hermes: >=0.23.0` declaration is unchanged and was exercised at 0.23.0. This is not a guarantee for every later release, nor an exhaustive proof of the earliest compatible release. Desktop and backend capabilities still need checking for any other build.
 
 The native pane requires connection/profile/gateway stores, both gateway activation-epoch APIs, profile-scoped REST, context-managed timers and disposal. It checks capabilities rather than guessing a Desktop version threshold. An older Desktop that can register the pane but lacks these capabilities gets a compatibility notice with CRM reads and changes disabled. It does not substitute a constant epoch, a guessed connection identity, a localhost server or an older scheduler tool name.
 
@@ -30,20 +35,13 @@ Isolated probes found that its nonempty `crm_read` plus `no_mcp` scheduler allow
 
 ## Validation versus previews
 
-An isolated UI preview can use synthetic SDK state and sample records to show the actual component layout. It does not prove that an older installed Desktop supports the required APIs. A later native Mac run verified installation, rendering and core CRM workflows on the pinned source build. Real scheduler execution and local outputs were subsequently verified with deterministic loopback model responses. Broader accessibility/responsive coverage, real-model behavior, visible reminder presentation, default deferred-tool discovery and restart recovery remain open; see VERIFICATION.md. Any app or backend upgrade must be handled separately; this plugin never upgrades the host itself.
+An isolated UI preview can use synthetic SDK state and sample records to show the actual component layout. It does not prove that an older installed Desktop supports the required APIs. Historical full-edition native Mac runs verified installation, rendering and core CRM workflows on their recorded source builds. Historical scheduler execution and local outputs used deterministic loopback model responses. The current core candidate checks do not claim a fresh physical Desktop UI, live-model or provider run. Broader accessibility/responsive coverage, real-model behavior, visible reminder presentation, default deferred-tool discovery and restart recovery remain open; see VERIFICATION.md. Any app or backend upgrade must be handled separately; this plugin never upgrades the host itself.
 
 Official sources:
 - https://github.com/NousResearch/hermes-agent/tree/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19
 - https://github.com/NousResearch/hermes-agent/tree/3c27eb6234bf91b8ceee9e9071591b31e9b148cb
 - https://github.com/NousResearch/hermes-agent/tree/29112bef099274229cadff79cdff7bf7b99c4b77
 
-### Optional Gmail pilot dependency check
+## Credential sources
 
-The optional Gmail routes passed the pinned host's real authentication/profile
-fixture in both isolation modes with Python 3.14 / FastAPI 0.133.1 /
-Starlette 1.9.0 / Pydantic 2.14.1. Another environment using Python 3.12 /
-FastAPI 0.141.1 / Starlette 1.6.0 / Pydantic 2.13.4 hit host hot-mount recursion
-in-process; the pre-Gmail baseline reproduced it. Do not treat that combination
-as verified or silently change an installed host's dependencies. No host changes
-are included. OAuth declaration compatibility is source-tested; live Gmail and
-native email-panel visual behavior are not yet verified.
+The native factory uses the host's profile-scoped storage helpers and secret resolver for PostgreSQL and protection keys. It does not fall back to ambient environment credentials. A poison-environment regression exercises that boundary without provider access or a PostgreSQL connection. The standalone CLI retains its documented, explicitly configured `HERMES_CRM_*` environment settings; these are not a fallback for native host-secret paths. This distinction is not a claim of a catalog policy exemption or maintainer acceptance.

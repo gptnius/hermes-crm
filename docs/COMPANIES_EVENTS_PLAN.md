@@ -194,8 +194,7 @@ browser-timezone reinterpretation or minute-rounding of unchanged timestamps.
 
 Activities, Events and Record history have distinct labels and sources. Contact
 and Company details show related Events/interaction history separately from
-administrative changes. Optional Gmail stays behind its existing explicit
-surface and is never fetched by these pages.
+administrative changes. This core edition has no provider integration; these pages never fetch mail.
 
 Acceptance: legacy row/receipt preservation, concurrent upgrade, partial/newer
 schema rejection, duplicate identities, archive/restore, link/relink/unlink,

@@ -1,5 +1,8 @@
 # Native Hermes Desktop
 
+> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. Host/catalog validation of this exact candidate is tracked separately from historical full-edition evidence. No numeric release compatibility or catalog acceptance is established by a development-host pass.
+
+
 The unified package now contains the requested native Desktop surface. It does not open an iframe or require the standalone web server.
 
 ## Package layout
@@ -79,7 +82,7 @@ Primary reference: https://hermes-agent.nousresearch.com/docs/developer-guide/de
 
 ### Contact detail layout and custom fields
 
-Contact properties, recent CRM history and linked-record summaries stay at the top. Company links, contact logs and each relationship list share a single responsive grid across the pane below them; email history remains a full-width record-specific section. Narrow panes stack in the same reading and keyboard order. Light and dark modes use the existing Workbench tokens.
+Contact properties, recent CRM history and linked-record summaries stay at the top. Company links, contact logs and each relationship list share a single responsive grid across the pane below them; provider history panels are not included in this edition. Narrow panes stack in the same reading and keyboard order. Light and dark modes use the existing Workbench tokens.
 
 The Custom fields section is omitted when a record has neither active field definitions nor retained values. Defined but empty fields show “Not set”; archived definitions with stored values and stored values without a current definition remain visible. Boolean false and numeric zero are retained. This is display-only and does not delete or modify record data. The standalone contact dialog follows the same visibility rules and uses a grid within its available width.
 

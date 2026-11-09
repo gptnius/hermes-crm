@@ -13,9 +13,6 @@ const imports = [...source.matchAll(/from\s+['"]([^'"]+)['"]/g)].map(
   (m) => m[1],
 );
 assert.deepEqual(imports, ["@hermes/plugin-sdk", "react"]);
-const emailSource = await readFile(new URL("../desktop/email-history.js", import.meta.url), "utf8");
-const emailBody = emailSource.replace(/^import[^\n]+\n/, "").trim();
-assert.ok(source.includes("// BEGIN GENERATED EMAIL HISTORY PANEL\n" + emailBody + "\n// END GENERATED EMAIL HISTORY PANEL"), "Regenerate native email panel before shipping");
 assert.doesNotMatch(
   source,
   /\bfetch\s*\(|iframe|window\.|document\.|localhost|https?:\/\//,

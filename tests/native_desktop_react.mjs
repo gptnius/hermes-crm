@@ -175,7 +175,6 @@ const ctx = {
       return new Promise(resolve => releaseTaskDetails.push(resolve));
     if (path.startsWith("/reports/contacts?") && delayReport) return new Promise(resolve => { releaseReport = resolve; });
     const routes = {
-      "/email-bridge/status": {revision:0,enabled:false,polling_enabled:false,mailbox:null,account_namespace:null,checkpoint:null,lease_state:null,runtime:{available:false}},
       "/meta": {
         ...(testCatalog ? {catalog:testCatalog} : {}),
         ...(testOwnerPolicy ? {task_owner_policy:testOwnerPolicy} : {}),
@@ -299,13 +298,12 @@ assert.match(text(), /Overview/);
 assert.match(text(), /Weighted forecast/);
 assert.equal(intervals.size, 1, "Strict Mode replay leaves one live interval");
 // Settings is a normal native route: local-only, no Contact prerequisite or extra poller.
-const settingsCallStart=calls.length, settingsWriteStart=writes.length;
+const settingsWriteStart=writes.length;
 await click('Settings');
-assert.match(text(), /Connections/);assert.match(text(), /Not verified/);
-assert.match(text(), /Host configuration and installation checks/);
-assert.equal(button('Verify existing connection').props.disabled,true);
+assert.match(text(), /Workspace settings/);assert.match(text(), /no mailbox connection or email synchronization/);
+assert.equal(button('Verify existing connection'), undefined);
 assert.equal(writes.length,settingsWriteStart);assert.equal(intervals.size,1);
-assert.ok(calls.slice(settingsCallStart).filter(call=>call.path.includes('/email-bridge/')).every(call=>call.path.includes('/status')));
+assert.equal(calls.filter(call=>/\/email(?:-bridge)?\//.test(call.path)).length, 0, 'Core edition never reads or polls provider routes');
 assert.equal(button('Edit contact email aliases'),undefined);
 await click('Overview');assert.match(text(),/Weighted forecast/);
 // Dashboard rows distinguish task ownership from saved agent intent and read exact tasks.

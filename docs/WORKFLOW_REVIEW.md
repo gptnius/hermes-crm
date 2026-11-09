@@ -217,24 +217,14 @@ remain parked below rather than being changed as a side effect of UX fixes.
 
 ### Email
 
-The implemented optional Gmail pilot is default off and metadata-only at runtime,
-with synthetic verification only. It has no sending, drafting, automatic sync,
-body/attachment ingestion or live-account verification. Gmail readonly is broader
-than the metadata this code requests; requested scopes are not proof of the
-token's actual powers. See [setup and limits](GMAIL_SETUP.md).
-
-The bundled Hermes Google Workspace skill is a separate integration, not a CRM
-connection. Its current setup requests broad services/scopes and does not provide
-the documented service-selection option; see
-[upstream issue 74128](https://github.com/NousResearch/hermes-agent/issues/74128).
-Do not run that setup or borrow another plugin's credentials as a shortcut.
+This core edition has no provider connection, mailbox reader or email transport. It does not use other tools' credential stores. Legacy metadata definitions support encrypted export and quarantined recovery only.
 
 A future draft/send adapter needs account binding, minimal permissions, an exact
 reviewed message snapshot, a durable outbox and provider-specific evidence.
 Gmail compose permission also allows sending: a draft-only promise needs enforced
 application behavior, not a scope-name assumption. Uncertain sending must be
 reconciled, never blindly repeated. Keep drafted, submitted, observed-in-Sent,
-received and unknown states distinct. See [the disabled contract](EMAIL_ACTIVITY.md).
+received and unknown states distinct. See provider integration (not shipped in this core edition).
 
 ### Lead research, social access and scraping
 

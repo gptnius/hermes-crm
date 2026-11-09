@@ -9,7 +9,7 @@ Official Hermes contracts inspected at commit
 ## Current capability and supported host contracts
 
 CRM has no general attachment store, upload route, or Files UI. Textual references
-in Notes are not stored files. Gmail history excludes bodies and attachments;
+in Notes are not stored files. This core edition ships no mailbox integration;
 CSV transfer is a special-purpose import/export flow.
 
 The official desktop SDK supports single-file multipart uploads through

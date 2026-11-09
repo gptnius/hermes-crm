@@ -74,7 +74,7 @@ This guidance does not create tools, relax version/identity checks, change
 credentials, expand scheduled access or enforce model behavior. Missing host
 features remain real limits. Follow the [native conversation workflow](NATIVE_CHAT.md),
 [research review guide](RESEARCH_EVIDENCE.md), [assignment workflow](ASSIGNMENT_UI.md)
-and [Gmail setup limits](GMAIL_SETUP.md) for the implemented routes.
+and provider integration (not shipped in this core edition) for the implemented routes.
 
 Future work should make capability diagnosis more structured, qualify additional
 explicitly selected scheduled capabilities beyond the research presets, and design

@@ -150,7 +150,7 @@ def test_relationships_native_and_provider_quarantine(source, rings, tmp_path):
     from hermes_crm.companies import CompanyStore
     from hermes_crm.events import EventStore
     from hermes_crm.native_work import NativeWorkStore, assignments
-    from hermes_crm.gmail_history import GmailHistoryStore, connections
+    from hermes_crm.gmail_history import metadata as gmail_metadata, connections
     c = source.create('contacts', {'name': 'Synthetic'})
     company = CompanyStore(source).create({'name': 'Synthetic Company'}, actor='test', key='company')
     CompanyStore(source).set_contact_company(c['id'], company['id'], expected_contact_version=1, actor='test', key='link')
@@ -160,9 +160,11 @@ def test_relationships_native_and_provider_quarantine(source, rings, tmp_path):
     task = source.create('tasks', {'title': 'Synthetic', 'due_at': '2030-01-01T00:00:00Z'})
     NativeWorkStore(source).create(task_id=task['id'], human_owner='Synthetic', prompt='Synthetic analysis',
         success_criteria='Synthetic report', run_at='2030-01-01T12:00:00Z', idempotency_key='native')
-    gmail = GmailHistoryStore(source, initialize=True)
+    gmail_metadata.create_all(source.engine)
+    gmail_scope = hashlib.sha256(json.dumps([source.workspace_token(), source.profile],
+        sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
     with source.engine.begin() as conn:
-        conn.execute(connections.update().where(connections.c.scope == gmail.scope).values(revision=1, connected=1,
+        conn.execute(connections.insert().values(scope=gmail_scope, revision=1, connected=1,
                      subject='synthetic', mailbox='synthetic@example.test', issuer='synthetic', active_operation=None))
     result = restore(source, rings, tmp_path)
     assert 'crm_native_assignments' in result['quarantined_tables']
@@ -173,10 +175,9 @@ def test_relationships_native_and_provider_quarantine(source, rings, tmp_path):
         assert EventStore(recovered).get(event['id'])['title'] == 'Synthetic meeting'
         assert CompanyStore(recovered).create({'name': 'Synthetic Company'}, actor='test', key='company')['id'] == company['id']
         NativeWorkStore(recovered)  # Actual strict schema validation, no host context.
-        GmailHistoryStore(recovered, initialize=True)
         with recovered.engine.connect() as conn:
             assert conn.execute(select(assignments)).all() == []
-            assert conn.execute(select(connections.c.connected)).scalar() == 0
+            assert conn.execute(select(connections)).all() == []
             assert conn.exec_driver_sql('select count(*) from recovery_crm_native_assignments').scalar() == 1
     finally:
         recovered.close()

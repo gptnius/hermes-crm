@@ -49,7 +49,7 @@ permissions, model access or execution guarantees.
 | Create/edit | Consistent grouped labels, field hints, validation, padded scroll body and pinned actions |
 | Agent work | Forms, operation review, scope warnings, saved evidence and unknown-outcome notices |
 | Reporting | Shared dashboard cards, structured report builder/filters, table/chart results and keyboard drilldowns |
-| Contact log / Gmail | Structured forms, provenance disclosure, clear empty/loading/error and approval states |
+| Contact log | Structured forms, provenance disclosure, clear empty/loading/error and approval states |
 | Customization | Stage/field lists, grouped definition editor, descriptions and preserved archive/type constraints |
 | Protection | Key-availability state, note fields, encrypted export review and retained privacy warnings |
 | Contact CSV | Padded mapping/preview body, row review, export controls and separate footer |

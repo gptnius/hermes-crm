@@ -69,6 +69,7 @@ def test_official_dashboard_discovery_auth_crud_tools_and_profiles(tmp_path, iso
         'PYTHONPATH': os.pathsep.join((str(guard), str(source), str(dependencies))),
         'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONUNBUFFERED': '1',
         'CRM_DESKTOP_TEST_ROOT': str(tmp_path), 'CRM_DESKTOP_TEST_SOURCE': str(source),
+        'CRM_DESKTOP_TEST_ISOLATION': isolation,
         'CRM_DESKTOP_TEST_FORBIDDEN_HOME': str(original_home),
     }
     # Python otherwise logs and swallows sitecustomize exceptions. Verify the
@@ -280,36 +281,26 @@ with patch.object(socket, 'create_connection', deny_network), \
         'workspace_token': token, 'idempotency_key': 'native-host-contact',
         'data': {'name': 'Synthetic Native Contact', 'email': 'synthetic@example.invalid'}})
     contact_id = created['id']
-    # Optional Gmail surfaces share real host auth/profile routing but default
-    # off. These checks never resolve credentials or invoke the provider helper.
-    for email_path in ('/email/status', '/email/setup', '/email/contacts/' + contact_id):
-        assert client.get(prefix + email_path, params={'workspace_token': token}).status_code == 401
-        request('GET', email_path, 409, params={'workspace_token': 'stale-profile-token'})
-        local = request('GET', email_path, params={'workspace_token': token})
-        if email_path.endswith('status'):
-            assert local['enabled'] is False and local['connected'] is False and local['revision'] == 0
-    assert request('GET', '/email/contacts/' + contact_id, params={'workspace_token': token})['items'] == []
-    request('POST', '/email/verify', 503, json={'workspace_token': token, 'operation_id': '11111111-1111-4111-8111-111111111111',
-        'expected_revision': 0, 'mailbox': 'own@example.test', 'consent': True})
-    bridge_paths = ('/email-bridge/status', '/email-bridge/setup',
-                    '/email-bridge/contacts/' + contact_id, '/email-bridge/unresolved',
-                    '/email-bridge/operations/missing')
-    for bridge_path in bridge_paths:
-        assert client.get(prefix + bridge_path, params={'workspace_token': token}).status_code == 401
-        request('GET', bridge_path, 409, params={'workspace_token': 'stale-profile-token'})
-        request('GET', bridge_path, params={'workspace_token': token})
-    bridge_status = request('GET', '/email-bridge/status', params={'workspace_token': token})
-    assert bridge_status['enabled'] is False and bridge_status['polling_enabled'] is False
-    assert bridge_status['revision'] == 0 and bridge_status['account_namespace'] is None
-    assert bridge_status['runtime']['available'] is False
-    assert request('GET', '/email-bridge/contacts/' + contact_id, params={'workspace_token': token})['items'] == []
-    bridge_verify = dict(workspace_token=token, operation_key='host-disabled-verify',
-        expected_revision=0, own_mailbox='own@example.test', consent=True)
-    assert client.post(prefix + '/email-bridge/verify', json=bridge_verify).status_code == 401
-    request('POST', '/email-bridge/verify', 409, json=bridge_verify)
-    request('POST', '/email-bridge/sync', 409, json=dict(workspace_token=token,
-        operation_key='host-disabled-sync', expected_revision=0, consent=True))
-    assert request('GET', '/email-bridge/status', params={'workspace_token': token}) == bridge_status
+    # Removed provider names can match the generic /{kind}/{record_id}
+    # route, but must fail its Literal validation before any core/provider work.
+    def assert_removed_provider(kind, params):
+        response = request('GET', '/' + kind + '/status', 422, params=params)
+        errors = response['detail']
+        assert len(errors) == 1, response
+        assert errors[0]['type'] == 'literal_error', response
+        assert errors[0]['loc'] == ['path', 'kind'], response
+        assert errors[0]['input'] == kind, response
+    for kind in ('email', 'email-bridge'):
+        assert_removed_provider(kind, {'workspace_token': token})
+    # The host dispatcher returns 404 for an absent in-process endpoint; its
+    # isolated ASGI child returns 405 for the same method/path. Neither is a
+    # provider response, and each pinned mode has one exact expected result.
+    missing_post = 404 if os.environ['CRM_DESKTOP_TEST_ISOLATION'] == 'in_process' else 405
+    request('POST', '/email-bridge/verify', missing_post, json={})
+    for module in ('gmail_gws', 'gmail_bridge_runtime', 'gmail_bridge_api',
+                   'gmail_runtime', 'gmail_history_api', 'gmail_reader'):
+        assert not (home / 'plugins/hermes-crm/hermes_crm' / (module + '.py')).exists()
+        assert module not in (home / 'plugins/hermes-crm/hermes_crm/native_api.py').read_text()
     assert tool('crm_contact_get', {'id': contact_id})['name'] == 'Synthetic Native Contact'
     updated = tool('crm_contact_update', {'id': contact_id, 'version': created['version'], 'company': 'Synthetic LLC'})
     detail = request('GET', '/contacts/' + contact_id)
@@ -391,10 +382,8 @@ with patch.object(socket, 'create_connection', deny_network), \
     assert report['items'][0]['deal_stages'] == ['proposal']
     from hermes_cli.web_server_profiles import serving_profile_name
     for profile_alias in dict.fromkeys(('current', '', serving_profile_name())):
-        assert request('GET', '/email-bridge/status',
-            params={'workspace_token': token, 'profile': profile_alias}) == bridge_status
-        assert request('GET', '/email-bridge/contacts/' + contact_id,
-            params={'workspace_token': token, 'profile': profile_alias})['items'] == []
+        for kind in ('email', 'email-bridge'):
+            assert_removed_provider(kind, {'workspace_token': token, 'profile': profile_alias})
         assert request('GET', '/reports/contacts',
             params={**report_filters, 'workspace_token': token, 'profile': profile_alias}) == report
         assert request('GET', '/contacts',
@@ -511,22 +500,12 @@ with patch.object(socket, 'create_connection', deny_network), \
     other_contact = request('POST', '/contacts?profile=crm-test-other', 201, json={
         'workspace_token': other_meta['workspace_token'], 'data': {'name': 'Other Profile Only', 'lifecycle': 'customer'}})
     other_token = other_meta['workspace_token']
-    assert request('GET', '/email/status', params={'workspace_token': other_token, 'profile': 'crm-test-other'})['enabled'] is False
-    request('GET', '/email/status', 409, params={'workspace_token': token, 'profile': 'crm-test-other'})
-    request('GET', '/email/status', 409, params={'workspace_token': other_token})
-    assert request('GET', '/email/contacts/' + other_contact['id'],
-        params={'workspace_token': other_token, 'profile': 'crm-test-other'})['items'] == []
-    other_bridge = request('GET', '/email-bridge/status', params=other_work_scope)
-    assert other_bridge['enabled'] is False and other_bridge['polling_enabled'] is False
-    for bridge_path in ('/email-bridge/status', '/email-bridge/setup', '/email-bridge/unresolved'):
-        request('GET', bridge_path, 409, params={**other_work_scope, 'workspace_token': token})
-        request('GET', bridge_path, 409, params={'workspace_token': other_token})
-    assert request('GET', '/email-bridge/contacts/' + other_contact['id'], params=other_work_scope)['items'] == []
-    request('POST', '/email-bridge/verify?profile=crm-test-other', 409, json=bridge_verify)
-    request('POST', '/email-bridge/verify?profile=crm-test-other', 409,
-            json={**bridge_verify, 'workspace_token': other_token})
-    request('GET', '/email-bridge/status', 400, params={**other_work_scope, 'unknown': 'x'})
-    assert request('GET', '/email-bridge/status', params={'workspace_token': token}) == bridge_status
+    for kind in ('email', 'email-bridge'):
+        assert_removed_provider(kind, {'workspace_token': other_token, 'profile': 'crm-test-other'})
+        assert_removed_provider(kind, {'workspace_token': token, 'profile': 'crm-test-other'})
+        assert_removed_provider(kind, {'workspace_token': other_token})
+    # Core profile/authorization isolation is asserted on real core endpoints
+    # above and below. Removed provider names cannot return a mailbox status.
     other_queue = request('GET', '/reports/coverage', params=other_work_scope)
     assert other_queue['total'] == 1 and other_queue['items'][0]['contacts'][0]['id'] == other_contact['id']
     assert other_queue['items'][0]['kind'] == 'missing_next_action'
@@ -562,5 +541,9 @@ with patch.object(socket, 'create_connection', deny_network), \
     request('GET', '/meta?profile=crm-test-other', 404)
     request('GET', '/meta')
     assert not list(home.rglob('jobs.json'))
+    import sqlite3
+    for database in list(home.rglob('*.sqlite3')) + list(home.rglob('*.db')):
+        with sqlite3.connect(database.as_uri() + '?mode=ro', uri=True) as connection:
+            assert connection.execute("SELECT name FROM sqlite_master WHERE name LIKE 'crm_gmail_%'").fetchall() == [], database
     print('PASS native host: real discovery, allowlist, project refusal, mount, auth, CRUD, tools, stale versions, stale workspace, runtime disable, filtered report/tool parity, atomic reviewed-version create/replay, paginated work and coverage routes, secondary-profile report/work token and IPC isolation; clean HOME/environment and inherited network/agent guard; no network server, jobs or model execution')
 '''
