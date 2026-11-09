@@ -41,7 +41,7 @@ def _inactive_observation(event, evidence):
                  and evidence.get('running_execution_cancelled') is False)))
 
 
-def _assignment(row, task, history, results, timestamp):
+def _assignment(row, task, history, results, timestamp, reviews=None):
     """Keep separate saved intent, latest exact-job observation, and reports."""
     payload = json.loads(row['payload'])
     if (hashlib.sha256(row['payload'].encode()).hexdigest() != row['digest']
@@ -96,13 +96,16 @@ def _assignment(row, task, history, results, timestamp):
             inactive = None
             observation_key = (event['version'], event['created_at'])
             previous_pause = previous_inactive = False
+    from .report_reviews import projection, report_binding
+    review_states = {r['id']:projection(reviews or {},'native',row['id'],r['id'],r['digest'],binding=report_binding('native',row,r,workspace=row['workspace'],profile=row['profile']) if (reviews or {}).get(('native',row['id'],r['id'])) else None) for r in results}
     latest_report = None
     if results:
         last = results[-1]
         identity = json.loads(last['identity'])
         latest_report = dict(id=last['id'], outcome=last['outcome'], created_at=last['created_at'],
             age_seconds=_age(last['created_at'], timestamp), provenance='native_run_reported',
-            review_status='awaiting_human_review' if current else 'stale_source_task',
+            review_status='reviewed_in_crm' if review_states[last['id']]['status']=='reviewed_in_crm' else 'awaiting_human_review',
+            review=review_states[last['id']],
             identity={key: identity.get(key) for key in ('job_id', 'job_name', 'execution_id', 'source',
                                                        'scheduled_instant', 'started_at', 'profile')})
     summary = {key: row[key] for key in ('id', 'idempotency_key', 'version', 'generation', 'state', 'reason',
@@ -131,9 +134,9 @@ def _assignment(row, task, history, results, timestamp):
         flags.add('run_time_elapsed_while_paused')
     if not invalid and payload['run_at'] < timestamp and not results:
         flags.add('run_time_passed')
-    if results:
+    if any(review['status']=='awaiting_review' for review in review_states.values()):
         flags.add('awaiting_review')
-        if any(r['outcome'] in {'blocked', 'failed'} for r in results): flags.add('reported_blocked_failed')
+    if any(r['outcome'] in {'blocked', 'failed'} for r in results): flags.add('reported_blocked_failed')
     if host and host['state'] == 'unknown' and not invalid:
         flags.add('needs_scheduling_review')
     if host and host['state'] == 'failed':
@@ -169,6 +172,8 @@ def coverage_report(crm, *, q='', status='any', limit=50, offset=0):
                 func.lower(contacts.c.company).like(pattern, escape='\\')))).scalars())
             task_matches = set(conn.execute(select(tasks.c.id).where(
                 func.lower(tasks.c.title).like(pattern, escape='\\'))).scalars())
+        from .report_reviews import load_reviews
+        reviews = load_reviews(crm,conn)
         native_rows, history, results = [], defaultdict(list), defaultdict(list)
         if store.available:
             scope = [assignments.c.workspace == store.workspace, assignments.c.profile == store.profile]
@@ -193,7 +198,7 @@ def coverage_report(crm, *, q='', status='any', limit=50, offset=0):
         for row in native_rows:
             task = task_rows.get(row['task_id'])
             if task is None: raise CRMError('Assignment source task is unavailable', 503)
-            summary, flags = _assignment(row, task, history[row['id']], results[row['id']], timestamp)
+            summary, flags = _assignment(row, task, history[row['id']], results[row['id']], timestamp,reviews)
             by_task[task['id']].append((summary, flags))
 
         items = []

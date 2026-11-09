@@ -343,7 +343,7 @@ for (const aba of [false, true]) {
   await e.mount('AssignedWork', { snapshotGeneration: 1 });
   assert.match(e.text(), /observed completed, disabled and with no next run/);
   assert.match(e.text(), /Agent reported: Blocked/);
-  assert.match(e.text(), /Awaiting Human Review/);
+  assert.match(e.text(), /Source current at evidence read/);
   assert.match(e.text(), /Open; report does not complete it/);
   assert.match(e.text(), /does not verify host terminal success, delivery or business-task completion/);
   assert.equal(e.writes.length, 0);
@@ -363,7 +363,7 @@ for (const aba of [false, true]) {
   assert.match(e.text(), /historical observation is not a live check/);
   assert.match(e.text(), /No pause was sent for this observation, and no running agent was stopped/);
   assert.match(e.text(), /Agent reported Blocked/);
-  assert.match(e.text(), /Awaiting human review; host terminal success and delivery not established/);
+  assert.match(e.text(), /CRM acknowledgement does not establish host terminal success or delivery/);
   assert.match(e.text(), /future-new/); assert.doesNotMatch(e.text(), /cancellation succeeded|pause observed at/);
   assert.equal(e.writes.length, 0); await e.finish();
 }
@@ -649,3 +649,52 @@ for (const selected of [false, true]) {
   }
 }
 console.log('PASS selected/history task freshness conservatively revoked by current version or status, never upgraded from stale/unknown, with explicit missing-data provenance.');
+// Shared native acknowledgement uses the real scoped client and host epoch guards.
+for (const family of ['native', 'scheduled_research']) {
+  const e = await fixture();
+  const uid = n => `10000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+  const task = { ...e.task, id: uid(3) };
+  const identity = { job_id: 'job', execution_id: 'run', job_name: `CRM ${family === 'native' ? 'work' : 'research'} ${uid(1)} g1`, source: 'builtin', profile: 'work', scheduled_instant: '2030-01-01T00:00:00Z', started_at: null };
+  const work = { ...e.work, generation: 2, id: uid(1), digest: 'a'.repeat(64), payload: { ...e.work.payload, task_id: task.id, generation: 1, target_kind: 'contacts', target_id: uid(4), target_version: 1 } };
+  const report = family === 'native' ? { id: uid(2), digest: 'b'.repeat(64), summary: 'Pinned immutable result', outcome: 'completed', identity } : { operation_key: 'run:'+'c'.repeat(64), result: { summary: 'Pinned immutable result', outcome: 'completed', identity } };
+  const binding = { family, assignment_id: work.id, report_id: family === 'native' ? report.id : report.operation_key, assignment_digest: work.digest, generation: 1, report_digest: 'b'.repeat(64), summary: 'Pinned immutable result', outcome: 'completed', identity, task_id: task.id, task_version: task.version, target: family === 'native' ? null : { target_kind: 'contacts', target_id: uid(4), target_version: 1 } };
+  const reviewContext = { report: binding, assignment_version: 2, assignment_state: 'result_reported', task: { id: task.id, assigned_version: task.version, current_version: task.version, current_status: 'open' }, target: family === 'native' ? null : { kind: 'contacts', id: uid(4), assigned_version: 1, current_version: 1, archived: false }, source_current: true, source_reason: null };
+  const preview = { ...binding, context: reviewContext, context_digest: 'd'.repeat(64), review: { status: 'awaiting_review', version: 0, latest_event: null, history: [], history_total: 0, history_truncated: false } };
+  let posts = [], gate = null;
+  e.ctx.rest = async (path, options) => { if (!options) return clone(preview); posts.push(clone(options.body)); if (gate) return gate.promise; throw Error('unknown'); };
+  const extra = { task, work, report, family, profile: 'work', current: () => e.viewRequest.current === 0 };
+  await e.mount('ScopedReportReview', extra);
+  assert.match(e.text(), /Not reviewed in CRM/);
+  await e.click('Mark result reviewed');
+  const old = e.button('Confirm mark reviewed').props.onClick;
+  // Route ABA in the same tick permanently invalidates the original client.
+  await e.change(() => { e.state.profile.set('other'); e.state.profile.set('work'); });
+  await e.change(() => old()); assert.equal(posts.length, 0);
+  await e.unmount();
+  const identity2 = e.api.routeIdentity(e.ctx), client2 = e.api.createRouteClient(e.ctx, identity2);
+  await e.mount('ScopedReportReview', { ...extra, identity: identity2, client: client2 });
+  await e.click('Mark result reviewed'); await e.click('Confirm mark reviewed'); assert.equal(posts.length,1);
+  await e.unmount();
+  // An uncertain attempt survives reconnect epochs, but only the exact body replays.
+  await e.change(() => { e.state.gateway.set('closed'); e.epoch.set(2); e.state.gateway.set('open'); });
+  const identity3=e.api.routeIdentity(e.ctx), client3=e.api.createRouteClient(e.ctx,identity3);
+  await e.mount('ScopedReportReview',{...extra,identity:identity3,client:client3});
+  await e.click('Retry exact acknowledgement'); assert.deepEqual(posts[1],posts[0]);
+  const retry=e.button('Retry exact acknowledgement').props.onClick;
+  for(const dispose of e.disposers || [])dispose();
+  client3.dispose(); await e.change(()=>retry()); assert.equal(posts.length,2);
+  client2.dispose(); await e.finish();
+}
+console.log('PASS report acknowledgement uses scoped native identity, rejects same-tick profile ABA and disposed clients, and retains exact uncertain retries across reconnects for both families.');
+// Actual invalidated backend assignments retain the immutable report generation.
+const historicalFixtures=JSON.parse(await readFile(new URL('./fixtures/report_review_backend.json',import.meta.url),'utf8'));
+for(const name of ['native_cancelled','native_superseded']) {
+ const f=historicalFixtures[name],e=await fixture(),work=f.assignment,report=work.reports[0];
+ assert.equal(work.generation,2);assert.equal(report.generation,1);
+ let value=clone(f.preview),writes=0,refreshes=0;
+ e.ctx.rest=async(path,options)=>{if(options){writes++;value=clone(f.reviewed);return clone(f.receipt);}return clone(value);};
+ await e.mount('ScopedReportReview',{task:{...e.task,id:value.task_id,version:value.context.task.current_version},work,report,profile:'synthetic',current:()=>true,onChanged:()=>refreshes++});
+ assert.match(e.text(),/Not reviewed in CRM/);await e.click('Mark result reviewed');await e.click('Confirm mark reviewed');
+ assert.equal(writes,1);assert.equal(refreshes,1);assert.match(e.text(),/Reviewed in CRM/);await e.finish();
+}
+console.log('PASS real cancelled/superseded backend assignments review frozen report generation in scoped native UI.');

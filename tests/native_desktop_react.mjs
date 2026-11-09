@@ -1009,7 +1009,7 @@ await click("Refresh saved status");
 assert.match(text(), /Human owner/);
 assert.match(text(), /Review owner/);
 assert.match(text(), /Agent reported: Completed/);
-assert.match(text(), /Awaiting Human Review/);
+assert.match(text(), /Source current at evidence read/);
 assert.match(text(), /does not verify host terminal success/);
 const workParams = new URLSearchParams(calls.findLast(call => call.path.startsWith("/reports/work?")).path.split("?")[1]);
 assert.equal(workParams.get("task_id"), "t1");

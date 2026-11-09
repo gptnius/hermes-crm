@@ -1221,7 +1221,7 @@ function captureWorkCommandBinding(ctx, identity) {
   return { ...chat, current: () => live && valid && chat.current() && panes.every(pane => pane.get() === true),
     dispose() { if (!live) return; live = false; for (const stop of stops) stop(); } };
 }
-function useWorkCommands({ ctx, identity, client, task, workspaceToken, workspaceProfile, workCommandName, disabled, viewRequest, companion, openNativeChat, onChange, taskHeadingRef }) {
+function useWorkCommands({ ctx, identity, client, task, workspaceToken, workspaceProfile, workCommandName, disabled, viewRequest, companion, openNativeChat, onChange, taskHeadingRef, onReviewChanged }) {
   const lifetime = lifetimes.get(ctx), mounted = useRef(false), serial = useRef(0), lock = useRef(false), latest = useRef(null), returnFocus = useRef(null), restoreFocus = useRef(false), bindings = useRef(new Set());
   const [panel, setPanel] = useState(null), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false), [generation, setGeneration] = useState(0);
   const revision = viewRequest.current;
@@ -2304,8 +2304,21 @@ function WorkCommandActions({ work, task, onOperation, disabled }) {
     button('Check native status', event => onOperation('check', work, event), { disabled }),
     button('Review CRM cancellation', event => onOperation('cancel', work, event), { disabled }));
 }
+// Acknowledgement is separate from scheduler, task and note state.
+export function ScopedReportReview({ ctx, identity, client, workspaceToken, profile, task, work, report, family = 'native', current, disabled, onChanged }) {
+  const expected = { family, assignment_id: work.id, report_id: family === 'native' ? report.id : report.operation_key,
+    assignment_digest: work.digest, generation: family === 'native' ? report.generation ?? work.payload.generation : work.payload.generation,
+    identity: family === 'native' ? report.identity : report.result.identity,
+    summary: family === 'native' ? report.summary : report.result.summary,
+    outcome: family === 'native' ? report.outcome : report.result.outcome,
+    task_id: task.id, task_version: work.payload.task_version,
+    target: family === 'native' ? null : { target_kind: work.payload.target_kind, target_id: work.payload.target_id, target_version: work.payload.target_version } };
+  if (family === 'native') expected.report_digest = report.digest;
+  const memory = reportReviewMemory(lifetimes.get(ctx), JSON.stringify([JSON.parse(identity).slice(0,2), workspaceToken, profile, task.id, family, work.id, expected.report_id]));
+  return h(ReportReviewPanel, { client, workspaceToken, profile, task, expected, memory, current, disabled, onChanged });
+}
 // Read-only evidence shared by paginated history and exact coverage selection.
-function AssignmentEvidence({ work, task, stale = false }) {
+function AssignmentEvidence({ work, task, stale = false, renderReview }) {
   const sourceTaskId = work.task_id || work.payload?.task_id;
   const sameTask = Boolean(task?.id && sourceTaskId && task.id === sourceTaskId);
   const taskStatus = sameTask && ["open", "done"].includes(task?.status) ? task.status : null;
@@ -2342,9 +2355,10 @@ function AssignmentEvidence({ work, task, stale = false }) {
     h("h3", null, "Agent reports"),
     (work.reports || []).length ? work.reports.map(report => h("div", { key: report.id, className: "hc-notice" },
       h("b", null, `Agent reported: ${label(report.outcome)}`),
-      h("p", null, `${sourceStale ? label("stale_source_task") : sourceCurrent ? label(report.review_status || "awaiting_human_review") : "Source-task freshness unknown"} · ${exactTime(report.created_at)}`),
+      h("p", null, `${sourceStale ? label("stale_source_task") : sourceCurrent ? "Source current at evidence read" : "Source-task freshness unknown"} · ${exactTime(report.created_at)}`),
       h("p", { className: "hc-details" }, report.summary),
-      h("p", { className: "hc-record-meta" }, `Report ${report.id} · Native job ${report.identity?.job_id || work.job_id || "not recorded"} · Execution ${report.identity?.execution_id || "not recorded"} · ${label(report.provenance)}`),
+      renderReview && renderReview(work, report),
+      h("details", null, h("summary", null, "Report technical details"), h("p", { className: "hc-record-meta" }, `Report ${report.id} · Native job ${report.identity?.job_id || work.job_id || "not recorded"} · Execution ${report.identity?.execution_id || "not recorded"} · ${label(report.provenance)}`)),
       h("small", { className: "hc-muted" }, "This report does not verify host terminal success, delivery or business-task completion.")))
       : h("p", { className: "hc-muted" }, "No authenticated agent report recorded, even if the host was observed completed."),
     h("h3", null, "Recorded observations"),
@@ -2353,7 +2367,7 @@ function AssignmentEvidence({ work, task, stale = false }) {
         ? `Host observed ${label(event.evidence.state || "unknown")} · ${event.evidence.source || "recorded observation"}` : label(event.kind)),
       h("p", { className: "hc-muted" }, exactTime(event.created_at))))));
 }
-export function AssignedWork({ client, task, workspaceToken, snapshotGeneration, onPrepare, onOperation, disabled, selectedWorkId }) {
+export function AssignedWork({ client, task, workspaceToken, snapshotGeneration, onPrepare, onOperation, disabled, selectedWorkId, renderReview }) {
   const [result, setResult] = useState(null), [failure, setFailure] = useState(null);
   const [reload, setReload] = useState(0), [offset, setOffset] = useState(0), [expanded, setExpanded] = useState({});
   const [revision, setRevision] = useState(0), requestGeneration = useRef(0);
@@ -2376,7 +2390,7 @@ export function AssignedWork({ client, task, workspaceToken, snapshotGeneration,
     return () => { live = false; };
   }, [client, task.id, workspaceToken, snapshotGeneration, reload, offset, revision]);
   return h(RecordSection, { title: "Assigned agent work", action: button("Refresh saved status", () => changeHistory(() => setReload(n => n + 1)), { disabled: refreshing }) },
-    h("p", { className: "hc-muted" }, "Read-only saved history. Refresh does not query the scheduler. Registration does not prove execution; authenticated reports require human review and do not complete this follow-up."),
+    h("p", { className: "hc-muted" }, "Saved history and explicit result acknowledgement. Refresh does not query the scheduler. Registration does not prove execution; authenticated reports require human review and do not complete this follow-up."),
     error && h("div", { role: "status", className: "hc-notice" },
       h("p", null, history === null ? "Assigned-work history is unavailable. This does not mean no assignments exist."
         : "Assigned-work history could not be refreshed. Showing the last successful observations, which may be out of date."), h("p", null, error)),
@@ -2387,7 +2401,7 @@ export function AssignedWork({ client, task, workspaceToken, snapshotGeneration,
       history.length ? history.map(work => h("details", { className: "hc-work-item", key: work.id, open: Boolean(expanded[work.id]),
         onToggle: event => { const open = event.currentTarget.open; setExpanded(previous => previous[work.id] === open ? previous : { ...previous, [work.id]: open }); },
       }, h("summary", null, `${label(work.state)} · ${exactTime(work.payload?.run_at)}`),
-        h(AssignmentEvidence, { work, task, stale }),
+        h(AssignmentEvidence, { work, task, stale, renderReview }),
         work.id !== selectedWorkId && onOperation && h(WorkCommandActions, { work, task, onOperation, disabled }),
         work.id === selectedWorkId && h("p", { className: "hc-muted" }, "This assignment is selected above; use its selected-assignment controls."),
         work.id !== selectedWorkId && onPrepare && h("div", { className: "hc-actions" },
@@ -2409,9 +2423,11 @@ export function TaskScheduledResearch({ ctx, identity, client, task, workspaceTo
     current: () => revision === viewRequest.current && identity === routeIdentity(ctx),
     captureBinding: () => captureChatBinding(ctx, identity),
     copyText: typeof ctx.os?.writeClipboard === 'function' ? text => ctx.os.writeClipboard(text) : null,
+    renderReview: (work, report) => h(ScopedReportReview, { ctx, identity, client, workspaceToken, profile, task, work, report, family: 'scheduled_research',
+      current: () => revision === viewRequest.current && identity === routeIdentity(ctx), disabled }),
     openNativeChat, navigateTarget: open, timeHelpers: { wall: relWall, resolve: relResolve, candidates: relEditorCandidates, readable: relReadable } });
 }
-export function TaskWork({ ctx, identity, client, task, workspaceToken, workspaceProfile, workCommandName, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork, taskHeadingRef }) {
+export function TaskWork({ ctx, identity, client, task, workspaceToken, workspaceProfile, workCommandName, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork, taskHeadingRef, onReviewChanged }) {
   const lifetime = lifetimes.get(ctx);
   useValue(lifetime.assignmentSaveGeneration);
   const saveScope = assignmentSaveScope(identity, workspaceToken, task.id, workspaceProfile);
@@ -2423,6 +2439,10 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
     disabled: disabled || saving || Boolean(prepared), viewRequest, companion, openNativeChat,
     onChange: () => setSavedGeneration(value => value + 1), taskHeadingRef });
   const blocked = disabled || commands.active || commands.busy;
+  const reviewRevision = viewRequest.current;
+  const renderReview = (work, report) => h(ScopedReportReview, { key: `${work.id}:${report.id}:${reviewRevision}`, ctx, identity, client, workspaceToken, profile: workspaceProfile, task, work, report,
+    current: () => reviewRevision === viewRequest.current && identity === routeIdentity(ctx), disabled: blocked || saving || Boolean(prepared),
+    onChanged: () => { setSavedGeneration(value => value + 1); onReviewChanged?.(); } });
   const prepareLock = useRef(false), selectedRevision = viewRequest.current;
   const rootRef = useRef(null), prepareButton = useRef(null), saveButton = useRef(null), anotherSaveButton = useRef(null);
   const returnFocus = useRef(null), returnAction = useRef("prepare"), hadPrepared = useRef(false);
@@ -2485,7 +2505,7 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
     selectedWork && h("section", { className: "hc-notice", "aria-label": "Exact assignment selected from coverage" },
       h("h3", null, "Selected assignment from coverage"),
       h("p", null, `Assignment ${selectedWork.id} · Version ${selectedWork.version} · Generation ${selectedWork.generation}`),
-      h(AssignmentEvidence, { work: selectedWork, task }),
+      h(AssignmentEvidence, { work: selectedWork, task, renderReview }),
       h("p", null, "This exact assignment was read separately; it may not appear on the current history page. History refresh does not update this separate observation. Reopen the exact assignment for updated evidence. Preview will check it again."),
       h(WorkCommandActions, { work: selectedWork, task, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
       h("div", { className: "hc-actions" },
@@ -2497,7 +2517,7 @@ export function TaskWork({ ctx, identity, client, task, workspaceToken, workspac
       mode: prepared.mode, work: prepared.work, initialBinding: prepared.binding,
       close: () => { prepareLock.current = false; setPrepared(null); },
       openNativeChat: () => { if (prepared.binding.current()) openNativeChat(); else setNotice("The native conversation changed. Discard this preparation and select the intended main chat before opening it."); } }),
-    h(AssignedWork, { client, task, workspaceToken, selectedWorkId: selectedWork?.id, snapshotGeneration: `${snapshotGeneration}:${savedGeneration}`, onPrepare: prepare, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
+    h(AssignedWork, { client, task, workspaceToken, renderReview, selectedWorkId: selectedWork?.id, snapshotGeneration: `${snapshotGeneration}:${savedGeneration}`, onPrepare: prepare, onOperation: commands.start, disabled: blocked || saving || Boolean(prepared) }),
     h(WorkOperationHistory, { client, workspaceToken, workspaceProfile, taskId: task.id, workCommandName, generation: `${snapshotGeneration}:${commands.generation}`,
       onSelect: commands.recover, disabled: blocked || saving || Boolean(prepared) }));
 }
@@ -2555,7 +2575,7 @@ export function CoverageQueue({ client, workspaceToken, snapshotGeneration, open
           h("p", null, `Requested run: ${exactTime(row.assignment.run_at)} · Native job ${row.assignment.job_id || "not bound"}`),
           row.assignment.future_schedule_inactive_observed === true && row.assignment.inactive_observed_at && h("p", null, inactiveScheduleEvidence(row.assignment.inactive_observed_at)),
           row.assignment.latest_host_observation ? h("p", null, `Host observed ${label(row.assignment.latest_host_observation.state)} at ${exactTime(row.assignment.latest_host_observation.observed_at)} · ${row.assignment.latest_host_observation.age_seconds} seconds old at evidence read · ${row.assignment.latest_host_observation.source || "recorded source"} · Job ${row.assignment.latest_host_observation.job_id}`) : h("p", null, "No verified bound-job host observation recorded."),
-          row.assignment.latest_report ? h("p", null, `Agent reported ${label(row.assignment.latest_report.outcome)} at ${exactTime(row.assignment.latest_report.created_at)} · ${row.assignment.latest_report.age_seconds} seconds old at evidence read · ${label(row.assignment.latest_report.review_status)} · ${label(row.assignment.latest_report.provenance)}. Awaiting human review; host terminal success and delivery not established.`) : h("p", null, "No authenticated report observed. A passed run time does not establish failure or nonexecution."))),
+          row.assignment.latest_report ? h("p", null, `Agent reported ${label(row.assignment.latest_report.outcome)} at ${exactTime(row.assignment.latest_report.created_at)} · ${row.assignment.latest_report.age_seconds} seconds old at evidence read · ${label(row.assignment.latest_report.review_status)} · ${label(row.assignment.latest_report.provenance)}. CRM acknowledgement does not establish host terminal success or delivery.`) : h("p", null, "No authenticated report observed. A passed run time does not establish failure or nonexecution."))),
         h("p", null, `Next action: ${label(row.next_action)}`),
         h("div", { className: "hc-actions" },
           row.task && (row.assignment ? button("Open exact assignment", () => select("tasks", row.task.id, row.assignment.id), { disabled }) : button("Open follow-up", () => select("tasks", row.task.id), { disabled })),
@@ -2642,7 +2662,7 @@ function Detail({ detail, data, disabled, client, onSaved, snapshotGeneration, c
         isContact && h(ContactLogPanel, { operationStore: analyticsOperationStore(ctx, identity, "contacts"), key: `contact-log|${identity}|${detail.workspaceToken}|${row.id}|${row.version}`, client, contact: row, workspaceToken: detail.workspaceToken, routeKey: identity, disabled }),
         isContact && h(EmailHistoryPanel, { key: `email-history|${identity}|${detail.workspaceToken}|${row.id}|${row.version}`, client, contact: row, workspaceToken: detail.workspaceToken, routeKey: identity, storageBackend: data.meta.backend, disabled }),
         !isContact && !isDeal && h(TaskScheduledResearch, { key: `scheduled-research:${identity}:${detail.workspaceToken}:${row.id}:${row.version}:${viewRequest.current}`, ctx, identity, client, task: row, workspaceToken: detail.workspaceToken, profile: data.meta.profile, disabled, viewRequest, companion, openNativeChat, open }),
-        !isContact && !isDeal && h(TaskWork, { ctx, identity, client, task: row, workspaceToken: detail.workspaceToken, workspaceProfile: data.meta.profile, workCommandName: data.meta.work_command_name, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork: detail.assignment, taskHeadingRef: headingRef })),
+        !isContact && !isDeal && h(TaskWork, { ctx, identity, client, task: row, workspaceToken: detail.workspaceToken, workspaceProfile: data.meta.profile, workCommandName: data.meta.work_command_name, snapshotGeneration, disabled, viewRequest, openNativeChat, companion, selectedWork: detail.assignment, taskHeadingRef: headingRef, onReviewChanged: onSaved })),
       h("aside", { className: "hc-stack hc-record-related", "aria-label": "Related records" },
         h(RecordSection, { title: isDeal ? "Linked contact" : "Related deals", action: isContact ? badge(deals.length) : null },
           isDeal ? h(Properties, { rows: [["Contact", linkedButton("contacts", row.contact_id, linkedContact?.name)]] })
@@ -4960,14 +4980,14 @@ export function scheduledResearchRequest(row, action, binding) {
 function srStatus(row) {
   if(row.state==='pending'&&!row.job_id)return 'Saved, not scheduled';
   if(row.state==='scheduled')return 'Scheduled registration observed; execution not confirmed';
-  if(row.state==='result_reported')return 'Agent reported a result; awaiting human review';
+  if(row.state==='result_reported')return 'Agent reported a result';
   if(row.state==='cancelled')return 'Locally invalidated; inspect pause receipt (running work is not stopped)';
   return 'Scheduling state requires review; do not create a replacement';
 }
 function srSource(value) {
   try {const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&!/[\s\x00-\x1f\\]/.test(value)?value:null;}catch{return null;}
 }
-export function ScheduledResearchPanel({client,task,workspaceToken,profile,memory,current,captureBinding,copyText,openNativeChat,companion,disabled=false,navigateTarget,timeHelpers}) {
+export function ScheduledResearchPanel({client,task,workspaceToken,profile,memory,current,captureBinding,copyText,openNativeChat,companion,disabled=false,navigateTarget,timeHelpers,renderReview}) {
   const [opened,setOpened]=useState(false),[draft,setDraft]=useState(()=>memory.draft?{...memory.draft,run_wall:memory.draft.run_wall??(memory.draft.run_at?timeHelpers.wall(memory.draft.run_at,memory.draft.run_zone||'UTC'):'')}:{human_owner:'',public_question:'',run_at:'',research:'search',propose_note:false,max_sources:3,target_kind:'contacts',target_id:'',target_version:0}),[pageOffset,setPageOffset]=useState(0),[query,setQuery]=useState(''),[choices,setChoices]=useState([]),[history,setHistory]=useState(null),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[preview,setPreview]=useState(null),[,redraw]=useState(0);
   const mounted=useRef(false),epoch=useRef(0),searchEpoch=useRef(0),lock=useRef(false),launch=useRef(null),heading=useRef(null),latest=useRef(null),returnFocus=useRef(false);
   const [capture]=useState(()=>({task:task.id,version:task.version,workspace:workspaceToken,profile}));
@@ -5103,7 +5123,7 @@ export function ScheduledResearchPanel({client,task,workspaceToken,profile,memor
         h('div',{className:'hc-actions'},row.state==='pending'&&!row.job_id&&button('Prepare research scheduling',()=>prepare(row,'schedule'),{disabled:busy||!valid()}),button('Prepare research check',()=>prepare(row,'check'),{disabled:busy||!valid()}),button('Prepare research cancellation',()=>prepare(row,'cancel'),{disabled:busy||!valid()}),
           navigateTarget&&button('Open target record',()=>{if(active())navigateTarget(row.payload.target_kind,row.payload.target_id);})),
         row.receipts.map((receipt,index)=>h('div',{key:index,className:'hc-stack'},
-          receipt.kind==='report'&&h('div',{className:'hc-stack'},h('strong',null,`Agent report: ${receipt.result.outcome} · awaiting human review`),h('p',null,receipt.result.summary),receipt.result.source_current===false&&h('p',{role:'alert'},`Source changed: ${receipt.result.source_reason}. This is a blocked or failed agent report, not completed work.`)),
+          receipt.kind==='report'&&h('div',{className:'hc-stack'},h('strong',null,`Agent report: ${receipt.result.outcome}`),h('p',null,receipt.result.summary),renderReview&&renderReview(row,receipt),receipt.result.source_current===false&&h('p',{role:'alert'},`Source changed: ${receipt.result.source_reason}. This is a blocked or failed agent report, not completed work.`)),
           receipt.kind==='evidence'&&h('div',null,h('a',{href:srSource(receipt.result.source_url),target:'_blank',rel:'noopener noreferrer'},receipt.result.source_title),h('p',null,`${receipt.result.claims_count} cited claims · observed ${timeHelpers.readable(receipt.result.observed_at,'UTC')}`)),
           receipt.kind==='proposal'&&h('div',null,h('strong',null,'Cited note proposal · not applied'),h('p',null,receipt.result.addition)),
           h('details',null,h('summary',null,`${receipt.kind} receipt details`),h('p',null,`Operation ${receipt.operation_key}`),h('pre',null,JSON.stringify(receipt.result,null,2))))),
@@ -5113,3 +5133,140 @@ export function ScheduledResearchPanel({client,task,workspaceToken,profile,memor
       notice&&h('p',{role:'status'},notice)));
 }
 // END GENERATED SCHEDULED RESEARCH PANEL
+
+// BEGIN GENERATED REPORT REVIEW PANEL
+// Plugin-lifetime only. Caller supplies a connection/profile/workspace/report key.
+const rrStores = new WeakMap();
+export function reportReviewMemory(owner, scope) {
+  if (!rrStores.has(owner)) rrStores.set(owner, new Map());
+  const store = rrStores.get(owner);
+  if (!store.has(scope)) store.set(scope, { attempt: null, receipt: null, busy: false, listeners: new Set() });
+  return store.get(scope);
+}
+const rrPublish = memory => { for (const fn of memory.listeners) fn(); };
+const rrClone = value => JSON.parse(JSON.stringify(value));
+const rrObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const rrText = value => typeof value === 'string' && value.trim().length > 0;
+const rrId = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const rrDigest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+const rrVersion = value => Number.isSafeInteger(value) && value > 0;
+const rrTime = value => {
+  if (typeof value !== 'string') return false;
+  const m=/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.\d{1,6})?(Z|[+-](\d\d):(\d\d))$/.exec(value);
+  if (!m || +m[1]<1 || +m[2]<1 || +m[2]>12 || +m[3]<1 || +m[3]>new Date(Date.UTC(+m[1],+m[2],0)).getUTCDate() || +m[4]>23 || +m[5]>59 || +m[6]>59 || (m[7]!=='Z' && (+m[8]>14 || +m[9]>59 || (+m[8]===14 && +m[9]!==0)))) return false;
+  return Number.isFinite(Date.parse(value));
+};
+const rrKeys = (value, keys) => rrObject(value) && Object.keys(value).sort().join('|') === keys.split(' ').sort().join('|');
+const rrCanonical = value => JSON.stringify(value, (_, v) => rrObject(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
+const rrEqual = (a, b) => rrCanonical(a) === rrCanonical(b);
+function rrBinding(b, expected) {
+  if (!rrKeys(b, 'family assignment_id report_id assignment_digest generation report_digest identity summary outcome task_id task_version target') || !['native','scheduled_research'].includes(b.family) || !rrId(b.assignment_id) || !rrId(b.task_id) || !rrDigest(b.assignment_digest) || !rrDigest(b.report_digest) || !rrVersion(b.generation) || !rrVersion(b.task_version) || !rrText(b.summary) || [...b.summary].length > 10000 || !['completed','blocked','failed'].includes(b.outcome)) return false;
+  if (b.family === 'native' ? !rrId(b.report_id) || b.target !== null : !/^run:[a-f0-9]{64}$/.test(b.report_id) || b.generation !== 1 || !rrKeys(b.target,'target_kind target_id target_version') || !['contacts','companies'].includes(b.target.target_kind) || !rrId(b.target.target_id) || !rrVersion(b.target.target_version)) return false;
+  const i = b.identity;
+  if (!rrKeys(i,'job_id job_name execution_id source scheduled_instant started_at profile') || !['job_id','execution_id','profile'].every(k => rrText(i[k]) && i[k].length <= 160) || i.job_name !== `CRM ${b.family === 'native' ? 'work' : 'research'} ${b.assignment_id} g${b.generation}` || i.source !== 'builtin' || !rrTime(i.scheduled_instant) || !(i.started_at === null || rrTime(i.started_at))) return false;
+  return Object.entries(expected).every(([key, value]) => rrEqual(b[key],value));
+}
+function rrContext(c, binding) {
+  if (!rrKeys(c,'report assignment_version assignment_state task target source_current source_reason') || !rrEqual(c.report,binding) || !rrVersion(c.assignment_version) || !['pending','create_unknown','resume_unknown','unknown','bound_paused','scheduled','result_reported','cancelled','superseded'].includes(c.assignment_state)) return false;
+  const t=c.task, r=c.target;
+  if (!rrKeys(t,'id assigned_version current_version current_status') || t.id!==binding.task_id || t.assigned_version!==binding.task_version || !(t.current_version===null ? t.current_status===null : rrVersion(t.current_version) && ['open','done'].includes(t.current_status))) return false;
+  if (binding.target===null ? r!==null : !rrKeys(r,'kind id assigned_version current_version archived') || r.kind!==binding.target.target_kind || r.id!==binding.target.target_id || r.assigned_version!==binding.target.target_version || !(r.current_version===null || rrVersion(r.current_version)) || typeof r.archived!=='boolean') return false;
+  if(r && (r.current_version===null || r.kind==='contacts') && r.archived)return false;
+  const reason=t.current_version===null || (r && r.current_version===null) ? 'source_record_missing' : t.current_version!==t.assigned_version || t.current_status!=='open' ? 'source_task_changed_or_closed' : r && (r.current_version!==r.assigned_version || r.archived) ? 'research_target_changed_or_archived' : null;
+  return c.source_current===(reason===null) && c.source_reason===reason;
+}
+function rrEvent(e,binding) {
+  return rrKeys(e,'id family assignment_id report_id version action context context_digest actor created_at') && rrId(e.id) && ['family','assignment_id','report_id'].every(k=>e[k]===binding[k]) && rrVersion(e.version) && e.action===(e.version%2 ? 'acknowledge' : 'revoke') && rrContext(e.context,binding) && rrDigest(e.context_digest) && e.actor==='desktop' && rrTime(e.created_at);
+}
+export function reportReviewPreview(value,expected) {
+  try {
+    if (!rrObject(value)) return false;
+    const {context,context_digest,review,...binding}=value;
+    if (!rrBinding(binding,expected) || !rrContext(context,binding) || !rrDigest(context_digest) || !rrKeys(review,'status version latest_event history history_total history_truncated') || !Number.isSafeInteger(review.version) || review.version<0 || review.status!==(review.version%2 ? 'reviewed_in_crm' : 'awaiting_review') || review.history_total!==review.version || review.history_truncated!==(review.version>50) || !Array.isArray(review.history) || review.history.length!==Math.min(50,review.version)) return false;
+    if (review.history.some((e,n)=>!rrEvent(e,binding) || e.version!==review.version-review.history.length+n+1) || new Set(review.history.map(e=>e.id)).size!==review.history.length || !rrEqual(review.latest_event,review.history.at(-1)||null)) return false;
+    return true;
+  } catch { return false; }
+}
+export function reportReviewReceipt(value,attempt) {
+  try {
+    return rrKeys(value,'event review') && rrEvent(value.event,attempt.preview.context.report) && value.event.action===attempt.action && value.event.version===attempt.body.expected_review_version+1 && value.event.context_digest===attempt.body.context_digest && rrEqual(value.event.context,attempt.preview.context) && rrKeys(value.review,'status version') && value.review.version===value.event.version && value.review.status===(attempt.action==='acknowledge' ? 'reviewed_in_crm' : 'awaiting_review');
+  } catch { return false; }
+}
+
+export function ReportReviewPanel({client,workspaceToken,task,profile,expected,memory,current,disabled=false,onChanged}) {
+  const [observed,setObserved]=useState(null),[preview,setPreview]=useState(null),[notice,setNotice]=useState(''),[staleOK,setStaleOK]=useState(false),[,redraw]=useState(0);
+  const life=useRef({ mounted:false, epoch:0, read:0 }), latest=useRef(null), trigger=useRef(null), heading=useRef(null);
+  const signature=rrCanonical([workspaceToken,profile,task.id,task.version,task.status,expected,disabled]);
+  if (!latest.current || latest.current.signature!==signature || latest.current.client!==client || latest.current.memory!==memory) { life.current.epoch++; latest.current={signature,client,memory,current,disabled}; }
+  latest.current.current=current; latest.current.disabled=disabled;
+  const epoch=life.current.epoch;
+  const bindingKey=rrCanonical([workspaceToken,profile,task.id,expected]);
+  const handlers=useRef(null);
+  const valid=()=>life.current.mounted && life.current.epoch===epoch && client.current() && current() && latest.current.current() && !latest.current.disabled;
+  const path=`/report-reviews/${expected.family}/${encodeURIComponent(expected.assignment_id)}/${encodeURIComponent(expected.report_id)}`;
+  const observedNow=observed?.signature===signature && client.current() && current() ? observed.value : null;
+  const previewNow=preview?.signature===signature && preview.epoch===epoch && client.current() && current() ? preview.value : null;
+  async function read(forAction=false) {
+    if (!valid() || (forAction && (memory.busy || memory.attempt))) return;
+    const ticket=++life.current.read;
+    life.current.preview=null;life.current.staleOK=false;setObserved(null);setPreview(null);setStaleOK(false);setNotice('Reading review status…');
+    try {
+      const value=await client.request(`${path}?workspace_token=${encodeURIComponent(workspaceToken)}`);
+      if (!valid() || ticket!==life.current.read) return;
+      if (!reportReviewPreview(value,expected) || value.identity.profile!==profile) throw Error('Unverified review');
+      setObserved({signature,value});setNotice('');
+      if(forAction){life.current.preview=value;setPreview({signature,epoch,value});}
+    } catch { if(valid() && ticket===life.current.read){setObserved(null);setPreview(null);setNotice('Review status unavailable. Refresh to retry; no review state is assumed.');} }
+  }
+  useEffect(()=>{
+    life.current.mounted=true;
+    const update=()=>handlers.current?.update();
+    memory.listeners.add(update);
+    return()=>{memory.listeners.delete(update);life.current.mounted=false;life.current.epoch++;life.current.read++;};
+  },[client,memory,signature]);
+  function notifyChanged(){
+    if(valid() && onChanged && !memory.busy && memory.receipt && memory.receiptBindingKey===bindingKey && memory.notifiedReceipt!==memory.receipt.event.id){
+      memory.notifiedReceipt=memory.receipt.event.id;onChanged();
+    }
+  }
+  handlers.current={update:()=>{if(valid()){redraw(n=>n+1);life.current.preview=null;setPreview(null);if(!memory.busy && !memory.attempt){void read();notifyChanged();}}}};
+  useEffect(()=>{if(valid() && life.current.loaded!==epoch){life.current.loaded=epoch;void read();notifyChanged();}});
+  // StrictMode effect replay invalidates prior callbacks, then renders fresh closures.
+  useEffect(()=>{redraw(n=>n+1);},[client,memory,signature]);
+  useEffect(()=>{if(previewNow)heading.current?.focus();},[previewNow]);
+  function close(){if(!valid())return;life.current.preview=null;life.current.read++;life.current.staleOK=false;setPreview(null);setStaleOK(false);trigger.current?.focus();}
+  async function write(retry=false) {
+    if(!valid() || memory.busy)return;
+    let attempt=memory.attempt;
+    if(retry){if(!attempt || attempt.bindingKey!==bindingKey)return;}
+    else {
+      if(attempt || !previewNow || life.current.preview!==previewNow || (!previewNow.context.source_current && !life.current.staleOK))return;
+      const action=previewNow.review.status==='reviewed_in_crm'?'revoke':'acknowledge';
+      attempt={bindingKey,action,path:`${path}/${action}`,preview:rrClone(previewNow),body:{workspace_token:workspaceToken,idempotency_key:crypto.randomUUID(),context_digest:previewNow.context_digest,expected_review_version:previewNow.review.version,acknowledge_stale:life.current.staleOK===true}};
+      memory.attempt=attempt;
+    }
+    memory.busy=true;rrPublish(memory);setPreview(null);setObserved(null);setNotice('Saving acknowledgement…');
+    try {
+      const value=await client.request(attempt.path,{method:'POST',body:rrClone(attempt.body)});
+      if(!reportReviewReceipt(value,attempt))throw Error('Unverified receipt');
+      // Retain only in the original scope, including when its panel unmounted.
+      // This receipt is historical. Never project it as the current review state.
+      memory.receipt=rrClone(value);memory.receiptBindingKey=attempt.bindingKey;memory.attempt=null;
+      if(valid())setNotice('Acknowledgement recorded. Reading current review status…');
+    } catch { if(valid())setNotice('Acknowledgement outcome unconfirmed. Only retry the exact attempt; do not create a replacement.'); }
+    finally {memory.busy=false;rrPublish(memory);}
+  }
+  const button=(label,fn,props={})=>h('button',{type:'button',style:{minHeight:44},onClick:fn,disabled:disabled || memory.busy || !client.current(),...props},label);
+  return h('section',{className:'hc-stack','aria-label':'Result acknowledgement',onKeyDown:e=>{if(e.key==='Escape' && previewNow){e.preventDefault();close();}}},
+    h('div',{className:'hc-actions'},h('span',{role:'status'},memory.busy?'Saving acknowledgement…':observedNow?(observedNow.review.status==='reviewed_in_crm'?'Reviewed in CRM':'Not reviewed in CRM'):'Review status unavailable'),
+      !memory.attempt && button(observedNow?.review.status==='reviewed_in_crm'?'Undo acknowledgement':'Mark result reviewed',()=>read(true),{ref:trigger,disabled:disabled || memory.busy || !observedNow || !client.current()}),
+      button('Refresh review status',()=>read())),
+    observedNow && !observedNow.context.source_current && h('p',{role:'status',className:'hc-notice'},`Source changed: ${observedNow.context.source_reason}. This historical result is not current; acknowledgement does not restore source freshness.`),
+    memory.attempt && h('div',{className:'hc-notice'},h('p',null,'An acknowledgement attempt is unconfirmed. Its exact request is retained; no replacement is permitted.'),button('Retry exact acknowledgement',()=>write(true),{disabled:disabled || memory.busy || memory.attempt.bindingKey!==bindingKey || !client.current()})),
+    previewNow && h('div',{className:'hc-notice hc-stack'},h('h4',{ref:heading,tabIndex:-1},previewNow.review.status==='reviewed_in_crm'?'Undo this acknowledgement?':'Mark this result reviewed?'),h('strong',null,`Agent reported: ${previewNow.outcome}`),h('p',{className:'hc-details'},previewNow.summary),h('p',null,'Records a desktop acknowledgement only. It does not verify host success, complete the task, apply a note or change scheduling. The human owner is not identified as the reviewer.'),
+      !previewNow.context.source_current && h('label',{className:'hc-stack',style:{minHeight:44}},h('strong',{role:'alert'},`Source changed: ${previewNow.context.source_reason}. This historical result is not current.`),h('span',null,h('input',{type:'checkbox',checked:staleOK,'aria-label':'Acknowledge changed source',onChange:e=>{if(valid() && life.current.preview===previewNow){life.current.staleOK=e.target.checked;setStaleOK(e.target.checked);}}}),' I understand this acknowledgement concerns a historical result with changed or missing source records.')),
+      button(previewNow.review.status==='reviewed_in_crm'?'Confirm undo acknowledgement':'Confirm mark reviewed',()=>write(),{disabled:disabled || memory.busy || (!previewNow.context.source_current && !staleOK)}),button('Cancel acknowledgement',close)),
+    notice && h('p',{role:'status'},notice),
+    observedNow && h('details',null,h('summary',null,'Acknowledgement history & technical details'),h('p',null,`${observedNow.review.history_total} acknowledgement events${observedNow.review.history_truncated?'; latest 50 shown':''}. Recorded by desktop; no authenticated person is claimed.`),h('ol',null,observedNow.review.history.map(event=>h('li',{key:event.id},`${event.action==='acknowledge'?'Reviewed in CRM':'Acknowledgement undone'} · ${event.created_at} · desktop`))),h('pre',null,JSON.stringify(observedNow.context,null,2))));
+}
+// END GENERATED REPORT REVIEW PANEL

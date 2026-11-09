@@ -139,8 +139,9 @@ Unsupported control/format characters are rejected rather than silently removed.
 Lists are paged and do not automatically fetch full claim or note text.
 
 Automatic source verification, managed file attachments, research task proposals,
-full agent-run review closure, email sending and broader scheduled permissions
-remain separate work. The opt-in [scheduled research mode](SCHEDULED_RESEARCH_UI.md)
+quality-review dispositions, email sending and broader scheduled permissions
+remain separate work. A separate [result acknowledgement](REPORT_REVIEW_UI.md)
+records reviewed/undo; it neither approves research quality nor applies a note. The opt-in [scheduled research mode](SCHEDULED_RESEARCH_UI.md)
 uses configured host search/extraction capabilities to save evidence and a
 permitted proposal; these storage tools do not supply that provider themselves. See the [implementation plan](RESEARCH_EVIDENCE_PLAN.md),
 [file plan](ATTACHMENTS_PLAN.md), [agent-work roadmap](NEXT_RELEASE_PLAN.md) and

@@ -139,3 +139,12 @@ Recovery keeps both original tables only under `recovery_*`; their app-runtime
 counterparts are empty. Ordinary research evidence and pending proposals remain
 reviewable content, but no job/execution binding or ability to replay a scheduled
 write is restored. Source jobs must still be fenced separately before cutover.
+
+## Report acknowledgements
+
+The optional report-review event/operation family is exported with scoped
+identity, context, sequence and immutable receipt validation. Original review
+events are retained only under `recovery_*` on restore, with empty live review
+tables, because their native/scheduled assignment references are quarantined too.
+Recovery does not revive approval or scheduling authority; **Reviewed in CRM** is
+not a named-human identity or quality-approval assertion.

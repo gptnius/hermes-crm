@@ -120,10 +120,11 @@ def owned_tables():
     from .task_ownership import OWNED_TABLES as OWNER_TABLES
     from .research_schema import OWNED_TABLES as RESEARCH_TABLES
     from .scheduled_research import TABLES as SCHEDULED_RESEARCH_TABLES
+    from .report_review_schema import TABLES as REVIEW_TABLES
     return {t.name:t for module in (domain, customization, execution, gmail_history,
         native_work, native_work_operations, report_interactions, report_store)
         for t in module.metadata.tables.values()} | {t.name:t for t in metadata.tables.values()} | {
-            t.name:t for t in (*OWNED_TABLES, *OWNER_TABLES, *RESEARCH_TABLES, *SCHEDULED_RESEARCH_TABLES)}  # Never export the private registry's legacy FK clones.
+            t.name:t for t in (*OWNED_TABLES, *OWNER_TABLES, *RESEARCH_TABLES, *SCHEDULED_RESEARCH_TABLES, *REVIEW_TABLES)}  # Never export the private registry's legacy FK clones.
 
 
 def _native_export_predicates(crm, conn, workspace, exported_tables):
@@ -297,10 +298,12 @@ class ProtectionStore:
             from .research_schema import OWNED_TABLES as RESEARCH_TABLES, check_schema as check_research_schema
             from .scheduled_research import TABLES as SCHEDULED_RESEARCH_TABLES
             from .report_store import check_tables
+            from .report_review_schema import TABLES as REVIEW_TABLES, check_schema as check_review_schema
+            check_review_schema(self.crm,conn)
             check_tables(self.crm,SCHEDULED_RESEARCH_TABLES,connection=conn)
             check_research_schema(self.crm, conn)
             check_owner_schema(self.crm, conn)
-            relationship_names = {table.name for table in (*OWNED_TABLES, *OWNER_TABLES, *RESEARCH_TABLES, *SCHEDULED_RESEARCH_TABLES)}
+            relationship_names = {table.name for table in (*OWNED_TABLES, *OWNER_TABLES, *RESEARCH_TABLES, *SCHEDULED_RESEARCH_TABLES, *REVIEW_TABLES)}
             check_schema(self.crm, conn)  # Reject partial/incompatible additive stores.
             relationship_scope = scope_for(self.crm, connection=conn)
             native_predicates = _native_export_predicates(self.crm, conn, self.workspace, tables)
@@ -324,6 +327,8 @@ class ProtectionStore:
                 snapshot['tables'][name] = rows
             from .scheduled_research_validation import validate_snapshot
             validate_snapshot(snapshot['tables'],scope=relationship_scope,profile=self.crm.profile)
+            from .report_review_validation import validate_snapshot as validate_reviews
+            validate_reviews(snapshot['tables'],workspace=self.workspace,profile=self.crm.profile,scope=relationship_scope)
         payload = canonical(snapshot)
         if len(payload) > MAX_EXPORT: raise CRMError('Encrypted export exceeds size limit', 413)
         return seal(payload, ring, 'backup', dict(workspace=self.workspace, profile=self.crm.profile))
@@ -343,6 +348,8 @@ def decrypt_export(envelope, ring, *, workspace, profile):
     from .report_store import canonical as scope_canonical
     scope=hashlib.sha256(scope_canonical([workspace,profile]).encode()).hexdigest()
     validate_snapshot(value['tables'],scope=scope,profile=profile)
+    from .report_review_validation import validate_snapshot as validate_reviews
+    validate_reviews(value['tables'],workspace=workspace,profile=profile,scope=scope)
     return value
 
 

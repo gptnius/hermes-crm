@@ -1,0 +1,2357 @@
+{
+  "native": {
+    "preview": {
+      "family": "native",
+      "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+      "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+      "assignment_digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+      "generation": 1,
+      "report_digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+      "task_version": 1,
+      "target": null,
+      "context": {
+        "report": {
+          "family": "native",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+          "assignment_digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+          "generation": 1,
+          "report_digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+          "task_version": 1,
+          "target": null
+        },
+        "assignment_version": 7,
+        "assignment_state": "result_reported",
+        "task": {
+          "id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": null,
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "532fd3d98a574aa98c19e61cf6273b72fb6cb81646c2c04d1f77526c62160028",
+      "review": {
+        "status": "awaiting_review",
+        "version": 0,
+        "latest_event": null,
+        "history": [],
+        "history_total": 0,
+        "history_truncated": false
+      }
+    },
+    "receipt": {
+      "event": {
+        "id": "32c9a62e-531e-4bb3-9b43-4b4d6c236fea",
+        "family": "native",
+        "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+        "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+        "version": 1,
+        "action": "acknowledge",
+        "context": {
+          "assignment_state": "result_reported",
+          "assignment_version": 7,
+          "report": {
+            "assignment_digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+            "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+            "family": "native",
+            "generation": 1,
+            "identity": {
+              "execution_id": "execution-1",
+              "job_id": "job-1",
+              "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+              "profile": "synthetic",
+              "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+              "source": "builtin",
+              "started_at": "2030-04-01T12:30:42.000000+00:00"
+            },
+            "outcome": "blocked",
+            "report_digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+            "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+            "summary": "Synthetic claimed result",
+            "target": null,
+            "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+            "task_version": 1
+          },
+          "source_current": true,
+          "source_reason": null,
+          "target": null,
+          "task": {
+            "assigned_version": 1,
+            "current_status": "open",
+            "current_version": 1,
+            "id": "0b28acc1-58f6-4ced-813e-492a995f60e0"
+          }
+        },
+        "context_digest": "532fd3d98a574aa98c19e61cf6273b72fb6cb81646c2c04d1f77526c62160028",
+        "actor": "desktop",
+        "created_at": "2026-11-09T02:57:02.427231+00:00"
+      },
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1
+      }
+    },
+    "reviewed": {
+      "family": "native",
+      "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+      "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+      "assignment_digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+      "generation": 1,
+      "report_digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+      "task_version": 1,
+      "target": null,
+      "context": {
+        "report": {
+          "family": "native",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+          "assignment_digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+          "generation": 1,
+          "report_digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+          "task_version": 1,
+          "target": null
+        },
+        "assignment_version": 7,
+        "assignment_state": "result_reported",
+        "task": {
+          "id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": null,
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "532fd3d98a574aa98c19e61cf6273b72fb6cb81646c2c04d1f77526c62160028",
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1,
+        "latest_event": {
+          "id": "32c9a62e-531e-4bb3-9b43-4b4d6c236fea",
+          "family": "native",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+          "version": 1,
+          "action": "acknowledge",
+          "context": {
+            "assignment_state": "result_reported",
+            "assignment_version": 7,
+            "report": {
+              "assignment_digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+              "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+              "family": "native",
+              "generation": 1,
+              "identity": {
+                "execution_id": "execution-1",
+                "job_id": "job-1",
+                "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+                "profile": "synthetic",
+                "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                "source": "builtin",
+                "started_at": "2030-04-01T12:30:42.000000+00:00"
+              },
+              "outcome": "blocked",
+              "report_digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+              "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+              "summary": "Synthetic claimed result",
+              "target": null,
+              "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+              "task_version": 1
+            },
+            "source_current": true,
+            "source_reason": null,
+            "target": null,
+            "task": {
+              "assigned_version": 1,
+              "current_status": "open",
+              "current_version": 1,
+              "id": "0b28acc1-58f6-4ced-813e-492a995f60e0"
+            }
+          },
+          "context_digest": "532fd3d98a574aa98c19e61cf6273b72fb6cb81646c2c04d1f77526c62160028",
+          "actor": "desktop",
+          "created_at": "2026-11-09T02:57:02.427231+00:00"
+        },
+        "history": [
+          {
+            "id": "32c9a62e-531e-4bb3-9b43-4b4d6c236fea",
+            "family": "native",
+            "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+            "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+            "version": 1,
+            "action": "acknowledge",
+            "context": {
+              "assignment_state": "result_reported",
+              "assignment_version": 7,
+              "report": {
+                "assignment_digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+                "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+                "family": "native",
+                "generation": 1,
+                "identity": {
+                  "execution_id": "execution-1",
+                  "job_id": "job-1",
+                  "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+                  "profile": "synthetic",
+                  "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                  "source": "builtin",
+                  "started_at": "2030-04-01T12:30:42.000000+00:00"
+                },
+                "outcome": "blocked",
+                "report_digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+                "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+                "summary": "Synthetic claimed result",
+                "target": null,
+                "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+                "task_version": 1
+              },
+              "source_current": true,
+              "source_reason": null,
+              "target": null,
+              "task": {
+                "assigned_version": 1,
+                "current_status": "open",
+                "current_version": 1,
+                "id": "0b28acc1-58f6-4ced-813e-492a995f60e0"
+              }
+            },
+            "context_digest": "532fd3d98a574aa98c19e61cf6273b72fb6cb81646c2c04d1f77526c62160028",
+            "actor": "desktop",
+            "created_at": "2026-11-09T02:57:02.427231+00:00"
+          }
+        ],
+        "history_total": 1,
+        "history_truncated": false
+      }
+    },
+    "assignment": {
+      "id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+      "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+      "workspace": "74c47062-4a8c-4efb-bbe8-3862d74dfc65",
+      "profile": "synthetic",
+      "idempotency_key": "create",
+      "payload": {
+        "action": "internal_crm_analysis",
+        "business_due_at": "2030-05-01T00:00:00.000000+00:00",
+        "enabled_toolsets": [
+          "crm_read",
+          "crm_work_read",
+          "crm_work_report",
+          "no_mcp"
+        ],
+        "execution_source": "builtin",
+        "generation": 1,
+        "human_owner": "Not a reviewer",
+        "profile": "synthetic",
+        "prompt": "Internal analysis",
+        "run_at": "2030-04-01T12:30:41.000000+00:00",
+        "schema_version": 1,
+        "success_criteria": "Report useful findings",
+        "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+        "task_status": "open",
+        "task_version": 1,
+        "workspace": "74c47062-4a8c-4efb-bbe8-3862d74dfc65"
+      },
+      "digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+      "generation": 1,
+      "version": 7,
+      "state": "result_reported",
+      "reason": "native_result_reported_awaiting_review",
+      "job_id": "job-1",
+      "created_at": "2026-11-09T02:57:02.393372+00:00",
+      "updated_at": "2026-11-09T02:57:02.407304+00:00",
+      "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+      "events": [
+        {
+          "id": "a995d8a2-2933-4ddd-9503-3251762a0643",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "version": 1,
+          "kind": "intent_saved",
+          "evidence": {
+            "schema_version": 1
+          },
+          "created_at": "2026-11-09T02:57:02.395091+00:00"
+        },
+        {
+          "id": "bbaba691-26ae-4111-938a-cd209ef73e8a",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "version": 2,
+          "kind": "create_started",
+          "evidence": {
+            "paused": true,
+            "retry_create": false
+          },
+          "created_at": "2026-11-09T02:57:02.400905+00:00"
+        },
+        {
+          "id": "df848b3f-14ee-410a-a42b-3ef20a385743",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "version": 3,
+          "kind": "job_bound",
+          "evidence": {
+            "job_id": "job-1",
+            "provenance": "paused_create_response"
+          },
+          "created_at": "2026-11-09T02:57:02.402555+00:00"
+        },
+        {
+          "id": "89e25f65-b582-4db0-a603-a411cbb2b521",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "version": 4,
+          "kind": "resume_started",
+          "evidence": {
+            "job_id": "job-1",
+            "retry_create": false
+          },
+          "created_at": "2026-11-09T02:57:02.403957+00:00"
+        },
+        {
+          "id": "03256214-a970-479a-8833-ccf87450e290",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "version": 6,
+          "kind": "job_observed",
+          "evidence": {
+            "enabled": true,
+            "future_schedule_inactive": false,
+            "gateway_running": null,
+            "job_id": "job-1",
+            "next_run_matches": true,
+            "retry_create": false,
+            "source": "resume_response",
+            "state": "scheduled"
+          },
+          "created_at": "2026-11-09T02:57:02.405487+00:00"
+        },
+        {
+          "id": "3b25bbc7-c4a3-4a66-ba94-e3ebc599a791",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "version": 7,
+          "kind": "result_reported",
+          "evidence": {
+            "execution_id": "execution-1",
+            "host_terminal_success_verified": false,
+            "provenance": "native_run_reported"
+          },
+          "created_at": "2026-11-09T02:57:02.408736+00:00"
+        }
+      ],
+      "reports": [
+        {
+          "id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+          "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+          "workspace": "74c47062-4a8c-4efb-bbe8-3862d74dfc65",
+          "profile": "synthetic",
+          "generation": 1,
+          "execution_id": "execution-1",
+          "operation_id": "result",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "outcome": "blocked",
+          "summary": "Synthetic claimed result",
+          "digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+          "created_at": "2026-11-09T02:57:02.407916+00:00",
+          "provenance": "native_run_reported",
+          "review": {
+            "status": "reviewed_in_crm",
+            "version": 1,
+            "latest_event": {
+              "id": "32c9a62e-531e-4bb3-9b43-4b4d6c236fea",
+              "family": "native",
+              "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+              "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+              "version": 1,
+              "action": "acknowledge",
+              "context": {
+                "assignment_state": "result_reported",
+                "assignment_version": 7,
+                "report": {
+                  "assignment_digest": "f8a116c7769bab45ca1540fcd1c8fb005d6a826d38b439605f687bc789bdf31a",
+                  "assignment_id": "7cb04214-5045-4d18-9ec8-9925364d8440",
+                  "family": "native",
+                  "generation": 1,
+                  "identity": {
+                    "execution_id": "execution-1",
+                    "job_id": "job-1",
+                    "job_name": "CRM work 7cb04214-5045-4d18-9ec8-9925364d8440 g1",
+                    "profile": "synthetic",
+                    "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                    "source": "builtin",
+                    "started_at": "2030-04-01T12:30:42.000000+00:00"
+                  },
+                  "outcome": "blocked",
+                  "report_digest": "6865d0e2fc0b75dae52dc86c7e6b7e53dffeb1e6653292511e5fb8dfb36b735d",
+                  "report_id": "8d18c9db-59dd-436e-9796-95fa1651a709",
+                  "summary": "Synthetic claimed result",
+                  "target": null,
+                  "task_id": "0b28acc1-58f6-4ced-813e-492a995f60e0",
+                  "task_version": 1
+                },
+                "source_current": true,
+                "source_reason": null,
+                "target": null,
+                "task": {
+                  "assigned_version": 1,
+                  "current_status": "open",
+                  "current_version": 1,
+                  "id": "0b28acc1-58f6-4ced-813e-492a995f60e0"
+                }
+              },
+              "context_digest": "532fd3d98a574aa98c19e61cf6273b72fb6cb81646c2c04d1f77526c62160028",
+              "actor": "desktop",
+              "created_at": "2026-11-09T02:57:02.427231+00:00"
+            }
+          },
+          "review_status": "reviewed_in_crm"
+        }
+      ],
+      "current_task_version": 1,
+      "current_task_status": "open",
+      "source_task_current": true,
+      "review_status": "reviewed_in_crm",
+      "business_task_completed": false,
+      "business_task_completed_by_report": false,
+      "host_terminal_success_verified": false
+    }
+  },
+  "scheduled_research": {
+    "preview": {
+      "family": "scheduled_research",
+      "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+      "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+      "assignment_digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+      "generation": 1,
+      "report_digest": "5b4c759dccd3db66b473ab8de609baeccf17fa84c998eca751e080ad0cbe4b51",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+      "task_version": 1,
+      "target": {
+        "target_kind": "contacts",
+        "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+        "target_version": 1
+      },
+      "context": {
+        "report": {
+          "family": "scheduled_research",
+          "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+          "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+          "assignment_digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+          "generation": 1,
+          "report_digest": "5b4c759dccd3db66b473ab8de609baeccf17fa84c998eca751e080ad0cbe4b51",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+          "task_version": 1,
+          "target": {
+            "target_kind": "contacts",
+            "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+            "target_version": 1
+          }
+        },
+        "assignment_version": 7,
+        "assignment_state": "result_reported",
+        "task": {
+          "id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": {
+          "kind": "contacts",
+          "id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+          "assigned_version": 1,
+          "current_version": 1,
+          "archived": false
+        },
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "b3078db64c3d2016ed4f99c19f8d0ed16e823c13720cf89d51c31ece0318434d",
+      "review": {
+        "status": "awaiting_review",
+        "version": 0,
+        "latest_event": null,
+        "history": [],
+        "history_total": 0,
+        "history_truncated": false
+      }
+    },
+    "receipt": {
+      "event": {
+        "id": "47e5d07e-ba6e-4f94-ada7-922aaea61232",
+        "family": "scheduled_research",
+        "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+        "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+        "version": 1,
+        "action": "acknowledge",
+        "context": {
+          "assignment_state": "result_reported",
+          "assignment_version": 7,
+          "report": {
+            "assignment_digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+            "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+            "family": "scheduled_research",
+            "generation": 1,
+            "identity": {
+              "execution_id": "execution-1",
+              "job_id": "job-1",
+              "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+              "profile": "synthetic",
+              "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+              "source": "builtin",
+              "started_at": "2030-04-01T12:30:42.000000+00:00"
+            },
+            "outcome": "blocked",
+            "report_digest": "5b4c759dccd3db66b473ab8de609baeccf17fa84c998eca751e080ad0cbe4b51",
+            "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+            "summary": "Synthetic claimed result",
+            "target": {
+              "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+              "target_kind": "contacts",
+              "target_version": 1
+            },
+            "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+            "task_version": 1
+          },
+          "source_current": true,
+          "source_reason": null,
+          "target": {
+            "archived": false,
+            "assigned_version": 1,
+            "current_version": 1,
+            "id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+            "kind": "contacts"
+          },
+          "task": {
+            "assigned_version": 1,
+            "current_status": "open",
+            "current_version": 1,
+            "id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1"
+          }
+        },
+        "context_digest": "b3078db64c3d2016ed4f99c19f8d0ed16e823c13720cf89d51c31ece0318434d",
+        "actor": "desktop",
+        "created_at": "2026-11-09T02:57:02.478130+00:00"
+      },
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1
+      }
+    },
+    "reviewed": {
+      "family": "scheduled_research",
+      "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+      "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+      "assignment_digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+      "generation": 1,
+      "report_digest": "5b4c759dccd3db66b473ab8de609baeccf17fa84c998eca751e080ad0cbe4b51",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+      "task_version": 1,
+      "target": {
+        "target_kind": "contacts",
+        "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+        "target_version": 1
+      },
+      "context": {
+        "report": {
+          "family": "scheduled_research",
+          "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+          "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+          "assignment_digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+          "generation": 1,
+          "report_digest": "5b4c759dccd3db66b473ab8de609baeccf17fa84c998eca751e080ad0cbe4b51",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+          "task_version": 1,
+          "target": {
+            "target_kind": "contacts",
+            "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+            "target_version": 1
+          }
+        },
+        "assignment_version": 7,
+        "assignment_state": "result_reported",
+        "task": {
+          "id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": {
+          "kind": "contacts",
+          "id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+          "assigned_version": 1,
+          "current_version": 1,
+          "archived": false
+        },
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "b3078db64c3d2016ed4f99c19f8d0ed16e823c13720cf89d51c31ece0318434d",
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1,
+        "latest_event": {
+          "id": "47e5d07e-ba6e-4f94-ada7-922aaea61232",
+          "family": "scheduled_research",
+          "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+          "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+          "version": 1,
+          "action": "acknowledge",
+          "context": {
+            "assignment_state": "result_reported",
+            "assignment_version": 7,
+            "report": {
+              "assignment_digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+              "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+              "family": "scheduled_research",
+              "generation": 1,
+              "identity": {
+                "execution_id": "execution-1",
+                "job_id": "job-1",
+                "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+                "profile": "synthetic",
+                "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                "source": "builtin",
+                "started_at": "2030-04-01T12:30:42.000000+00:00"
+              },
+              "outcome": "blocked",
+              "report_digest": "5b4c759dccd3db66b473ab8de609baeccf17fa84c998eca751e080ad0cbe4b51",
+              "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+              "summary": "Synthetic claimed result",
+              "target": {
+                "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+                "target_kind": "contacts",
+                "target_version": 1
+              },
+              "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+              "task_version": 1
+            },
+            "source_current": true,
+            "source_reason": null,
+            "target": {
+              "archived": false,
+              "assigned_version": 1,
+              "current_version": 1,
+              "id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+              "kind": "contacts"
+            },
+            "task": {
+              "assigned_version": 1,
+              "current_status": "open",
+              "current_version": 1,
+              "id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1"
+            }
+          },
+          "context_digest": "b3078db64c3d2016ed4f99c19f8d0ed16e823c13720cf89d51c31ece0318434d",
+          "actor": "desktop",
+          "created_at": "2026-11-09T02:57:02.478130+00:00"
+        },
+        "history": [
+          {
+            "id": "47e5d07e-ba6e-4f94-ada7-922aaea61232",
+            "family": "scheduled_research",
+            "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+            "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+            "version": 1,
+            "action": "acknowledge",
+            "context": {
+              "assignment_state": "result_reported",
+              "assignment_version": 7,
+              "report": {
+                "assignment_digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+                "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+                "family": "scheduled_research",
+                "generation": 1,
+                "identity": {
+                  "execution_id": "execution-1",
+                  "job_id": "job-1",
+                  "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+                  "profile": "synthetic",
+                  "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                  "source": "builtin",
+                  "started_at": "2030-04-01T12:30:42.000000+00:00"
+                },
+                "outcome": "blocked",
+                "report_digest": "5b4c759dccd3db66b473ab8de609baeccf17fa84c998eca751e080ad0cbe4b51",
+                "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+                "summary": "Synthetic claimed result",
+                "target": {
+                  "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+                  "target_kind": "contacts",
+                  "target_version": 1
+                },
+                "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+                "task_version": 1
+              },
+              "source_current": true,
+              "source_reason": null,
+              "target": {
+                "archived": false,
+                "assigned_version": 1,
+                "current_version": 1,
+                "id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+                "kind": "contacts"
+              },
+              "task": {
+                "assigned_version": 1,
+                "current_status": "open",
+                "current_version": 1,
+                "id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1"
+              }
+            },
+            "context_digest": "b3078db64c3d2016ed4f99c19f8d0ed16e823c13720cf89d51c31ece0318434d",
+            "actor": "desktop",
+            "created_at": "2026-11-09T02:57:02.478130+00:00"
+          }
+        ],
+        "history_total": 1,
+        "history_truncated": false
+      }
+    },
+    "assignment": {
+      "id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+      "version": 7,
+      "digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+      "state": "result_reported",
+      "reason": "authenticated_result_awaiting_human_review",
+      "job_id": "job-1",
+      "execution_id": "execution-1",
+      "created_at": "2026-11-09T02:57:02.448230+00:00",
+      "updated_at": "2026-11-09T02:57:02.465476+00:00",
+      "payload": {
+        "generation": 1,
+        "host_sha": "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19",
+        "human_owner": "Not a reviewer",
+        "max_sources": 2,
+        "mode": "scheduled_research_v1",
+        "profile": "synthetic",
+        "propose_note": false,
+        "public_question": "Public products?",
+        "research": "web",
+        "run_at": "2030-04-01T12:30:41.000000+00:00",
+        "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+        "target_kind": "contacts",
+        "target_version": 1,
+        "task_due_at": "2030-05-01T00:00:00.000000+00:00",
+        "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+        "task_version": 1
+      },
+      "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+      "enabled_toolsets": [
+        "web",
+        "crm_scheduled_research_run_v1",
+        "no_mcp"
+      ],
+      "receipts": [
+        {
+          "kind": "report",
+          "operation_key": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+          "result": {
+            "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+            "awaiting_human_review": true,
+            "generation": 1,
+            "host_terminal_success_verified": false,
+            "identity": {
+              "execution_id": "execution-1",
+              "job_id": "job-1",
+              "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+              "profile": "synthetic",
+              "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+              "source": "builtin",
+              "started_at": "2030-04-01T12:30:42.000000+00:00"
+            },
+            "outcome": "blocked",
+            "provenance": "native_run_reported",
+            "source_current": true,
+            "source_reason": null,
+            "summary": "Synthetic claimed result"
+          },
+          "review": {
+            "status": "reviewed_in_crm",
+            "version": 1,
+            "latest_event": {
+              "id": "47e5d07e-ba6e-4f94-ada7-922aaea61232",
+              "family": "scheduled_research",
+              "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+              "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+              "version": 1,
+              "action": "acknowledge",
+              "context": {
+                "assignment_state": "result_reported",
+                "assignment_version": 7,
+                "report": {
+                  "assignment_digest": "5836893e5375ab661e1ca3ac9b4e8f338b7d3bd5d697987ac9c22a6d5964c619",
+                  "assignment_id": "e9223168-be4a-4c1a-85a1-9b2e4b75b2a1",
+                  "family": "scheduled_research",
+                  "generation": 1,
+                  "identity": {
+                    "execution_id": "execution-1",
+                    "job_id": "job-1",
+                    "job_name": "CRM research e9223168-be4a-4c1a-85a1-9b2e4b75b2a1 g1",
+                    "profile": "synthetic",
+                    "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                    "source": "builtin",
+                    "started_at": "2030-04-01T12:30:42.000000+00:00"
+                  },
+                  "outcome": "blocked",
+                  "report_digest": "5b4c759dccd3db66b473ab8de609baeccf17fa84c998eca751e080ad0cbe4b51",
+                  "report_id": "run:dd774cb66b4c1185c864207c50a743a8558db1b018d2a06dee985d84989bb858",
+                  "summary": "Synthetic claimed result",
+                  "target": {
+                    "target_id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+                    "target_kind": "contacts",
+                    "target_version": 1
+                  },
+                  "task_id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1",
+                  "task_version": 1
+                },
+                "source_current": true,
+                "source_reason": null,
+                "target": {
+                  "archived": false,
+                  "assigned_version": 1,
+                  "current_version": 1,
+                  "id": "6f007bff-b61f-40ad-a38f-08ed2f19f5bd",
+                  "kind": "contacts"
+                },
+                "task": {
+                  "assigned_version": 1,
+                  "current_status": "open",
+                  "current_version": 1,
+                  "id": "0eb41b74-d8c0-4662-8fbb-7fdb002eddb1"
+                }
+              },
+              "context_digest": "b3078db64c3d2016ed4f99c19f8d0ed16e823c13720cf89d51c31ece0318434d",
+              "actor": "desktop",
+              "created_at": "2026-11-09T02:57:02.478130+00:00"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "scheduled_company": {
+    "preview": {
+      "family": "scheduled_research",
+      "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+      "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+      "assignment_digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+      "generation": 1,
+      "report_digest": "7a8e15c8ad725f9a5144b8ab48b1caeb5a877e881fe621ec892bc5d27f2a84b7",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+      "task_version": 1,
+      "target": {
+        "target_kind": "companies",
+        "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+        "target_version": 1
+      },
+      "context": {
+        "report": {
+          "family": "scheduled_research",
+          "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+          "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+          "assignment_digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+          "generation": 1,
+          "report_digest": "7a8e15c8ad725f9a5144b8ab48b1caeb5a877e881fe621ec892bc5d27f2a84b7",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+          "task_version": 1,
+          "target": {
+            "target_kind": "companies",
+            "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+            "target_version": 1
+          }
+        },
+        "assignment_version": 7,
+        "assignment_state": "result_reported",
+        "task": {
+          "id": "a370359a-4650-439f-836d-285f9ddbcb61",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": {
+          "kind": "companies",
+          "id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+          "assigned_version": 1,
+          "current_version": 1,
+          "archived": false
+        },
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "71b2c527c85beb3dd2a19d28e178b016ea2c0c5d4b77dac3d4fc2dcb5036336f",
+      "review": {
+        "status": "awaiting_review",
+        "version": 0,
+        "latest_event": null,
+        "history": [],
+        "history_total": 0,
+        "history_truncated": false
+      }
+    },
+    "receipt": {
+      "event": {
+        "id": "05ebc539-0a27-4fc9-bcdc-6ddff745768a",
+        "family": "scheduled_research",
+        "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+        "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+        "version": 1,
+        "action": "acknowledge",
+        "context": {
+          "assignment_state": "result_reported",
+          "assignment_version": 7,
+          "report": {
+            "assignment_digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+            "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+            "family": "scheduled_research",
+            "generation": 1,
+            "identity": {
+              "execution_id": "execution-1",
+              "job_id": "job-1",
+              "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+              "profile": "synthetic",
+              "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+              "source": "builtin",
+              "started_at": "2030-04-01T12:30:42.000000+00:00"
+            },
+            "outcome": "blocked",
+            "report_digest": "7a8e15c8ad725f9a5144b8ab48b1caeb5a877e881fe621ec892bc5d27f2a84b7",
+            "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+            "summary": "Synthetic claimed result",
+            "target": {
+              "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+              "target_kind": "companies",
+              "target_version": 1
+            },
+            "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+            "task_version": 1
+          },
+          "source_current": true,
+          "source_reason": null,
+          "target": {
+            "archived": false,
+            "assigned_version": 1,
+            "current_version": 1,
+            "id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+            "kind": "companies"
+          },
+          "task": {
+            "assigned_version": 1,
+            "current_status": "open",
+            "current_version": 1,
+            "id": "a370359a-4650-439f-836d-285f9ddbcb61"
+          }
+        },
+        "context_digest": "71b2c527c85beb3dd2a19d28e178b016ea2c0c5d4b77dac3d4fc2dcb5036336f",
+        "actor": "desktop",
+        "created_at": "2026-11-09T02:57:02.558009+00:00"
+      },
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1
+      }
+    },
+    "reviewed": {
+      "family": "scheduled_research",
+      "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+      "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+      "assignment_digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+      "generation": 1,
+      "report_digest": "7a8e15c8ad725f9a5144b8ab48b1caeb5a877e881fe621ec892bc5d27f2a84b7",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+      "task_version": 1,
+      "target": {
+        "target_kind": "companies",
+        "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+        "target_version": 1
+      },
+      "context": {
+        "report": {
+          "family": "scheduled_research",
+          "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+          "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+          "assignment_digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+          "generation": 1,
+          "report_digest": "7a8e15c8ad725f9a5144b8ab48b1caeb5a877e881fe621ec892bc5d27f2a84b7",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+          "task_version": 1,
+          "target": {
+            "target_kind": "companies",
+            "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+            "target_version": 1
+          }
+        },
+        "assignment_version": 7,
+        "assignment_state": "result_reported",
+        "task": {
+          "id": "a370359a-4650-439f-836d-285f9ddbcb61",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": {
+          "kind": "companies",
+          "id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+          "assigned_version": 1,
+          "current_version": 1,
+          "archived": false
+        },
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "71b2c527c85beb3dd2a19d28e178b016ea2c0c5d4b77dac3d4fc2dcb5036336f",
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1,
+        "latest_event": {
+          "id": "05ebc539-0a27-4fc9-bcdc-6ddff745768a",
+          "family": "scheduled_research",
+          "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+          "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+          "version": 1,
+          "action": "acknowledge",
+          "context": {
+            "assignment_state": "result_reported",
+            "assignment_version": 7,
+            "report": {
+              "assignment_digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+              "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+              "family": "scheduled_research",
+              "generation": 1,
+              "identity": {
+                "execution_id": "execution-1",
+                "job_id": "job-1",
+                "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+                "profile": "synthetic",
+                "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                "source": "builtin",
+                "started_at": "2030-04-01T12:30:42.000000+00:00"
+              },
+              "outcome": "blocked",
+              "report_digest": "7a8e15c8ad725f9a5144b8ab48b1caeb5a877e881fe621ec892bc5d27f2a84b7",
+              "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+              "summary": "Synthetic claimed result",
+              "target": {
+                "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+                "target_kind": "companies",
+                "target_version": 1
+              },
+              "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+              "task_version": 1
+            },
+            "source_current": true,
+            "source_reason": null,
+            "target": {
+              "archived": false,
+              "assigned_version": 1,
+              "current_version": 1,
+              "id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+              "kind": "companies"
+            },
+            "task": {
+              "assigned_version": 1,
+              "current_status": "open",
+              "current_version": 1,
+              "id": "a370359a-4650-439f-836d-285f9ddbcb61"
+            }
+          },
+          "context_digest": "71b2c527c85beb3dd2a19d28e178b016ea2c0c5d4b77dac3d4fc2dcb5036336f",
+          "actor": "desktop",
+          "created_at": "2026-11-09T02:57:02.558009+00:00"
+        },
+        "history": [
+          {
+            "id": "05ebc539-0a27-4fc9-bcdc-6ddff745768a",
+            "family": "scheduled_research",
+            "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+            "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+            "version": 1,
+            "action": "acknowledge",
+            "context": {
+              "assignment_state": "result_reported",
+              "assignment_version": 7,
+              "report": {
+                "assignment_digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+                "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+                "family": "scheduled_research",
+                "generation": 1,
+                "identity": {
+                  "execution_id": "execution-1",
+                  "job_id": "job-1",
+                  "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+                  "profile": "synthetic",
+                  "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                  "source": "builtin",
+                  "started_at": "2030-04-01T12:30:42.000000+00:00"
+                },
+                "outcome": "blocked",
+                "report_digest": "7a8e15c8ad725f9a5144b8ab48b1caeb5a877e881fe621ec892bc5d27f2a84b7",
+                "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+                "summary": "Synthetic claimed result",
+                "target": {
+                  "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+                  "target_kind": "companies",
+                  "target_version": 1
+                },
+                "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+                "task_version": 1
+              },
+              "source_current": true,
+              "source_reason": null,
+              "target": {
+                "archived": false,
+                "assigned_version": 1,
+                "current_version": 1,
+                "id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+                "kind": "companies"
+              },
+              "task": {
+                "assigned_version": 1,
+                "current_status": "open",
+                "current_version": 1,
+                "id": "a370359a-4650-439f-836d-285f9ddbcb61"
+              }
+            },
+            "context_digest": "71b2c527c85beb3dd2a19d28e178b016ea2c0c5d4b77dac3d4fc2dcb5036336f",
+            "actor": "desktop",
+            "created_at": "2026-11-09T02:57:02.558009+00:00"
+          }
+        ],
+        "history_total": 1,
+        "history_truncated": false
+      }
+    },
+    "assignment": {
+      "id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+      "version": 7,
+      "digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+      "state": "result_reported",
+      "reason": "authenticated_result_awaiting_human_review",
+      "job_id": "job-1",
+      "execution_id": "execution-1",
+      "created_at": "2026-11-09T02:57:02.511200+00:00",
+      "updated_at": "2026-11-09T02:57:02.544561+00:00",
+      "payload": {
+        "generation": 1,
+        "host_sha": "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19",
+        "human_owner": "Not a reviewer",
+        "max_sources": 2,
+        "mode": "scheduled_research_v1",
+        "profile": "synthetic",
+        "propose_note": false,
+        "public_question": "Public products?",
+        "research": "web",
+        "run_at": "2030-04-01T12:30:41.000000+00:00",
+        "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+        "target_kind": "companies",
+        "target_version": 1,
+        "task_due_at": "2030-05-01T00:00:00.000000+00:00",
+        "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+        "task_version": 1
+      },
+      "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+      "enabled_toolsets": [
+        "web",
+        "crm_scheduled_research_run_v1",
+        "no_mcp"
+      ],
+      "receipts": [
+        {
+          "kind": "report",
+          "operation_key": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+          "result": {
+            "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+            "awaiting_human_review": true,
+            "generation": 1,
+            "host_terminal_success_verified": false,
+            "identity": {
+              "execution_id": "execution-1",
+              "job_id": "job-1",
+              "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+              "profile": "synthetic",
+              "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+              "source": "builtin",
+              "started_at": "2030-04-01T12:30:42.000000+00:00"
+            },
+            "outcome": "blocked",
+            "provenance": "native_run_reported",
+            "source_current": true,
+            "source_reason": null,
+            "summary": "Synthetic claimed result"
+          },
+          "review": {
+            "status": "reviewed_in_crm",
+            "version": 1,
+            "latest_event": {
+              "id": "05ebc539-0a27-4fc9-bcdc-6ddff745768a",
+              "family": "scheduled_research",
+              "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+              "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+              "version": 1,
+              "action": "acknowledge",
+              "context": {
+                "assignment_state": "result_reported",
+                "assignment_version": 7,
+                "report": {
+                  "assignment_digest": "72eea27ace3711652ddab9f20949275737d021d14ce804d65c704f317556bffa",
+                  "assignment_id": "30e03b2e-0200-4f77-8e7c-c7821d27832a",
+                  "family": "scheduled_research",
+                  "generation": 1,
+                  "identity": {
+                    "execution_id": "execution-1",
+                    "job_id": "job-1",
+                    "job_name": "CRM research 30e03b2e-0200-4f77-8e7c-c7821d27832a g1",
+                    "profile": "synthetic",
+                    "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                    "source": "builtin",
+                    "started_at": "2030-04-01T12:30:42.000000+00:00"
+                  },
+                  "outcome": "blocked",
+                  "report_digest": "7a8e15c8ad725f9a5144b8ab48b1caeb5a877e881fe621ec892bc5d27f2a84b7",
+                  "report_id": "run:046115f75e77a0d33745990faf8985be0b6650561e6c58f9c1a2727c5832abe8",
+                  "summary": "Synthetic claimed result",
+                  "target": {
+                    "target_id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+                    "target_kind": "companies",
+                    "target_version": 1
+                  },
+                  "task_id": "a370359a-4650-439f-836d-285f9ddbcb61",
+                  "task_version": 1
+                },
+                "source_current": true,
+                "source_reason": null,
+                "target": {
+                  "archived": false,
+                  "assigned_version": 1,
+                  "current_version": 1,
+                  "id": "de462c9f-c279-4e1d-b4c5-d36fb17199d3",
+                  "kind": "companies"
+                },
+                "task": {
+                  "assigned_version": 1,
+                  "current_status": "open",
+                  "current_version": 1,
+                  "id": "a370359a-4650-439f-836d-285f9ddbcb61"
+                }
+              },
+              "context_digest": "71b2c527c85beb3dd2a19d28e178b016ea2c0c5d4b77dac3d4fc2dcb5036336f",
+              "actor": "desktop",
+              "created_at": "2026-11-09T02:57:02.558009+00:00"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "native_cancelled": {
+    "preview": {
+      "family": "native",
+      "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+      "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+      "assignment_digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+      "generation": 1,
+      "report_digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+      "task_version": 1,
+      "target": null,
+      "context": {
+        "report": {
+          "family": "native",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+          "assignment_digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+          "generation": 1,
+          "report_digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+          "task_version": 1,
+          "target": null
+        },
+        "assignment_version": 8,
+        "assignment_state": "cancelled",
+        "task": {
+          "id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": null,
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "f986ad91845798a4cf8585b50ef2a8c77010858fa49d9284ee5ff2c5b7e98db1",
+      "review": {
+        "status": "awaiting_review",
+        "version": 0,
+        "latest_event": null,
+        "history": [],
+        "history_total": 0,
+        "history_truncated": false
+      }
+    },
+    "receipt": {
+      "event": {
+        "id": "54eb5c51-54bd-45ef-a378-f0986263ddb4",
+        "family": "native",
+        "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+        "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+        "version": 1,
+        "action": "acknowledge",
+        "context": {
+          "assignment_state": "cancelled",
+          "assignment_version": 8,
+          "report": {
+            "assignment_digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+            "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+            "family": "native",
+            "generation": 1,
+            "identity": {
+              "execution_id": "execution-1",
+              "job_id": "job-1",
+              "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+              "profile": "synthetic",
+              "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+              "source": "builtin",
+              "started_at": "2030-04-01T12:30:42.000000+00:00"
+            },
+            "outcome": "blocked",
+            "report_digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+            "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+            "summary": "Synthetic claimed result",
+            "target": null,
+            "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+            "task_version": 1
+          },
+          "source_current": true,
+          "source_reason": null,
+          "target": null,
+          "task": {
+            "assigned_version": 1,
+            "current_status": "open",
+            "current_version": 1,
+            "id": "762e9e1e-632e-4d3c-b0f6-022af980c794"
+          }
+        },
+        "context_digest": "f986ad91845798a4cf8585b50ef2a8c77010858fa49d9284ee5ff2c5b7e98db1",
+        "actor": "desktop",
+        "created_at": "2026-11-09T02:57:02.611024+00:00"
+      },
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1
+      }
+    },
+    "reviewed": {
+      "family": "native",
+      "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+      "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+      "assignment_digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+      "generation": 1,
+      "report_digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+      "task_version": 1,
+      "target": null,
+      "context": {
+        "report": {
+          "family": "native",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+          "assignment_digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+          "generation": 1,
+          "report_digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+          "task_version": 1,
+          "target": null
+        },
+        "assignment_version": 8,
+        "assignment_state": "cancelled",
+        "task": {
+          "id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": null,
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "f986ad91845798a4cf8585b50ef2a8c77010858fa49d9284ee5ff2c5b7e98db1",
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1,
+        "latest_event": {
+          "id": "54eb5c51-54bd-45ef-a378-f0986263ddb4",
+          "family": "native",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+          "version": 1,
+          "action": "acknowledge",
+          "context": {
+            "assignment_state": "cancelled",
+            "assignment_version": 8,
+            "report": {
+              "assignment_digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+              "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+              "family": "native",
+              "generation": 1,
+              "identity": {
+                "execution_id": "execution-1",
+                "job_id": "job-1",
+                "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+                "profile": "synthetic",
+                "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                "source": "builtin",
+                "started_at": "2030-04-01T12:30:42.000000+00:00"
+              },
+              "outcome": "blocked",
+              "report_digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+              "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+              "summary": "Synthetic claimed result",
+              "target": null,
+              "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+              "task_version": 1
+            },
+            "source_current": true,
+            "source_reason": null,
+            "target": null,
+            "task": {
+              "assigned_version": 1,
+              "current_status": "open",
+              "current_version": 1,
+              "id": "762e9e1e-632e-4d3c-b0f6-022af980c794"
+            }
+          },
+          "context_digest": "f986ad91845798a4cf8585b50ef2a8c77010858fa49d9284ee5ff2c5b7e98db1",
+          "actor": "desktop",
+          "created_at": "2026-11-09T02:57:02.611024+00:00"
+        },
+        "history": [
+          {
+            "id": "54eb5c51-54bd-45ef-a378-f0986263ddb4",
+            "family": "native",
+            "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+            "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+            "version": 1,
+            "action": "acknowledge",
+            "context": {
+              "assignment_state": "cancelled",
+              "assignment_version": 8,
+              "report": {
+                "assignment_digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+                "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+                "family": "native",
+                "generation": 1,
+                "identity": {
+                  "execution_id": "execution-1",
+                  "job_id": "job-1",
+                  "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+                  "profile": "synthetic",
+                  "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                  "source": "builtin",
+                  "started_at": "2030-04-01T12:30:42.000000+00:00"
+                },
+                "outcome": "blocked",
+                "report_digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+                "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+                "summary": "Synthetic claimed result",
+                "target": null,
+                "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+                "task_version": 1
+              },
+              "source_current": true,
+              "source_reason": null,
+              "target": null,
+              "task": {
+                "assigned_version": 1,
+                "current_status": "open",
+                "current_version": 1,
+                "id": "762e9e1e-632e-4d3c-b0f6-022af980c794"
+              }
+            },
+            "context_digest": "f986ad91845798a4cf8585b50ef2a8c77010858fa49d9284ee5ff2c5b7e98db1",
+            "actor": "desktop",
+            "created_at": "2026-11-09T02:57:02.611024+00:00"
+          }
+        ],
+        "history_total": 1,
+        "history_truncated": false
+      }
+    },
+    "assignment": {
+      "id": "859f288b-dba6-4c70-894a-f220162e9987",
+      "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+      "workspace": "03656cd8-df27-40e2-93d0-8feda2f0db6e",
+      "profile": "synthetic",
+      "idempotency_key": "create",
+      "payload": {
+        "action": "internal_crm_analysis",
+        "business_due_at": "2030-05-01T00:00:00.000000+00:00",
+        "enabled_toolsets": [
+          "crm_read",
+          "crm_work_read",
+          "crm_work_report",
+          "no_mcp"
+        ],
+        "execution_source": "builtin",
+        "generation": 1,
+        "human_owner": "Not a reviewer",
+        "profile": "synthetic",
+        "prompt": "Internal analysis",
+        "run_at": "2030-04-01T12:30:41.000000+00:00",
+        "schema_version": 1,
+        "success_criteria": "Report useful findings",
+        "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+        "task_status": "open",
+        "task_version": 1,
+        "workspace": "03656cd8-df27-40e2-93d0-8feda2f0db6e"
+      },
+      "digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+      "generation": 2,
+      "version": 8,
+      "state": "cancelled",
+      "reason": "local_only_host_cancellation_unverified",
+      "job_id": "job-1",
+      "created_at": "2026-11-09T02:57:02.579861+00:00",
+      "updated_at": "2026-11-09T02:57:02.595791+00:00",
+      "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+      "events": [
+        {
+          "id": "d2d2f8bc-bed7-4f0a-8d66-33b4b8ec2ecf",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "version": 1,
+          "kind": "intent_saved",
+          "evidence": {
+            "schema_version": 1
+          },
+          "created_at": "2026-11-09T02:57:02.581550+00:00"
+        },
+        {
+          "id": "75bb61ad-5e6a-4cc2-9f68-ed42e0a6db44",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "version": 2,
+          "kind": "create_started",
+          "evidence": {
+            "paused": true,
+            "retry_create": false
+          },
+          "created_at": "2026-11-09T02:57:02.585015+00:00"
+        },
+        {
+          "id": "01ac9730-c435-41ce-af9d-a685cffd4906",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "version": 3,
+          "kind": "job_bound",
+          "evidence": {
+            "job_id": "job-1",
+            "provenance": "paused_create_response"
+          },
+          "created_at": "2026-11-09T02:57:02.586537+00:00"
+        },
+        {
+          "id": "15d987c4-67aa-4a97-894f-b66775e5331d",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "version": 4,
+          "kind": "resume_started",
+          "evidence": {
+            "job_id": "job-1",
+            "retry_create": false
+          },
+          "created_at": "2026-11-09T02:57:02.587902+00:00"
+        },
+        {
+          "id": "6985304a-e091-470c-a08d-4bf5ae5b6075",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "version": 6,
+          "kind": "job_observed",
+          "evidence": {
+            "enabled": true,
+            "future_schedule_inactive": false,
+            "gateway_running": null,
+            "job_id": "job-1",
+            "next_run_matches": true,
+            "retry_create": false,
+            "source": "resume_response",
+            "state": "scheduled"
+          },
+          "created_at": "2026-11-09T02:57:02.589357+00:00"
+        },
+        {
+          "id": "21ffa4c7-eecd-4271-97de-559c41ec8795",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "version": 7,
+          "kind": "result_reported",
+          "evidence": {
+            "execution_id": "execution-1",
+            "host_terminal_success_verified": false,
+            "provenance": "native_run_reported"
+          },
+          "created_at": "2026-11-09T02:57:02.593326+00:00"
+        },
+        {
+          "id": "e9f360f8-21be-45ed-a64f-606e7007ff90",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "version": 8,
+          "kind": "intent_invalidated",
+          "evidence": {
+            "host_cancelled": false,
+            "reason": "cancelled"
+          },
+          "created_at": "2026-11-09T02:57:02.596423+00:00"
+        }
+      ],
+      "reports": [
+        {
+          "id": "b24ff278-88e4-4a42-9258-69f95155766e",
+          "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+          "workspace": "03656cd8-df27-40e2-93d0-8feda2f0db6e",
+          "profile": "synthetic",
+          "generation": 1,
+          "execution_id": "execution-1",
+          "operation_id": "result",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "outcome": "blocked",
+          "summary": "Synthetic claimed result",
+          "digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+          "created_at": "2026-11-09T02:57:02.592285+00:00",
+          "provenance": "native_run_reported",
+          "review": {
+            "status": "reviewed_in_crm",
+            "version": 1,
+            "latest_event": {
+              "id": "54eb5c51-54bd-45ef-a378-f0986263ddb4",
+              "family": "native",
+              "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+              "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+              "version": 1,
+              "action": "acknowledge",
+              "context": {
+                "assignment_state": "cancelled",
+                "assignment_version": 8,
+                "report": {
+                  "assignment_digest": "31a4fd3435dce73dd8389450b3e433c4eb501cc3742e50504319eecbf198c05b",
+                  "assignment_id": "859f288b-dba6-4c70-894a-f220162e9987",
+                  "family": "native",
+                  "generation": 1,
+                  "identity": {
+                    "execution_id": "execution-1",
+                    "job_id": "job-1",
+                    "job_name": "CRM work 859f288b-dba6-4c70-894a-f220162e9987 g1",
+                    "profile": "synthetic",
+                    "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                    "source": "builtin",
+                    "started_at": "2030-04-01T12:30:42.000000+00:00"
+                  },
+                  "outcome": "blocked",
+                  "report_digest": "4655026409bc7061edff618dcd813a3053d251d7ab2210803dd8271d5f8c5df9",
+                  "report_id": "b24ff278-88e4-4a42-9258-69f95155766e",
+                  "summary": "Synthetic claimed result",
+                  "target": null,
+                  "task_id": "762e9e1e-632e-4d3c-b0f6-022af980c794",
+                  "task_version": 1
+                },
+                "source_current": true,
+                "source_reason": null,
+                "target": null,
+                "task": {
+                  "assigned_version": 1,
+                  "current_status": "open",
+                  "current_version": 1,
+                  "id": "762e9e1e-632e-4d3c-b0f6-022af980c794"
+                }
+              },
+              "context_digest": "f986ad91845798a4cf8585b50ef2a8c77010858fa49d9284ee5ff2c5b7e98db1",
+              "actor": "desktop",
+              "created_at": "2026-11-09T02:57:02.611024+00:00"
+            }
+          },
+          "review_status": "reviewed_in_crm"
+        }
+      ],
+      "current_task_version": 1,
+      "current_task_status": "open",
+      "source_task_current": true,
+      "review_status": "reviewed_in_crm",
+      "business_task_completed": false,
+      "business_task_completed_by_report": false,
+      "host_terminal_success_verified": false
+    }
+  },
+  "native_superseded": {
+    "preview": {
+      "family": "native",
+      "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+      "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+      "assignment_digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+      "generation": 1,
+      "report_digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+      "task_version": 1,
+      "target": null,
+      "context": {
+        "report": {
+          "family": "native",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+          "assignment_digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+          "generation": 1,
+          "report_digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+          "task_version": 1,
+          "target": null
+        },
+        "assignment_version": 8,
+        "assignment_state": "superseded",
+        "task": {
+          "id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": null,
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "8a85c5e0261533430fa6baaf2b02b4b86269c4792354fc93c7bf3a0b3557cc60",
+      "review": {
+        "status": "awaiting_review",
+        "version": 0,
+        "latest_event": null,
+        "history": [],
+        "history_total": 0,
+        "history_truncated": false
+      }
+    },
+    "receipt": {
+      "event": {
+        "id": "621ed99b-0df2-4206-998b-7650351f92f9",
+        "family": "native",
+        "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+        "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+        "version": 1,
+        "action": "acknowledge",
+        "context": {
+          "assignment_state": "superseded",
+          "assignment_version": 8,
+          "report": {
+            "assignment_digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+            "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+            "family": "native",
+            "generation": 1,
+            "identity": {
+              "execution_id": "execution-1",
+              "job_id": "job-1",
+              "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+              "profile": "synthetic",
+              "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+              "source": "builtin",
+              "started_at": "2030-04-01T12:30:42.000000+00:00"
+            },
+            "outcome": "blocked",
+            "report_digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+            "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+            "summary": "Synthetic claimed result",
+            "target": null,
+            "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+            "task_version": 1
+          },
+          "source_current": true,
+          "source_reason": null,
+          "target": null,
+          "task": {
+            "assigned_version": 1,
+            "current_status": "open",
+            "current_version": 1,
+            "id": "25c5b9d0-574e-45fd-9e39-89871588d588"
+          }
+        },
+        "context_digest": "8a85c5e0261533430fa6baaf2b02b4b86269c4792354fc93c7bf3a0b3557cc60",
+        "actor": "desktop",
+        "created_at": "2026-11-09T02:57:02.659991+00:00"
+      },
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1
+      }
+    },
+    "reviewed": {
+      "family": "native",
+      "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+      "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+      "assignment_digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+      "generation": 1,
+      "report_digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+      "identity": {
+        "execution_id": "execution-1",
+        "job_id": "job-1",
+        "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+        "profile": "synthetic",
+        "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+        "source": "builtin",
+        "started_at": "2030-04-01T12:30:42.000000+00:00"
+      },
+      "summary": "Synthetic claimed result",
+      "outcome": "blocked",
+      "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+      "task_version": 1,
+      "target": null,
+      "context": {
+        "report": {
+          "family": "native",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+          "assignment_digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+          "generation": 1,
+          "report_digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "summary": "Synthetic claimed result",
+          "outcome": "blocked",
+          "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+          "task_version": 1,
+          "target": null
+        },
+        "assignment_version": 8,
+        "assignment_state": "superseded",
+        "task": {
+          "id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+          "assigned_version": 1,
+          "current_version": 1,
+          "current_status": "open"
+        },
+        "target": null,
+        "source_current": true,
+        "source_reason": null
+      },
+      "context_digest": "8a85c5e0261533430fa6baaf2b02b4b86269c4792354fc93c7bf3a0b3557cc60",
+      "review": {
+        "status": "reviewed_in_crm",
+        "version": 1,
+        "latest_event": {
+          "id": "621ed99b-0df2-4206-998b-7650351f92f9",
+          "family": "native",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+          "version": 1,
+          "action": "acknowledge",
+          "context": {
+            "assignment_state": "superseded",
+            "assignment_version": 8,
+            "report": {
+              "assignment_digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+              "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+              "family": "native",
+              "generation": 1,
+              "identity": {
+                "execution_id": "execution-1",
+                "job_id": "job-1",
+                "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+                "profile": "synthetic",
+                "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                "source": "builtin",
+                "started_at": "2030-04-01T12:30:42.000000+00:00"
+              },
+              "outcome": "blocked",
+              "report_digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+              "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+              "summary": "Synthetic claimed result",
+              "target": null,
+              "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+              "task_version": 1
+            },
+            "source_current": true,
+            "source_reason": null,
+            "target": null,
+            "task": {
+              "assigned_version": 1,
+              "current_status": "open",
+              "current_version": 1,
+              "id": "25c5b9d0-574e-45fd-9e39-89871588d588"
+            }
+          },
+          "context_digest": "8a85c5e0261533430fa6baaf2b02b4b86269c4792354fc93c7bf3a0b3557cc60",
+          "actor": "desktop",
+          "created_at": "2026-11-09T02:57:02.659991+00:00"
+        },
+        "history": [
+          {
+            "id": "621ed99b-0df2-4206-998b-7650351f92f9",
+            "family": "native",
+            "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+            "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+            "version": 1,
+            "action": "acknowledge",
+            "context": {
+              "assignment_state": "superseded",
+              "assignment_version": 8,
+              "report": {
+                "assignment_digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+                "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+                "family": "native",
+                "generation": 1,
+                "identity": {
+                  "execution_id": "execution-1",
+                  "job_id": "job-1",
+                  "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+                  "profile": "synthetic",
+                  "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                  "source": "builtin",
+                  "started_at": "2030-04-01T12:30:42.000000+00:00"
+                },
+                "outcome": "blocked",
+                "report_digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+                "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+                "summary": "Synthetic claimed result",
+                "target": null,
+                "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+                "task_version": 1
+              },
+              "source_current": true,
+              "source_reason": null,
+              "target": null,
+              "task": {
+                "assigned_version": 1,
+                "current_status": "open",
+                "current_version": 1,
+                "id": "25c5b9d0-574e-45fd-9e39-89871588d588"
+              }
+            },
+            "context_digest": "8a85c5e0261533430fa6baaf2b02b4b86269c4792354fc93c7bf3a0b3557cc60",
+            "actor": "desktop",
+            "created_at": "2026-11-09T02:57:02.659991+00:00"
+          }
+        ],
+        "history_total": 1,
+        "history_truncated": false
+      }
+    },
+    "assignment": {
+      "id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+      "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+      "workspace": "c4773a12-10cf-409b-8f8d-c06c6f7049f4",
+      "profile": "synthetic",
+      "idempotency_key": "create",
+      "payload": {
+        "action": "internal_crm_analysis",
+        "business_due_at": "2030-05-01T00:00:00.000000+00:00",
+        "enabled_toolsets": [
+          "crm_read",
+          "crm_work_read",
+          "crm_work_report",
+          "no_mcp"
+        ],
+        "execution_source": "builtin",
+        "generation": 1,
+        "human_owner": "Not a reviewer",
+        "profile": "synthetic",
+        "prompt": "Internal analysis",
+        "run_at": "2030-04-01T12:30:41.000000+00:00",
+        "schema_version": 1,
+        "success_criteria": "Report useful findings",
+        "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+        "task_status": "open",
+        "task_version": 1,
+        "workspace": "c4773a12-10cf-409b-8f8d-c06c6f7049f4"
+      },
+      "digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+      "generation": 2,
+      "version": 8,
+      "state": "superseded",
+      "reason": "local_only_host_cancellation_unverified",
+      "job_id": "job-1",
+      "created_at": "2026-11-09T02:57:02.628235+00:00",
+      "updated_at": "2026-11-09T02:57:02.644755+00:00",
+      "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+      "events": [
+        {
+          "id": "43f2659b-4dad-46a9-be0f-1123a6cc0806",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "version": 1,
+          "kind": "intent_saved",
+          "evidence": {
+            "schema_version": 1
+          },
+          "created_at": "2026-11-09T02:57:02.630087+00:00"
+        },
+        {
+          "id": "95abd597-e501-493f-a38a-8318c38d39ec",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "version": 2,
+          "kind": "create_started",
+          "evidence": {
+            "paused": true,
+            "retry_create": false
+          },
+          "created_at": "2026-11-09T02:57:02.633830+00:00"
+        },
+        {
+          "id": "4b5af0c1-1487-4792-b072-2ac528bb0313",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "version": 3,
+          "kind": "job_bound",
+          "evidence": {
+            "job_id": "job-1",
+            "provenance": "paused_create_response"
+          },
+          "created_at": "2026-11-09T02:57:02.635569+00:00"
+        },
+        {
+          "id": "d7aac3f6-c74c-46d9-91f5-ffa83bc40e86",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "version": 4,
+          "kind": "resume_started",
+          "evidence": {
+            "job_id": "job-1",
+            "retry_create": false
+          },
+          "created_at": "2026-11-09T02:57:02.636808+00:00"
+        },
+        {
+          "id": "d60276ed-7476-46a5-8eb2-d7633abeefce",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "version": 6,
+          "kind": "job_observed",
+          "evidence": {
+            "enabled": true,
+            "future_schedule_inactive": false,
+            "gateway_running": null,
+            "job_id": "job-1",
+            "next_run_matches": true,
+            "retry_create": false,
+            "source": "resume_response",
+            "state": "scheduled"
+          },
+          "created_at": "2026-11-09T02:57:02.638190+00:00"
+        },
+        {
+          "id": "52de07d0-4f80-4c51-ae8a-a297aac289ca",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "version": 7,
+          "kind": "result_reported",
+          "evidence": {
+            "execution_id": "execution-1",
+            "host_terminal_success_verified": false,
+            "provenance": "native_run_reported"
+          },
+          "created_at": "2026-11-09T02:57:02.641093+00:00"
+        },
+        {
+          "id": "7f822589-aa76-4738-81f5-05977e1bb608",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "version": 8,
+          "kind": "intent_invalidated",
+          "evidence": {
+            "host_cancelled": false,
+            "reason": "superseded"
+          },
+          "created_at": "2026-11-09T02:57:02.645438+00:00"
+        }
+      ],
+      "reports": [
+        {
+          "id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+          "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+          "workspace": "c4773a12-10cf-409b-8f8d-c06c6f7049f4",
+          "profile": "synthetic",
+          "generation": 1,
+          "execution_id": "execution-1",
+          "operation_id": "result",
+          "identity": {
+            "execution_id": "execution-1",
+            "job_id": "job-1",
+            "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+            "profile": "synthetic",
+            "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+            "source": "builtin",
+            "started_at": "2030-04-01T12:30:42.000000+00:00"
+          },
+          "outcome": "blocked",
+          "summary": "Synthetic claimed result",
+          "digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+          "created_at": "2026-11-09T02:57:02.640285+00:00",
+          "provenance": "native_run_reported",
+          "review": {
+            "status": "reviewed_in_crm",
+            "version": 1,
+            "latest_event": {
+              "id": "621ed99b-0df2-4206-998b-7650351f92f9",
+              "family": "native",
+              "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+              "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+              "version": 1,
+              "action": "acknowledge",
+              "context": {
+                "assignment_state": "superseded",
+                "assignment_version": 8,
+                "report": {
+                  "assignment_digest": "e9c62ee35659d1f760f9719ab0850aab2e9ab54de4b2f756f7830e7269139db7",
+                  "assignment_id": "d9364f57-9b14-423c-96c2-94bf8a97a4c8",
+                  "family": "native",
+                  "generation": 1,
+                  "identity": {
+                    "execution_id": "execution-1",
+                    "job_id": "job-1",
+                    "job_name": "CRM work d9364f57-9b14-423c-96c2-94bf8a97a4c8 g1",
+                    "profile": "synthetic",
+                    "scheduled_instant": "2030-04-01T12:30:41.000000+00:00",
+                    "source": "builtin",
+                    "started_at": "2030-04-01T12:30:42.000000+00:00"
+                  },
+                  "outcome": "blocked",
+                  "report_digest": "f7a7f107445f2aabc1ca450bc997f6ad98827866bd5407b877042f0a1ea61a06",
+                  "report_id": "ed45d080-7dd2-4361-aa13-571fe7a29787",
+                  "summary": "Synthetic claimed result",
+                  "target": null,
+                  "task_id": "25c5b9d0-574e-45fd-9e39-89871588d588",
+                  "task_version": 1
+                },
+                "source_current": true,
+                "source_reason": null,
+                "target": null,
+                "task": {
+                  "assigned_version": 1,
+                  "current_status": "open",
+                  "current_version": 1,
+                  "id": "25c5b9d0-574e-45fd-9e39-89871588d588"
+                }
+              },
+              "context_digest": "8a85c5e0261533430fa6baaf2b02b4b86269c4792354fc93c7bf3a0b3557cc60",
+              "actor": "desktop",
+              "created_at": "2026-11-09T02:57:02.659991+00:00"
+            }
+          },
+          "review_status": "reviewed_in_crm"
+        }
+      ],
+      "current_task_version": 1,
+      "current_task_status": "open",
+      "source_task_current": true,
+      "review_status": "reviewed_in_crm",
+      "business_task_completed": false,
+      "business_task_completed_by_report": false,
+      "host_terminal_success_verified": false
+    }
+  }
+}

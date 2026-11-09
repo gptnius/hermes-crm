@@ -176,8 +176,12 @@ package. No new key, access grant, account or external service is configured.
 ## Deliberately deferred
 
 Automatic web research, source fact verification, provider-linked attachments,
-managed uploads, task proposals, full agent-run review closure, email sending,
+managed uploads, task proposals, quality-review dispositions, email sending,
 background scraping and broader scheduled-tool permissions are separate work.
 The interactive agent may submit evidence only after obtaining information
 through its existing authorized capabilities. This feature does not establish
 those capabilities or complete an end-to-end live research test by itself.
+
+Later increments add [opt-in timed research](SCHEDULED_RESEARCH_PLAN.md) and
+[durable report acknowledgement](REPORT_REVIEW_PLAN.md). They do not turn source
+storage into automatic fact verification, quality approval or outbound delivery.

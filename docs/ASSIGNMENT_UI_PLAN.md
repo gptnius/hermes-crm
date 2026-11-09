@@ -1,6 +1,6 @@
 # Make agent assignments usable from CRM
 
-Original implementation plan reviewed against CRM `04b69ac1cd093481ab1d43634a1a144425bb2f3a` and official Hermes `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. The request builder, atomic expected-version check and paged coverage/history reports now exist in source; see [the current workflow and limits](ASSIGNMENT_UI.md) and [executed verification](VERIFICATION.md). Direct dispatch alternatives, durable review, cadences and wider automation below remain future work. Baseline line references are historical design evidence, not current line numbers.
+Original implementation plan reviewed against CRM `04b69ac1cd093481ab1d43634a1a144425bb2f3a` and official Hermes `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. The request builder, atomic expected-version check and paged coverage/history reports now exist in source; see [the current workflow and limits](ASSIGNMENT_UI.md) and [executed verification](VERIFICATION.md). A separate durable [review acknowledgement](REPORT_REVIEW_UI.md) is now implemented; direct dispatch alternatives, quality dispositions, cadences and wider automation remain future work. Baseline line references are historical design evidence, not current line numbers.
 
 ## Recommendation
 
@@ -80,7 +80,7 @@ Render these as separate facts, not a single green progress bar:
 - **Cancelled assignment**: show local invalidation separately from **future schedule pause observed** or **pause outcome unknown**. Never say an already running execution stopped.
 - **Business task done**: separate existing task state. Do not offer a new-work request without deliberate reopening. Completion does not cancel a host job. Existing assignment history and cancellation help remain visible.
 
-The task schema has only `open` and `done`, not a business-task `cancelled` status (`domain.py:112–125`). Assignment cancellation/supersession has its own generation fence (`native_work.py:448–493`). There is no persisted report-review action today: `review_status` is derived as awaiting review/stale. Do not add a **Reviewed** toggle that changes only the frontend (`native_work.py:248–270`).
+The task schema has only `open` and `done`, not a business-task `cancelled` status (`domain.py:112–125`). Assignment cancellation/supersession has its own generation fence (`native_work.py:448–493`). At this original baseline there was no persisted report-review action. The later [acknowledgement increment](REPORT_REVIEW_PLAN.md) adds a durable ledger and separates review status from source freshness; it is not a frontend-only toggle. Original line references describe the historical baseline.
 
 Read `/work` and `/work/{id}` only for saved facts (`native_api.py:111–131`). **Refresh saved status** does not query Hermes jobs; `crm_work_reconcile` is the separate active-tool observation. History errors must retain last successful data with its age, not become empty history. Show task ID, assignment ID, exact native job ID, frozen task version, requested run time/timezone and human owner without raw provider errors or secrets.
 

@@ -146,8 +146,9 @@ through the web connector for this assessment; they are not local runtime tests.
 - Native visual, accessibility and real Desktop-delivery acceptance remain
   separate from API/component tests and headless host execution.
 - Human report-review disposition receipts (accepted, revision requested or
-  dismissed) are not implemented. Reports remain agent-reported and awaiting
-  review. Proposal review/apply, host success and Task completion stay separate.
+  dismissed) are not implemented. A separate [acknowledgement ledger](REPORT_REVIEW_PLAN.md)
+  now records reviewed/undo without judging quality or rewriting the agent report.
+  Proposal review/apply, host success and Task completion stay separate.
 - Preserve the reviewed source/runtime parity through publication and inspect
   hosted CI on the exact public commit. Prior green runs do not qualify a new head.
 

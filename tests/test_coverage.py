@@ -181,7 +181,7 @@ def test_coverage_inactive_observation_keeps_report_and_business_review_separate
     summary = row['assignment']
     assert summary['future_schedule_inactive_observed'] is True
     assert summary['latest_report']['outcome'] == 'blocked'
-    assert summary['latest_report']['review_status'] == ('stale_source_task' if task_done else 'awaiting_human_review')
+    assert summary['latest_report']['review_status'] == 'awaiting_human_review'
     assert summary['business_task_completed'] is task_done
     assert summary['business_task_completed_by_report'] is False
     assert summary['host_terminal_success_verified'] is False

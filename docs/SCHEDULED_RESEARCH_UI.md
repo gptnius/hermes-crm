@@ -23,3 +23,11 @@ History and save responses are validated before caching or rendering, including 
 History emphasizes readable run/due times, public questions, reported outcomes, cited source links and proposed additions. Exact payloads, operation receipts, IDs and host-job metadata remain available in collapsed technical details. All states are last observed state; users refresh after sending a native request.
 
 **Maximum saved sources** caps stored evidence packets, not the number of searches or fetched URLs. Research tool-call and network budgets remain host-owned.
+
+## Result acknowledgement
+
+Report cards include [Mark result reviewed and Undo acknowledgement](REPORT_REVIEW_UI.md).
+Fresh source warnings stay visible independently of **Reviewed in CRM**, including
+when the immutable original report said its source was current. This action adds
+separate review evidence; it never edits the original receipt, applies a proposal,
+completes the Task or schedules more work.

@@ -112,23 +112,19 @@ paths, unchanged records/receipts and accepted offset-aware timestamps.
 
 ### WF-07: agent results cannot be durably marked reviewed
 
-The current assignment projection labels a reported result as awaiting human
-review, but no separate review write exists. Reading it does not change that
-state. Completing the business task instead changes source currentness; it is
-not evidence of review.
+The original gap was a permanently awaiting-review report with no acknowledgement
+write. Completing the business Task changed source freshness instead of recording
+review. The bounded [result acknowledgement](REPORT_REVIEW_UI.md) now records
+**Mark result reviewed** and **Undo acknowledgement** in a separate ledger for
+native and scheduled-research reports. It binds exact report identity/digest and
+fresh source context, preserves idempotent receipts/history, and never completes
+a Task, schedules work or applies a note. Source warnings remain independent.
 
-**Design under review:** an exact-report review receipt, separate from the agent
-claim, observed host status and business-task status. It must bind the report
-identity/digest, assignment generation and reviewed source context, retain
-history and idempotent retries, and never complete a task or schedule a run as
-a side effect. Scheduled agents must not receive permission to approve their own
-results. This document does not claim that the review feature is implemented.
-
-The smallest proposed action is **Mark result reviewed**, an acknowledgement
-rather than acceptance/rejection of quality. Historical results would need a clear
-changed-source warning. The local session does not establish a verified named
-reviewer; attribution and a correction/revocation policy must be settled before
-presenting the ledger as an approval system. No agent self-review tool is planned.
+Attribution is an authenticated local UI action labelled **Reviewed in CRM**, not
+a verified named human or approval of quality. No agent self-review tool is added.
+Accepted/revision-requested/dismissed quality dispositions and automatic revision
+work remain deferred. Use [verification](VERIFICATION.md) for executed tests and
+remaining native visual/operational acceptance gates.
 
 ### WF-08: Event-only tasks and contact follow-up metrics differ
 

@@ -98,12 +98,12 @@ class _BoundResearch(ResearchStore):
         return action(self.conn,self.scope)
 
 class ScheduledResearchStore:
-    def __init__(self,crm,*,initialize=True):
+    def __init__(self,crm,*,initialize=True,connection=None):
         self.crm=crm; self.profile=crm.profile
         if initialize:
             check_tables(crm,TABLES,write=True)
             self.scope=scope_for(crm,write=True)
-        else: self.scope=scope_for(crm)
+        else: self.scope=scope_for(crm,connection=connection)
     def _check_schema(self,c):
         # Never initialize or repair storage at an execution boundary. Validate
         # on the same transaction/connection as every read, guard and mutation.
@@ -145,11 +145,21 @@ class ScheduledResearchStore:
         values.update(version=row['version']+1,updated_at=now())
         c.execute(update(assignments).where(assignments.c.scope==self.scope,assignments.c.id==row['id']).values(**values))
         row.update(values)
-    def _view(self,c,row):
+    def _view(self,c,row,reviews=None):
         self._check_schema(c)
         value={k:v for k,v in row.items() if k not in ('scope','payload')}
         value.update(payload=json.loads(row['payload']),job_name=job_name(row),enabled_toolsets=toolsets(json.loads(row['payload'])))
-        value['receipts']=[dict(kind=r['kind'],operation_key=r['key'],result=json.loads(r['response'])) for r in c.execute(select(operations).where(operations.c.scope==self.scope,operations.c.assignment_id==row['id'],operations.c.kind!='create')).mappings()]
+        raw_receipts=list(c.execute(select(operations).where(operations.c.scope==self.scope,operations.c.assignment_id==row['id'],operations.c.kind!='create')).mappings())
+        value['receipts']=[dict(kind=r['kind'],operation_key=r['key'],result=json.loads(r['response'])) for r in raw_receipts]
+        from .report_reviews import load_reviews, projection, report_binding, workspace_for
+        if reviews is None: reviews=load_reviews(self.crm,c)
+        for receipt in value['receipts']:
+            if receipt['kind']=='report':
+                binding=None
+                if reviews.get(('scheduled_research',row['id'],receipt['operation_key'])):
+                    raw=next(r for r in raw_receipts if r['key']==receipt['operation_key'])
+                    binding=report_binding('scheduled_research',row,raw,workspace=workspace_for(c),profile=self.profile)
+                receipt['review']=projection(reviews,'scheduled_research',row['id'],receipt['operation_key'],digest(receipt['result']),binding=binding)
         return value
     def get(self,id):
         with self.crm._read_connection() as c: return self._view(c,self._row(c,id))
@@ -159,11 +169,13 @@ class ScheduledResearchStore:
         with self.crm._read_connection() as c:
             self._check_schema(c)
             ids=c.execute(select(assignments.c.id).where(assignments.c.scope==self.scope).order_by(assignments.c.created_at.desc(),assignments.c.id)).scalars()
+            from .report_reviews import load_reviews
+            reviews=load_reviews(self.crm,c)
             result=[]
             for id in ids:
                 row=self._row(c,id)
                 if task_id is None or json.loads(row['payload'])['task_id']==task_id:
-                    result.append(self._view(c,row))
+                    result.append(self._view(c,row,reviews))
                     if len(result)>=limit: break
             return result
     def page(self,*,task_id=None,limit=50,offset=0):
@@ -186,7 +198,9 @@ class ScheduledResearchStore:
             query=select(assignments.c.id).where(*conditions)
             total=c.execute(select(func.count()).select_from(query.subquery())).scalar_one()
             ids=c.execute(query.order_by(assignments.c.created_at.desc(),assignments.c.id).limit(limit).offset(offset)).scalars()
-            return dict(initialized=True,storage='present',items=[self._view(c,self._row(c,id)) for id in ids],
+            from .report_reviews import load_reviews
+            reviews=load_reviews(self.crm,c)
+            return dict(initialized=True,storage='present',items=[self._view(c,self._row(c,id),reviews) for id in ids],
                         total=total,limit=limit,offset=offset)
     def create(self,data,*,idempotency_key):
         _text(idempotency_key,'idempotency_key',120)

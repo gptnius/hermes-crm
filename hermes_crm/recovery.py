@@ -40,12 +40,13 @@ def _validate(snapshot, notes_ring):
     from .research_schema import OWNED_TABLES as research
     from .task_ownership import OWNED_TABLES as owners
     from .scheduled_research import TABLES as scheduled_research
+    from .report_review_schema import TABLES as report_reviews
     families = [set(domain.metadata.tables)]
     for module in (customization, execution, gmail_history, native_work,
                    protection, report_store, report_interactions):
         families.append({name for name in module.metadata.tables
                          if name not in domain.metadata.tables})
-    families.extend({t.name for t in group} for group in (relationships, research, owners, scheduled_research))
+    families.extend({t.name for t in group} for group in (relationships, research, owners, scheduled_research, report_reviews))
     if not (families[0] | set(customization.metadata.tables)) <= tables.keys():
         _invalid()
     for family in families:
@@ -199,7 +200,7 @@ def restore_content(artifact, *, backup_ring, workspace, profile, target, notes_
             with engine.begin() as conn:
                 schema.create_all(conn, tables=[schema.tables[name] for name in snapshot['tables']])
                 for name, rows in snapshot['tables'].items():
-                    quarantine = name.startswith(('crm_native_', 'crm_agent_', 'crm_gmail_', 'crm_scheduled_research_'))
+                    quarantine = name.startswith(('crm_native_', 'crm_agent_', 'crm_gmail_', 'crm_scheduled_research_', 'crm_report_review_'))
                     if quarantine:
                         quarantined.append(name)
                         continue

@@ -312,10 +312,10 @@ class NativeWorkStore:
         return self.get(assignment_id)
 
     def get(self, assignment_id):
-        with self.crm.engine.connect() as conn:
+        with read_snapshot(self.crm) as conn:
             return self._detail(conn, assignment_id)
 
-    def _detail(self, conn, assignment_id):
+    def _detail(self, conn, assignment_id, reviews=None):
         row = self._row(conn, assignment_id)
         row['payload'] = json.loads(row['payload'])
         row.pop('claim_id')  # Internal scheduling ownership is not model-facing authority.
@@ -325,15 +325,19 @@ class NativeWorkStore:
         for event in row['events']: event['evidence'] = json.loads(event['evidence'])
         row['reports'] = [dict(r) for r in conn.execute(select(reports).where(
             reports.c.assignment_id == assignment_id).order_by(reports.c.created_at, reports.c.id)).mappings()]
+        from .report_reviews import load_reviews, projection, report_binding
+        if reviews is None: reviews = load_reviews(self.crm, conn)
         for report in row['reports']:
+            binding = report_binding('native',dict(row,payload=_json(row['payload'])),report,workspace=self.workspace,profile=self.profile) if reviews.get(('native',assignment_id,report['id'])) else None
             report['identity'] = json.loads(report['identity'])
             report['provenance'] = 'native_run_reported'
-            report['review_status'] = 'awaiting_human_review'
+            report['review'] = projection(reviews, 'native', assignment_id, report['id'], report['digest'],binding=binding)
+            report['review_status'] = 'reviewed_in_crm' if report['review']['status'] == 'reviewed_in_crm' else 'awaiting_human_review'
         task = conn.execute(select(tasks.c.version, tasks.c.status).where(tasks.c.id == row['task_id'])).mappings().first()
         row['current_task_version'] = task['version'] if task else None
         row['current_task_status'] = task['status'] if task else None
         row['source_task_current'] = bool(task and task['version'] == row['payload']['task_version'] and task['status'] == 'open')
-        row['review_status'] = ('awaiting_human_review' if row['source_task_current'] else 'stale_source_task') if row['reports'] else 'no_report'
+        row['review_status'] = ('awaiting_human_review' if any(r['review']['status']=='awaiting_review' for r in row['reports']) else 'reviewed_in_crm') if row['reports'] else 'no_report'
         row['business_task_completed'] = bool(task and task['status'] == 'done')
         row['business_task_completed_by_report'] = False
         row['host_terminal_success_verified'] = False
@@ -345,9 +349,11 @@ class NativeWorkStore:
         query = select(assignments.c.id).where(assignments.c.workspace == self.workspace,
                                              assignments.c.profile == self.profile)
         if task_id is not None: query = query.where(assignments.c.task_id == task_id)
-        with self.crm.engine.connect() as conn:
+        with read_snapshot(self.crm) as conn:
+            from .report_reviews import load_reviews
+            reviews = load_reviews(self.crm, conn)
             ids = conn.execute(query.order_by(assignments.c.created_at, assignments.c.id).limit(limit)).scalars().all()
-        return [self.get(i) for i in ids]
+            return [self._detail(conn, i, reviews) for i in ids]
 
     def page(self, *, task_id=None, limit=25, offset=0):
         self.crm._integer(limit, 'limit', 1, 100)
@@ -362,7 +368,9 @@ class NativeWorkStore:
             result['total'] = conn.execute(select(func.count()).select_from(assignments).where(*predicates)).scalar_one()
             ids = conn.execute(select(assignments.c.id).where(*predicates)
                 .order_by(assignments.c.created_at, assignments.c.id).limit(limit).offset(offset)).scalars()
-            result['items'] = [reader._detail(conn, assignment_id) for assignment_id in ids]
+            from .report_reviews import load_reviews
+            reviews = load_reviews(self.crm, conn)
+            result['items'] = [reader._detail(conn, assignment_id, reviews) for assignment_id in ids]
         return result
 
     def _matches_job(self, row, job, *, paused=False):

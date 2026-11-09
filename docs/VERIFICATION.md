@@ -2,6 +2,86 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Durable report acknowledgement and undo (November 9, 2026)
+
+The separate review ledger records **Mark result reviewed** and **Undo
+acknowledgement** for native-work and scheduled-research reports. It binds the
+exact immutable report and fresh source context, with version checks and stable
+retry receipts. Historical/stale reports require an explicit warning. Undo adds
+a revocation; it does not erase history. Original scheduled report results remain
+unchanged, and old retry receipts never replace a fresh current-status read.
+
+This is local authenticated UI provenance labelled **Reviewed in CRM**, not a
+verified named human, quality decision, host success, task completion, note
+application or permission to rerun work. No agent review tool was added: the
+registered catalog remains **83 tools**. Source freshness stays independent.
+Native `review_status` now describes acknowledgement rather than substituting
+`stale_source_task`; consumers retain `source_task_current` and current version/
+status fields for freshness. Native queue counts omit acknowledged results from
+awaiting-review flags while retaining other risks. Scheduled history is separate.
+
+Independent database acceptance passed **1,504 mixed checks**, with two existing
+not-applicable Contact-archive skips and no failures/errors. Focused coverage was
+**185 passes: 104 local/SQLite/API/export/recovery/compiler checks and 81 actual
+PostgreSQL cases**. All 1,319 prior mixed regressions passed again. The server was
+PostgreSQL 17.11 ARM64 with Python 3.12.13, SQLAlchemy 2.1.8 and psycopg 3.3.8.
+All four initial/final tmpfs-only, loopback-bound containers were removed and
+verified absent. All 290 frozen source hashes matched the archive plus reviewed
+two-file test correction. The aggregate is not exclusively PostgreSQL-backed.
+Concurrency evidence is same-process threads, not cross-process stress testing.
+
+The initial three PostgreSQL failures were in test setup: an unqualified raw
+ALTER TABLE could not find the isolated-schema table, so the intended malformed
+schema rejection was never reached. The reviewed test-only correction uses the
+actual connection schema and dialect identifier quoting, without changing search
+paths. One compiler test contains three SQLite/PostgreSQL/quoted-schema assertions;
+it counts as one test, not three. Runtime bytes were unchanged to obtain the pass.
+
+The final local aggregate passed **1,865 Python tests with 834 optional skips**,
+two known dependency warnings, and all **50 scrubbed runner commands**: 13
+generators, full Python and 36 JavaScript/React commands including preflight.
+Independent reviews and real React 19.3 normal/StrictMode tests verified both
+report families, source warnings, undo, exact uncertain retries, late receipts
+after remount, shared locks, old receipt replay after undo, malformed contexts,
+failed refresh, scope/connection ABA and disposed clients. Actual synthetic
+SQLite fixtures exercise cancelled/superseded native reports and both research
+targets through the JavaScript validator and mounted component.
+
+Review found and fixed historical generation binding (mutable cancelled
+assignment generation versus frozen report generation), stale-report and late-
+receipt coverage refresh, hidden current-source warnings and impossible archived
+target contexts. The backend also uses the same transaction for authoritative
+workspace/source checks and batch-loads review projections. Export validates
+ledger/receipt identity and sequencing; recovery quarantines review rows with
+their source assignments. This does not revive review or schedule authority.
+
+### Current genuine-host regression
+
+Official host `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19` passed **six registry/
+Company/Event workflow checks** (two seams plus four actual isolation-mode cases),
+then **three scheduled due-run checks** (one seam plus both actual modes). Each
+due run made eight deterministic loopback requests and completed. Cleanup
+verified zero jobs and stopped scheduler, plugin host and endpoint, with no
+remaining processes/listeners/sockets or forbidden audit events. All six copied
+scheduled backends matched SHA256
+`2a2008d640d4d581ddb7f616d4ef5b2cb1398f02baeb0a02b674debd7d4f62ab`;
+native API SHA256 was `391760a78a8ef31ec9ed926e49c7062e01076c94c2ce81c77f7ea36545e05707`.
+The pinned test/harness/guard sources were unchanged.
+
+These are existing actual-host regression paths, not physical acknowledgement
+UI or live research: their model/source packets were synthetic and `web_search`
+was absent. Separate **real keyless provider** verification through normal host
+plugin discovery and the web-search callable passed in a disposable home; see
+[exact provider setup, result and limits](PUBLIC_RESEARCH_SETUP.md). Neither proof
+is a combined live-model research workflow in the intended review profile.
+
+Final documentation and two JavaScript test updates are reviewed separately
+from the corrected PostgreSQL snapshot; backend and UI runtime bytes are unchanged.
+Current light/dark pixel/native-window acceptance, real-profile model research,
+operational restart/live cutover and general security certification remain open.
+Hosted CI must be checked on the exact new public commit before calling it green.
+See [the UI workflow](REPORT_REVIEW_UI.md) and [ledger/retention plan](REPORT_REVIEW_PLAN.md).
+
 ## Task-linked scheduled public research (November 9, 2026)
 
 This additive mode registers ten new tools (**83 total**) while retaining the
@@ -40,6 +120,13 @@ PostgreSQL execution. The final cases cover real JSON filtering/pagination,
 schema errors, source-version gates, rollback, same-process thread concurrency,
 completed-inactive cancellation and PostgreSQL export to fresh SQLite quarantine.
 No cross-process concurrency or live user database is claimed.
+
+The scheduled-research public commit `88192fb600fb9b371005abf83bcbbbfc8544660f`
+also passed [Actions run 42551678955](https://github.com/gptnius/hermes-crm/actions/runs/42551678955):
+**2,490 Python passes, 24 skips**, four known warnings, all 12 generators and 35
+JavaScript/React commands. PostgreSQL 16.15 x86_64 used the verified explicit
+loopback mapping and was removed successfully. This evidence applies to that
+exact prior commit, not the later acknowledgement increment above.
 
 ### Genuine pinned-host checks
 
@@ -604,7 +691,9 @@ unavailable. The active app, real profiles, credentials, providers and real chat
 were untouched. The final backend difference from the PostgreSQL snapshot is
 one wording-only export docstring correction; executable Python AST is unchanged.
 
-The result-review acknowledgement remains a design, not an implemented action.
+At this historical workflow release, result-review acknowledgement remained a
+design. A later [dedicated increment](REPORT_REVIEW_UI.md) implements durable
+acknowledgement/undo separately from quality approval.
 No mailbox grant, live research task, external communication, active-profile
 change or production migration was performed. See the
 [workflow findings and remaining decisions](WORKFLOW_REVIEW.md).

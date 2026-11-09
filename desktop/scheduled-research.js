@@ -75,14 +75,14 @@ export function scheduledResearchRequest(row, action, binding) {
 function srStatus(row) {
   if(row.state==='pending'&&!row.job_id)return 'Saved, not scheduled';
   if(row.state==='scheduled')return 'Scheduled registration observed; execution not confirmed';
-  if(row.state==='result_reported')return 'Agent reported a result; awaiting human review';
+  if(row.state==='result_reported')return 'Agent reported a result';
   if(row.state==='cancelled')return 'Locally invalidated; inspect pause receipt (running work is not stopped)';
   return 'Scheduling state requires review; do not create a replacement';
 }
 function srSource(value) {
   try {const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&!/[\s\x00-\x1f\\]/.test(value)?value:null;}catch{return null;}
 }
-export function ScheduledResearchPanel({client,task,workspaceToken,profile,memory,current,captureBinding,copyText,openNativeChat,companion,disabled=false,navigateTarget,timeHelpers}) {
+export function ScheduledResearchPanel({client,task,workspaceToken,profile,memory,current,captureBinding,copyText,openNativeChat,companion,disabled=false,navigateTarget,timeHelpers,renderReview}) {
   const [opened,setOpened]=useState(false),[draft,setDraft]=useState(()=>memory.draft?{...memory.draft,run_wall:memory.draft.run_wall??(memory.draft.run_at?timeHelpers.wall(memory.draft.run_at,memory.draft.run_zone||'UTC'):'')}:{human_owner:'',public_question:'',run_at:'',research:'search',propose_note:false,max_sources:3,target_kind:'contacts',target_id:'',target_version:0}),[pageOffset,setPageOffset]=useState(0),[query,setQuery]=useState(''),[choices,setChoices]=useState([]),[history,setHistory]=useState(null),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[preview,setPreview]=useState(null),[,redraw]=useState(0);
   const mounted=useRef(false),epoch=useRef(0),searchEpoch=useRef(0),lock=useRef(false),launch=useRef(null),heading=useRef(null),latest=useRef(null),returnFocus=useRef(false);
   const [capture]=useState(()=>({task:task.id,version:task.version,workspace:workspaceToken,profile}));
@@ -218,7 +218,7 @@ export function ScheduledResearchPanel({client,task,workspaceToken,profile,memor
         h('div',{className:'hc-actions'},row.state==='pending'&&!row.job_id&&button('Prepare research scheduling',()=>prepare(row,'schedule'),{disabled:busy||!valid()}),button('Prepare research check',()=>prepare(row,'check'),{disabled:busy||!valid()}),button('Prepare research cancellation',()=>prepare(row,'cancel'),{disabled:busy||!valid()}),
           navigateTarget&&button('Open target record',()=>{if(active())navigateTarget(row.payload.target_kind,row.payload.target_id);})),
         row.receipts.map((receipt,index)=>h('div',{key:index,className:'hc-stack'},
-          receipt.kind==='report'&&h('div',{className:'hc-stack'},h('strong',null,`Agent report: ${receipt.result.outcome} · awaiting human review`),h('p',null,receipt.result.summary),receipt.result.source_current===false&&h('p',{role:'alert'},`Source changed: ${receipt.result.source_reason}. This is a blocked or failed agent report, not completed work.`)),
+          receipt.kind==='report'&&h('div',{className:'hc-stack'},h('strong',null,`Agent report: ${receipt.result.outcome}`),h('p',null,receipt.result.summary),renderReview&&renderReview(row,receipt),receipt.result.source_current===false&&h('p',{role:'alert'},`Source changed: ${receipt.result.source_reason}. This is a blocked or failed agent report, not completed work.`)),
           receipt.kind==='evidence'&&h('div',null,h('a',{href:srSource(receipt.result.source_url),target:'_blank',rel:'noopener noreferrer'},receipt.result.source_title),h('p',null,`${receipt.result.claims_count} cited claims · observed ${timeHelpers.readable(receipt.result.observed_at,'UTC')}`)),
           receipt.kind==='proposal'&&h('div',null,h('strong',null,'Cited note proposal · not applied'),h('p',null,receipt.result.addition)),
           h('details',null,h('summary',null,`${receipt.kind} receipt details`),h('p',null,`Operation ${receipt.operation_key}`),h('pre',null,JSON.stringify(receipt.result,null,2))))),

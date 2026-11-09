@@ -548,7 +548,7 @@ def test_accepted_report_becomes_stale_after_later_source_edit(setup):
     report(setup,identity(host,a),a)
     setup[0].update('tasks',setup[2]['id'],{'version':1,'title':'Changed'})
     result=setup[1].get(a['id'])
-    assert result['state']=='result_reported' and result['review_status']=='stale_source_task'
+    assert result['state']=='result_reported' and result['review_status']=='awaiting_human_review'
     assert len(result['reports'])==1 and result['source_task_current'] is False
 
 

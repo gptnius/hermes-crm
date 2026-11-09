@@ -36,7 +36,8 @@ and normal host prompts. This does not enable new capabilities or grants. See
 - Native Hermes: 83 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
-- Opt-in scheduled public research: an existing open task can target one current Contact or Company with a reviewed public question, search/extraction preset and source limit. Bound runs may save evidence and one note proposal, not apply notes or complete the task. Native controls save intent and prepare an explicit request for the existing Hermes chat; host tools/provider availability remain separate. See [workflow and limits](docs/SCHEDULED_RESEARCH_UI.md).
+- Opt-in scheduled public research: an existing open task can target one current Contact or Company with a reviewed public question, search/extraction preset and source limit. Bound runs may save evidence and one note proposal, not apply notes or complete the task. Native controls save intent and prepare an explicit request for the existing Hermes chat; host tools/provider availability remain separate. See [workflow and limits](docs/SCHEDULED_RESEARCH_UI.md). See also [optional provider setup and isolated live-search evidence](docs/PUBLIC_RESEARCH_SETUP.md).
+- Result acknowledgement: native report cards support **Mark result reviewed** and **Undo acknowledgement**, with durable history and independent source warnings. This records local review, not quality approval, task completion or another agent action. See [result review](docs/REPORT_REVIEW_UI.md).
 - Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
 - Agent detail reads: exact ordinary notes for Contacts, Deals, Tasks, Companies and Events, plus Event outcome summaries and existing core custom fields. Reads return the current version so requested updates can preserve existing content; default summaries stay compact and scheduled scopes stay unchanged.
 - Layered protection: reduced default agent output, explicit ordinary-field reads, optional separately encrypted protected notes and encrypted CRM content exports. An offline [fresh-target content restore](docs/BACKUP_RESTORE.md) is implemented with synthetic test evidence. Keys remain user-managed; no full-host backup, live-cutover or general security guarantee. See [scope and recovery limits](docs/PROTECTION.md).
@@ -129,8 +130,9 @@ Additional work and remaining limits:
   then retain reviewed research notes or attachments with explicit provenance.
   The links, sourced note proposals and opt-in timed research mode are implemented.
   Live-provider research qualification, broader scheduled permissions, full
-  agent-result review closure and attachments require their own verification or
-  development. No promise that
+  quality-review dispositions and attachments require their own verification or
+  development. A bounded [Reviewed in CRM acknowledgement](docs/REPORT_REVIEW_PLAN.md)
+  is implemented; it does not imply task completion, note application or quality approval. No promise that
   every task executes or that outages and unknown outcomes cannot occur. See
   [agent-work roadmap](docs/NEXT_RELEASE_PLAN.md).
 - **Files and links, planned:** reviewed HTTPS references and managed uploads

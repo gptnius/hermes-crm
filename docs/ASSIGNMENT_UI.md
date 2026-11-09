@@ -16,9 +16,12 @@ The native CRM can save future internal-work assignments, explicitly schedule/ch
   assignment or operation rather than creating a replacement blindly.
 
 Current source versions, recorded host observations and report outcomes can
-change independently. No durable **Mark reviewed** action is implemented yet.
-The scheduled lane performs internal CRM analysis only; it cannot research the
-web, create contacts, send email or attach a research file.
+change independently. **Mark result reviewed** records a separate durable local
+acknowledgement; **Undo acknowledgement** preserves its history. Neither means
+quality approval or business-task completion. See [result acknowledgement](REPORT_REVIEW_UI.md).
+The internal-analysis lane cannot research the web, create contacts, send email
+or attach a research file. The separate [scheduled research mode](SCHEDULED_RESEARCH_UI.md)
+uses explicitly selected host research capabilities.
 
 ## Save a future assignment in CRM
 
@@ -141,6 +144,21 @@ assignment write, schedule command or report submission.
 
 The UI reports and optional expected-version field do not change existing tables. CRM-confirmed operations add one profile-scoped table lazily on explicit preparation; status reads do not create it. Incompatible shapes fail closed and require an explicit future migration. Assignment report routes do not initialize missing assignment tables. Multi-query reads use explicit SQLite snapshots or PostgreSQL repeatable-read, read-only transactions, including table availability checks. Unknown/incompatible state or corrupt stored intent fails visibly rather than producing a healthy coverage claim.
 
-This prototype classifies complete local task/assignment history before filtering and pagination. Work is proportional to that history, so server paging prevents display truncation but is not a large-dataset query optimization. A later page request is a new snapshot; concurrent changes can move items between offset pages. No background dispatcher, retry daemon, cadence engine, durable human-review toggle or never-missed guarantee is implied.
+This prototype classifies complete local task/assignment history before filtering and pagination. Work is proportional to that history, so server paging prevents display truncation but is not a large-dataset query optimization. A later page request is a new snapshot; concurrent changes can move items between offset pages. No background dispatcher, retry daemon, cadence engine, quality-review dispositions or never-missed guarantee is implied.
 
 See [verification](VERIFICATION.md) for executed checks. Native window layout, keyboard/focus, actual clipboard/native Send, real-model behavior and operational restart/recovery must be distinguished from synthetic component and database tests. This feature adds no email account access, external sending or production deployment.
+
+## Acknowledge a result explicitly
+
+On an exact native or scheduled-research report, choose **Mark result reviewed**,
+read the fresh summary/outcome and source context, then confirm. If the Task or
+research target changed, acknowledge that visible warning explicitly. The status
+becomes **Reviewed in CRM**; this records a local authenticated UI action, not a
+verified named reviewer, correctness, host success or permission for another action.
+
+**Undo acknowledgement** records a revocation, preserving the earlier event.
+Native coverage refreshes after confirmed review/undo; other blocked, failed or
+source-staleness risks remain. Scheduled research retains its separate history.
+An uncertain write keeps its original request key for exact retry. Old retry
+receipts are historical; current status comes from a fresh read, never inferred
+from the receipt. Read [interaction and recovery limits](REPORT_REVIEW_UI.md).

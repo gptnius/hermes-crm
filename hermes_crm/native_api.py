@@ -86,6 +86,9 @@ def meta():
 from .research_api import build_router as build_research_router
 router.include_router(build_research_router(service, require_workspace, actor='desktop'))
 
+from .report_review_api import build_router as build_review_router
+router.include_router(build_review_router(service, require_workspace))
+
 from .scheduled_research_api import build_router as build_scheduled_research_router
 router.include_router(build_scheduled_research_router(service, require_workspace))
 

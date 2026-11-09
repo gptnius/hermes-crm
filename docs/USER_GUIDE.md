@@ -444,8 +444,10 @@ global permission change. Missing capabilities must be reported, not invented.
 Runs can save cited evidence, an optional note proposal and an authenticated
 agent report. They do not apply the proposal, create records, contact people or
 complete the Task. Open the target record to review its evidence/proposals.
-A report remains an agent claim; human-review disposition receipts and automatic
-revisions are not implemented. Changed task/target versions block new research
+A report remains an agent claim. **Mark result reviewed** and **Undo acknowledgement**
+record only local review acknowledgement, with independent source warnings. Quality
+dispositions and automatic revisions are not implemented. See [result review](REPORT_REVIEW_UI.md).
+Changed task/target versions block new research
 writes, but an authenticated blocked/failed result can explain the change.
 This mode's saved history is in its Task panel, not the existing internal-work
 coverage counters. See [scheduled public research](SCHEDULED_RESEARCH_UI.md)
