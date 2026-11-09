@@ -48,7 +48,8 @@ uncertain local create/save from duplicating recovered records. Receipts remain
 historical results, not proof of the record's latest state. Protected export
 reservations remain, but old export artifacts are not recreated or claimed saved.
 
-Native-work, experimental agent execution and Gmail tables are created empty.
+Native-work, scheduled public-research assignments/receipts, experimental agent
+execution and Gmail tables are created empty.
 Their original rows remain only in `recovery_*` quarantine tables. No dispatch,
 provider connection or external-operation replay is restored. Tasks have
 `schedule_status='none'` and `scheduler_job_id=NULL`; all other task fields remain
@@ -125,3 +126,16 @@ export, key custody material and this recovery provenance separately if needed.
   malformed/incomplete schemas, invalid references, runtime quarantine,
   no-overwrite and interrupted output. Real-data, real-host cutover and disaster
   recovery remain operator drills, not claims made by these tests.
+
+## Scheduled research history
+
+Encrypted exports include `crm_scheduled_research_v1` and
+`crm_scheduled_research_ops_v1` together, scoped to the exact workspace/profile.
+Payload digests, Task/target references, source/proposal ownership and authenticated
+report identity are validated. Historical source versions may be older than
+current records. A stale-source blocked report remains a blocker, not completion.
+
+Recovery keeps both original tables only under `recovery_*`; their app-runtime
+counterparts are empty. Ordinary research evidence and pending proposals remain
+reviewable content, but no job/execution binding or ability to replay a scheduled
+write is restored. Source jobs must still be fenced separately before cutover.

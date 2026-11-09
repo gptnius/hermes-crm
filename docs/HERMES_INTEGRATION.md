@@ -16,7 +16,7 @@ Primary sources:
 
 ## Native registration
 
-The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 73 tools, matching `plugin.yaml`. This is the registered catalog, not a claim that every tool is enabled in every conversation. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
+The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 83 tools, matching `plugin.yaml`. This is the registered catalog, not a claim that every tool is enabled in every conversation. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
 
 Read toolset crm_read: crm_contact_report, crm_contact_list, crm_contact_get, crm_deal_list, crm_deal_get, crm_task_list, crm_task_get, crm_overview.
 
@@ -85,3 +85,17 @@ Record preview/copy carries only connection, profile, kind, ID and version. Copy
 Catalog metadata must identify a verified repository owner and pin an exact reviewed 40-character plugin commit. A template is intentionally not submitted. Public distribution requires privacy/secret review, dependency review, install instructions, declared capabilities and truthful compatibility floor. No automatic self-update or core patching is included.
 
 Contest requirements were checked against the official Nous Research announcement: November 11, 2026 at 5 PM EST (22:00 UTC); open catalog PR, under-90-second working X demo tagging @NousResearch and form links. These are preparation notes only. No PR, social post or form submission is authorized by running this code.
+
+
+## Opt-in task-linked scheduled public research
+
+Ten additional tools provide the separate `scheduled_research_v1` mode. Its
+management/read/run toolsets are `crm_scheduled_research_schedule_v1`,
+`crm_scheduled_research_read_v1`, and `crm_scheduled_research_run_v1`.
+An explicitly scheduled future one-shot binds an open Task/version and exact
+Company/Contact/version. It requests `search` or `web`, four assignment-bound
+run tools, and `no_mcp`. Evidence and a permitted note proposal are stored for
+review, never applied automatically. Reports do not complete business Tasks.
+Host tools/backend availability and unattended approval policy still apply.
+Existing internal-analysis assignments retain their original 11-tool inventory.
+See [implementation and remaining verification](SCHEDULED_RESEARCH_PLAN.md).

@@ -86,6 +86,9 @@ def meta():
 from .research_api import build_router as build_research_router
 router.include_router(build_research_router(service, require_workspace, actor='desktop'))
 
+from .scheduled_research_api import build_router as build_scheduled_research_router
+router.include_router(build_scheduled_research_router(service, require_workspace))
+
 from .task_ownership_api import build_router as build_owner_router
 router.include_router(build_owner_router(service, require_workspace))
 

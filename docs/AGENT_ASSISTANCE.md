@@ -21,8 +21,12 @@ feature into a blanket refusal to help.
 - **Future internal analysis:** this is a particular saved execution mode over
   existing CRM data. Its frozen read/report tools do not include browser, email,
   record writes or delegation. Use interactive help for work outside that mode;
-  do not silently add tools to an existing assignment. A broader scheduled
-  research mode requires separate design and an explicit capability decision.
+  do not silently add tools to an existing assignment.
+- **Scheduled public research:** the separate opt-in mode binds one current
+  Contact/Company and open Task to a reviewed public question and search/web
+  preset. It can save source evidence, one permitted note proposal and a report;
+  it does not apply notes or complete Tasks. Use its explicit scheduling flow
+  and check the host provider. See [the workflow and limits](SCHEDULED_RESEARCH_UI.md).
 - **Sending:** preserve direct user review and approval of the recipient,
   sending account and content. A research or drafting request is not permission
   to send. An already-approved exact send need not be approved twice unless the
@@ -72,8 +76,8 @@ features remain real limits. Follow the [native conversation workflow](NATIVE_CH
 [research review guide](RESEARCH_EVIDENCE.md), [assignment workflow](ASSIGNMENT_UI.md)
 and [Gmail setup limits](GMAIL_SETUP.md) for the implemented routes.
 
-Future work should make capability diagnosis more structured, add a supported
-broader scheduled-research mode with an explicit scope preview, and design
+Future work should make capability diagnosis more structured, qualify additional
+explicitly selected scheduled capabilities beyond the research presets, and design
 provider-backed sending/history with durable uncertain-outcome recovery. These
 are options for further development, not enabled permissions or working
 integrations in this release.

@@ -71,7 +71,7 @@ try:
     manager.discover_and_load()
     manifest = YAML(typ='safe').load((home / 'plugins/hermes-crm/plugin.yaml').read_text())
     names = manifest['provides_tools']
-    assert len(names) == len(set(names)) == 73, names
+    assert len(names) == len(set(names)) == 83, names
     # Registry visibility is NOT a claim that all tools are enabled in every
     # agent/cron context. Verify each actual advertised plugin name in scope.
     for name in names:
@@ -170,7 +170,7 @@ try:
     assert 'notes' not in tool('crm_event_get', {'record_id': event['id']})
     assert tool('crm_task_get', {'id': task['id']}) == task_read, 'Event completion must not complete or schedule its task'
     assert not list(home.rglob('jobs.json')), 'Local CRM workflow must not create cron jobs'
-    print('PASS agent-workflow actual-host synthetic local tools (73 advertised names)')
+    print('PASS agent-workflow actual-host synthetic local tools (83 advertised names)')
     # Existing harness success marker; emitted only after all workflow checks.
     print('PASS custom-schema actual-host contract')
 finally:

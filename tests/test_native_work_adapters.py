@@ -37,6 +37,9 @@ CRM_COMPANY_READ = {'crm_company_records', 'crm_contact_company_get', 'crm_compa
 CRM_COMPANY_WRITE = {'crm_company_archive', 'crm_contact_company_set', 'crm_company_restore', 'crm_company_create', 'crm_company_update', 'crm_contact_create_with_company'}
 CRM_EVENT_READ = {'crm_event_revisions', 'crm_relationship_activities', 'crm_event_get', 'crm_event_tasks', 'crm_event_list'}
 CRM_EVENT_WRITE = {'crm_event_create', 'crm_event_task_create', 'crm_event_task_unlink', 'crm_event_reopen', 'crm_event_complete', 'crm_event_reschedule', 'crm_event_task_link', 'crm_event_cancel', 'crm_event_needs_rescheduling', 'crm_event_update'}
+SCHEDULED_RESEARCH_READ = {'crm_scheduled_research_get', 'crm_scheduled_research_list'}
+SCHEDULED_RESEARCH_MANAGE = {'crm_scheduled_research_create', 'crm_scheduled_research_schedule', 'crm_scheduled_research_reconcile', 'crm_scheduled_research_cancel'}
+SCHEDULED_RESEARCH_RUN = {'crm_scheduled_research_run_get', 'crm_scheduled_research_evidence', 'crm_scheduled_research_propose', 'crm_scheduled_research_report'}
 SECRET_ERROR = 'postgresql://secret-user:secret-password@private.example/db'
 
 
@@ -142,7 +145,7 @@ def schedule_intent(adapters):
 
 def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
     ctx = adapters.ctx
-    expected = LEGACY_READ | LEGACY_WRITE | WORK_READ | WORK_SCHEDULE | WORK_REPORT | REPORT_READ | REPORT_WRITE | INTERACTION_READ | INTERACTION_WRITE | SCHEMA_READ | SCHEMA_WRITE | DETAIL_READ | RESEARCH_READ | RESEARCH_WRITE | CRM_COMPANY_READ | CRM_COMPANY_WRITE | CRM_EVENT_READ | CRM_EVENT_WRITE
+    expected = LEGACY_READ | LEGACY_WRITE | WORK_READ | WORK_SCHEDULE | WORK_REPORT | REPORT_READ | REPORT_WRITE | INTERACTION_READ | INTERACTION_WRITE | SCHEMA_READ | SCHEMA_WRITE | DETAIL_READ | RESEARCH_READ | RESEARCH_WRITE | CRM_COMPANY_READ | CRM_COMPANY_WRITE | CRM_EVENT_READ | CRM_EVENT_WRITE | SCHEDULED_RESEARCH_READ | SCHEDULED_RESEARCH_MANAGE | SCHEDULED_RESEARCH_RUN
     assert set(ctx.tools) == expected
     assert adapters.factory_calls == [] and ctx.calls == []
     for names, toolset in ((LEGACY_READ, 'crm_read'), (LEGACY_WRITE, 'crm_write'),
@@ -153,7 +156,10 @@ def test_registration_preserves_legacy_tools_and_separates_authority(adapters):
                            (SCHEMA_WRITE, 'crm_schema_write'), (DETAIL_READ, 'crm_detail_read'),
                            (RESEARCH_READ, 'crm_research_read'), (RESEARCH_WRITE, 'crm_research_write'),
                            (CRM_COMPANY_READ, 'crm_company_read'), (CRM_COMPANY_WRITE, 'crm_company_write'),
-                           (CRM_EVENT_READ, 'crm_event_read'), (CRM_EVENT_WRITE, 'crm_event_write')):
+                           (CRM_EVENT_READ, 'crm_event_read'), (CRM_EVENT_WRITE, 'crm_event_write'),
+                           (SCHEDULED_RESEARCH_READ, 'crm_scheduled_research_read_v1'),
+                           (SCHEDULED_RESEARCH_MANAGE, 'crm_scheduled_research_schedule_v1'),
+                           (SCHEDULED_RESEARCH_RUN, 'crm_scheduled_research_run_v1')):
         assert all(ctx.tools[name]['toolset'] == toolset for name in names)
     for name in WORK_READ | WORK_SCHEDULE | WORK_REPORT:
         params = ctx.tools[name]['schema']['parameters']

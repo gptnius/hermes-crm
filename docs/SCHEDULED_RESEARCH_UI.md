@@ -1,0 +1,25 @@
+# Native scheduled public research
+
+The native Task detail view has an additive **Scheduled public research** section. Existing immediate native requests and existing internal-only assignments are unchanged.
+
+1. Choose a Contact or Company with the searchable selector. The selected record version and current task version are captured. Enter an explicit human owner, future local date/time and explicit IANA timezone (with DST overlap selection), public question, search/web preset, 1–10 saved sources and optional single cited note proposal. Business due time is displayed separately and never changed.
+2. **Save research intent** persists only reviewed intent through authenticated, profile/workspace-bound REST. Private task titles and notes are not copied into public input. Nothing is scheduled by saving.
+3. **Prepare research scheduling** checks the exact current intent, task and target before preparing a native chat request. In companion view it reuses the existing verified native chat binding. Outside companion view it opens the genuine existing chat workspace and asks the user to choose the action there. No composer mutation, generic send, old internal-work command, direct host dispatch or REST-derived context is used.
+4. Copy the preview, paste into the matching native chat, review and explicitly Send. Copying is not sending. Missing current chat/clipboard capabilities are reported truthfully. Scheduling uses the backend's reviewed host toolset/preset and unattended cron policy, not an interactive cron approval prompt. It creates no grants or global cron changes.
+5. Refresh saved status. Registration, unknown state, local invalidation and an agent-reported result have distinct labels. **Prepare research check/cancellation** are reviewable native requests for the exact ID/version, never silent actions. Cancellation does not stop a running agent. Evidence receipts show source URLs and IDs; **Open target record** opens the selected Contact or Company; continue to its existing research section for evidence and note-proposal review. Reports are claims requiring human review, never task completion.
+
+Drafts survive Close for the plugin lifetime. Cancel draft clears only an unsubmitted draft. Once a save starts, the exact body and key are frozen and retained in connection/profile/workspace/task-scoped memory. Unknown saves cannot create another intent; only exact replay is offered. A verified receipt allows deliberately preparing additional work with a warning that existing assignments are not cancelled. On full Desktop/plugin restart, in-memory recovery is unavailable: inspect durable history and native chat before creating another assignment. Unavailable or absent storage is not proof of no prior work.
+
+REST surface: GET `/scheduled-research` (task filter, limit/offset), GET `/scheduled-research/{id}`, POST `/scheduled-research` (strict intent envelope only). Read routes do not initialize storage. `ScheduledResearchStore.page` distinguishes wholly absent storage from a verified empty page; partial/incompatible schemas fail. No scheduling/cancel/run mutation endpoint exists here.
+
+## Verification
+
+Synthetic SQLite native API tests cover profile/workspace/version checks, exact retry after task changes, no host context acceptance, missing/partial/malformed schema, read-only absence and pagination. Synthetic React tests cover public-only inputs, target kind races, save uncertainty/recovery, duplicate clicks, late receipt after Close, stale profile/task/workspace callbacks, Cancel/Close/focus, status failure, missing companion/chat/clipboard and explicit preview/copy, history totals/pagination, DST gaps/overlaps and exact unchanged timestamps. Generated bundle synchronization is checked by `scripts/build_scheduled_research_panel.py --check` and the aggregate CI script.
+
+These fixtures do not certify live provider research, actual job creation, live native host approval behavior, PostgreSQL, or production deployment. No credentials, user records, network providers or live schedules are used.
+
+History and save responses are validated before caching or rendering, including nested result receipts and their assignment/target references. Malformed history is an unavailable status, never an empty page. Shared pending-save state notifies remounted same-scope panels when the exact save resolves or becomes uncertain. The API tests also pass authoritative synthetic backend snapshots through the JavaScript validator to check that real pending, scheduled, evidence, proposal, reported and cancelled contracts remain usable.
+
+History emphasizes readable run/due times, public questions, reported outcomes, cited source links and proposed additions. Exact payloads, operation receipts, IDs and host-job metadata remain available in collapsed technical details. All states are last observed state; users refresh after sending a native request.
+
+**Maximum saved sources** caps stored evidence packets, not the number of searches or fetched URLs. Research tool-call and network budgets remain host-owned.

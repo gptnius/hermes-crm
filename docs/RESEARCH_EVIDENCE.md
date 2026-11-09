@@ -126,8 +126,9 @@ protected notes. User/agent-submitted research may also remain in existing
 Hermes conversation/tool logs; this feature does not erase those separate copies.
 
 The explicit encrypted content export includes scoped evidence, proposals and
-receipts. It remains neither a complete backup nor a tested restore workflow,
-and does not encrypt the live datastore. Read [protection limits](PROTECTION.md).
+receipts. A tested [fresh-target SQLite content restore](BACKUP_RESTORE.md) is available;
+it is not a complete host backup or verified live cutover and does not encrypt
+the live datastore. Read [protection limits](PROTECTION.md).
 
 ## Bounds and future work
 
@@ -138,7 +139,9 @@ Unsupported control/format characters are rejected rather than silently removed.
 Lists are paged and do not automatically fetch full claim or note text.
 
 Automatic source verification, managed file attachments, research task proposals,
-full agent-run review closure, email sending, web extraction and broader scheduled
-permissions remain separate work. See the [implementation plan](RESEARCH_EVIDENCE_PLAN.md),
+full agent-run review closure, email sending and broader scheduled permissions
+remain separate work. The opt-in [scheduled research mode](SCHEDULED_RESEARCH_UI.md)
+uses configured host search/extraction capabilities to save evidence and a
+permitted proposal; these storage tools do not supply that provider themselves. See the [implementation plan](RESEARCH_EVIDENCE_PLAN.md),
 [file plan](ATTACHMENTS_PLAN.md), [agent-work roadmap](NEXT_RELEASE_PLAN.md) and
 [verification](VERIFICATION.md) for their boundaries and test status.

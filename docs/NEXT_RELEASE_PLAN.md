@@ -3,9 +3,11 @@
 This document retains the reasoning and acceptance gates for several implemented
 phases. It is not a list of entirely unavailable features. Typed reports, custom
 fields/stages, future internal assignments through CRM confirmation, Company/Event
-records and associated tasks are implemented in bounded increments. Immediate
-execution, broader research, result attachments and provider-backed sending remain
-separate work. Use the [README](../README.md), [workflow review](WORKFLOW_REVIEW.md)
+records and associated tasks are implemented in bounded increments. A separate
+[scheduled public research mode](SCHEDULED_RESEARCH_PLAN.md) now supports reviewed
+task-bound evidence and note proposals through configured host research tools.
+Immediate execution, broader research capabilities, result attachments and
+provider-backed sending remain separate work. Use the [README](../README.md), [workflow review](WORKFLOW_REVIEW.md)
 and [verification report](VERIFICATION.md) for current behavior and test scope.
 
 ## Scope and product promise

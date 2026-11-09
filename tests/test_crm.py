@@ -184,7 +184,7 @@ def test_plugin_registers_and_uses_profile_data(monkeypatch,tmp_path):
     monkeypatch.setitem(sys.modules,'plugins',parent)
     monkeypatch.setitem(sys.modules,'plugins.plugin_storage',storage)
     ctx=Context(); register(ctx)
-    assert len(ctx.tools)==73
+    assert len(ctx.tools)==83
     assert ctx.tools['crm_task_get']['toolset']=='crm_read'
     create=ctx.tools['crm_contact_create']['handler']
     result=json.loads(create({'name':'Agent demo','idempotency_key':'agent-demo'}))

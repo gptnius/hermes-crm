@@ -383,7 +383,7 @@ the native composer yourself. The plugin does not write the native draft or
 submit prompts; safe automatic insertion is unavailable on the verified host.
 On a follow-up, **Prepare agent request** offers reviewed requests for immediate
 help or future work. Interactive chat uses the host's existing tools and
-permissions; CRM does not supply web research or an email-sending integration.
+permissions; CRM does not supply a search provider or an email-sending integration.
 See [Native chat](NATIVE_CHAT.md) and [Assignment workflow](ASSIGNMENT_UI.md).
 
 ## Save and schedule future internal work
@@ -420,11 +420,36 @@ If an action in the ordinary CRM page first opens the companion, choose the
 action again beside the chat. Manual Preview/Copy/Paste/Send remains an
 alternative to the CRM-confirmed scheduling lane.
 
-Scheduled assignments have restricted CRM read/report tools and local output.
+Existing internal-analysis assignments have restricted CRM read/report tools and local output.
 They cannot browse the web, create contacts, send email or run an outreach
 sequence. The configured model provider may still process task data: local
 output does not mean local-only model processing. Human owner is an
 accountability label, not permission to act as that person.
+
+### Schedule public research for one record
+
+Use **Scheduled public research** on an open Task to select one current Contact
+or Company, an accountable human owner, a public question, local run time and
+explicit timezone. Choose search-only or search plus extraction, a source limit,
+and whether one cited note proposal is permitted. Run time is separate from the
+business due date. Private task and record notes are not inserted into this input.
+
+**Save research intent** does not schedule anything. **Prepare research scheduling**
+checks current versions and prepares a request for the matching existing native
+conversation. Copy it, paste, review and explicitly send in Hermes. Refresh saved
+status afterward. This new mode uses the host's configured search/extraction
+capabilities and unattended cron approval policy; it creates no account grant or
+global permission change. Missing capabilities must be reported, not invented.
+
+Runs can save cited evidence, an optional note proposal and an authenticated
+agent report. They do not apply the proposal, create records, contact people or
+complete the Task. Open the target record to review its evidence/proposals.
+A report remains an agent claim; human-review disposition receipts and automatic
+revisions are not implemented. Changed task/target versions block new research
+writes, but an authenticated blocked/failed result can explain the change.
+This mode's saved history is in its Task panel, not the existing internal-work
+coverage counters. See [scheduled public research](SCHEDULED_RESEARCH_UI.md)
+for exact recovery, cancellation and current verification limits.
 
 The **Follow-up coverage** queue flags missing next actions, overdue tasks,
 unscheduled work, uncertain scheduling, elapsed run times and reports awaiting

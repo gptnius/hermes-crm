@@ -32,8 +32,8 @@ Hermes. Do not copy them into the plugin or test fixtures.
    claim complete leadership coverage without evidence. No social login or
    outbound communication is required for this workflow.
 3. **Timed work with an explicit scope.** Preserve existing internal-analysis
-   jobs. A new versioned research mode must freeze its own reviewed tool/data
-   scope and use the supported paused-create/bind/resume path, trusted run
+   jobs. The additive versioned research mode freezes its own reviewed tool/data
+   scope and uses the supported paused-create/bind/resume path, trusted run
    identity, idempotent writes and durable unknown outcomes. Test the real due
    path and cancellation/recovery, not only job creation. Unattended jobs follow
    host cron approval policy, not interactive approval cards. Never silently

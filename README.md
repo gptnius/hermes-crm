@@ -33,9 +33,10 @@ and normal host prompts. This does not enable new capabilities or grants. See
 - Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.
 - Customization: versioned optional text/number/boolean/date/single-select fields on contacts, deals and tasks; native record forms and typed reports use the same catalog as agents. Archive retains definitions/values; used deal stages cannot be archived. See [custom fields and stages](docs/CUSTOMIZATION.md).
 - Follow-ups: timezone-aware due dates, optional human owners with an explicit workspace policy, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. A separate reviewed CRM confirmation can schedule, check or cancel that exact future assignment through the existing native conversation. Task-specific Preview/Copy remains available for manual native chat Send. See [assignment workflow](docs/ASSIGNMENT_UI.md).
-- Native Hermes: 73 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
+- Native Hermes: 83 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
+- Opt-in scheduled public research: an existing open task can target one current Contact or Company with a reviewed public question, search/extraction preset and source limit. Bound runs may save evidence and one note proposal, not apply notes or complete the task. Native controls save intent and prepare an explicit request for the existing Hermes chat; host tools/provider availability remain separate. See [workflow and limits](docs/SCHEDULED_RESEARCH_UI.md).
 - Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
 - Agent detail reads: exact ordinary notes for Contacts, Deals, Tasks, Companies and Events, plus Event outcome summaries and existing core custom fields. Reads return the current version so requested updates can preserve existing content; default summaries stay compact and scheduled scopes stay unchanged.
 - Layered protection: reduced default agent output, explicit ordinary-field reads, optional separately encrypted protected notes and encrypted CRM content exports. An offline [fresh-target content restore](docs/BACKUP_RESTORE.md) is implemented with synthetic test evidence. Keys remain user-managed; no full-host backup, live-cutover or general security guarantee. See [scope and recovery limits](docs/PROTECTION.md).
@@ -57,7 +58,7 @@ below are not claims about the current release; detailed plans and verification
 remain linked here as work progresses.
 
 **Operational release work is in progress:** current-host agent workflows,
-Company/Event detail access, a new explicitly scoped timed-research mode,
+Company/Event detail access, qualification of the new explicitly scoped timed-research mode,
 operator restore/cutover drills, credential-free CI and final native UX acceptance.
 These are separate release gates, not a production-readiness claim. Follow the
 [release readiness plan](docs/RELEASE_READINESS.md) for the execution order,
@@ -126,9 +127,10 @@ Additional work and remaining limits:
   evidence, reviewed cadences and bounded research capabilities. Consultation
   preparation should link a research task to its Event, Contact and Company,
   then retain reviewed research notes or attachments with explicit provenance.
-  The links and sourced note proposals are implemented. Automatic research,
-  broader scheduled permissions, full agent-result review closure and attachments
-  still require their own development and verification. No promise that
+  The links, sourced note proposals and opt-in timed research mode are implemented.
+  Live-provider research qualification, broader scheduled permissions, full
+  agent-result review closure and attachments require their own verification or
+  development. No promise that
   every task executes or that outages and unknown outcomes cannot occur. See
   [agent-work roadmap](docs/NEXT_RELEASE_PLAN.md).
 - **Files and links, planned:** reviewed HTTPS references and managed uploads

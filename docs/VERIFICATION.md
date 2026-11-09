@@ -2,6 +2,88 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Task-linked scheduled public research (November 9, 2026)
+
+This additive mode registers ten new tools (**83 total**) while retaining the
+existing internal-analysis assignment inventory. A reviewed intent binds an open
+Task/version, accountable human owner and current Contact/Company/version to a
+public question and future run time. Native controls save intent and prepare a
+request for explicit Copy/Paste/Review/Send in the genuine Hermes chat. Saving
+or copying does not schedule work. The host uses paused-create/bind/resume;
+unknown outcomes remain distinct and do not create replacement jobs.
+
+The corrected full local run passed **1,761 Python tests with 753 optional
+skips** and two known dependency warnings. All **48 scrubbed runner commands**
+passed: 12 generator checks, the full Python suite and 35 JavaScript/React
+commands including the required React version preflight. Native component tests
+cover exact scoped save/retry, delayed receipts across Close/remount, malformed
+nested history, stale profile/task/target, DST inputs, explicit preview/copy and
+pagination. They are not physical Desktop or accessibility acceptance.
+
+### Independent PostgreSQL and mixed regression checks
+
+The final corrected snapshot passed **1,319 mixed checks**, with two explicit
+not-applicable Contact-archive skips and no failures/errors. Focused coverage
+was **307 passes**: 269 local/SQLite/adapter/guard/protocol cases and **38 actual
+PostgreSQL cases**. All 1,012 prior mixed regressions passed again on that same
+snapshot. Do not interpret the aggregate as exclusively PostgreSQL-backed.
+The actual server was PostgreSQL 17.11 ARM64, with Python 3.12.13, SQLAlchemy
+2.1.8 and psycopg 3.3.8, in fresh tmpfs-only loopback-bound containers. All four
+initial/final owned containers were independently confirmed absent afterward.
+All 273 frozen source hashes matched the archive plus reviewed two-file test delta.
+
+The first PostgreSQL attempt stopped in fixture setup because its random schema
+name exceeded the existing domain limit. The reviewed test-only correction uses
+a shorter prefix and adds a regression against the actual validation rule; no
+runtime code changed to obtain the pass. Earlier errors are not successful
+PostgreSQL execution. The final cases cover real JSON filtering/pagination,
+schema errors, source-version gates, rollback, same-process thread concurrency,
+completed-inactive cancellation and PostgreSQL export to fresh SQLite quarantine.
+No cross-process concurrency or live user database is claimed.
+
+### Genuine pinned-host checks
+
+On official source `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, using the
+separately prepared source-pinned Python 3.14.9 runtime, the final registry and
+Company/Event workflow run passed **six checks**: two harness seams and four
+actual cases covering both `in_process` and `host` isolation. The catalog has
+83 registered tools. The actual resolver test verifies both research presets
+and `no_mcp` with a configured synthetic MCP entry, without launching that entry.
+No provider or model call is part of this registry test.
+
+The due-run fixture separately passed **three checks**: its seam and both
+isolation-mode cases through real scheduling, canonical admission, AIAgent,
+streaming tool dispatch and CRM persistence. Each mode made eight deterministic
+loopback model requests at or after the due instant, saved a supplied synthetic
+source packet, a pending note proposal and an authenticated report. Ordinary
+notes were unchanged and the business Task remained open. Extra ticks did not
+produce a duplicate; a separately cancelled future assignment did not execute.
+The four assignment-bound run tools were available and ten unrelated/write/
+browser/terminal/delegation/scheduling tools were unavailable. Cleanup verified
+no remaining jobs, fixture processes, endpoints, sockets or forbidden audit events.
+
+**No public search was performed:** `web_search` was absent in these intentionally
+credential-free profiles. The source packet and model responses were synthetic.
+These results establish scheduler/identity/data wiring, not search-provider
+readiness, reasoning quality, prompt-injection resistance, visible delivery or
+crash/restart recovery. See the [sanitized run summary](native-work-test/scheduled-research-result-summary.json).
+
+The new-mode-only guard permits one exact read-only Git version query from the
+pinned version module in the owned checkout. It retains source/fingerprint and
+caller/argument/cwd checks; the older native fixture is unchanged. Earlier failed
+fixture attempts are not passes: one encountered that version query; another
+exceeded the host discovery batch limits. Reviewed corrections added the narrow
+probe and split synthetic discovery into supported batches, without changing
+production runtime or broadening general subprocess/network/credential access.
+
+Human report-review disposition receipts remain unimplemented. A report is an
+agent claim, not host-success evidence or Task completion. Evidence/proposal
+writes are source/version bound; note application remains a separate reviewed
+action. Exports preserve the new family, and offline recovery quarantines its
+runtime rows without restoring schedule authority. A complete live-provider
+research workflow and current native visual acceptance remain release gates.
+See [implemented contract](SCHEDULED_RESEARCH_PLAN.md) and [native workflow](SCHEDULED_RESEARCH_UI.md).
+
 ## Offline fresh-target CRM content restore (November 9, 2026)
 
 The offline `python -m hermes_crm.recovery` command restores a downloaded native
@@ -50,6 +132,13 @@ The full local suite passed **1,489 tests with 709 optional skips** and two
 known dependency warnings. All **46 scrubbed runner commands** passed, including
 11 generators and the existing JavaScript/React suites. These local checks do
 not execute actual Hermes, live providers, physical dialogs or production cutover.
+
+The published recovery commit `bf48b86abc40a6bfc5830ed1d6e0fe68e8d818c5`
+also passed [Actions run 42548143056](https://github.com/gptnius/hermes-crm/actions/runs/42548143056):
+**2,180 Python tests passed, 18 skipped**, four known warnings, all 11 generators
+and 34 JavaScript/React commands passed. PostgreSQL was 16.15 x86_64 with the
+verified loopback port mapping and successful container teardown. This hosted
+result applies only to that exact recovery commit, not this later research increment.
 
 The artifact is usable fresh-target CRM content recovery, not a full-host backup,
 in-place restore, rebinding, PostgreSQL destination or production cutover. Ordinary

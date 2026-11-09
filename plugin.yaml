@@ -76,6 +76,16 @@ provides_tools:
   - crm_event_task_link
   - crm_event_task_unlink
   - crm_event_revisions
+  - crm_scheduled_research_create
+  - crm_scheduled_research_get
+  - crm_scheduled_research_list
+  - crm_scheduled_research_schedule
+  - crm_scheduled_research_reconcile
+  - crm_scheduled_research_cancel
+  - crm_scheduled_research_run_get
+  - crm_scheduled_research_evidence
+  - crm_scheduled_research_propose
+  - crm_scheduled_research_report
 config_schema:
   protection_notes_keys:
     type: secret

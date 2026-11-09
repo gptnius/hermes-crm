@@ -26,12 +26,12 @@ def descriptions(monkeypatch):
 
     ctx = Context()
     register(ctx)
-    assert len(ctx.tools) == 73
+    assert len(ctx.tools) == 83
     root = Path(__file__).resolve().parents[1]
     advertised = yaml.safe_load((root / 'plugin.yaml').read_text())['provides_tools']
-    assert len(advertised) == len(set(advertised)) == 73
+    assert len(advertised) == len(set(advertised)) == 83
     assert set(advertised) == set(ctx.tools)
-    assert 'register(ctx) registers 73 tools' in (root / 'docs/HERMES_INTEGRATION.md').read_text()
+    assert 'register(ctx) registers 83 tools' in (root / 'docs/HERMES_INTEGRATION.md').read_text()
     return {name: item['schema']['description'] for name, item in ctx.tools.items()}
 
 
@@ -68,3 +68,13 @@ def test_reduced_reads_point_to_implemented_detail_tool(monkeypatch):
     for name in ('crm_contact_get', 'crm_deal_get', 'crm_task_get'):
         assert 'Use crm_record_fields' in tools[name]
     assert 'Cannot access protected notes' in tools['crm_record_fields']
+
+
+def test_scheduled_research_is_distinct_opt_in_capability(monkeypatch):
+    tools=descriptions(monkeypatch)
+    assert 'existing open task' in tools['crm_scheduled_research_create']
+    assert 'approved input to external research tools' in tools['crm_scheduled_research_create']
+    assert 'Cron approval policy is unattended' in tools['crm_scheduled_research_schedule']
+    assert 'not an interactive approval prompt' in tools['crm_scheduled_research_schedule']
+    assert 'Never applies notes' in tools['crm_scheduled_research_propose']
+    assert 'not task or host completion' in tools['crm_scheduled_research_report']
