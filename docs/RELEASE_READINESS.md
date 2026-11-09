@@ -46,8 +46,9 @@ Hermes. Do not copy them into the plugin or test fixtures.
    targets and interrupted recovery must fail clearly. Until this passes,
    encrypted content export is not a full backup or operational restore promise.
 5. **Repeatable checks.** Run credential-free SQLite/PostgreSQL, tool/API, React
-   and generator contracts on the candidate commit. Add read-only-permission CI
-   without secrets/deployment access, then inspect the actual remote run. Keep
+   and generator contracts on the candidate commit. The [CI definition](CI.md)
+   uses read-only permissions without secrets/deployment access; inspect the
+   actual remote run before treating this gate as complete. Keep
    skipped live-host/browser cases visible. A workflow file alone is not green CI.
 6. **Human acceptance.** Inspect the installed current build in light/dark and
    narrow layouts, including forms, drawers, empty/error/loading states,

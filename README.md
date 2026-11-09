@@ -42,6 +42,12 @@ and normal host prompts. This does not enable new capabilities or grants. See
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
 - Optional Gmail metadata history: default off, manual own-mailbox verification and reviewed contact/date reads through host-owned OAuth, a separate durable ledger and native contact timeline. Synthetic tests only; no live account connected or verified. See [setup and limits](docs/GMAIL_SETUP.md).
 
+**Checks:** a [credential-free CI workflow](docs/CI.md) runs the supported
+contract suites with read-only repository permissions and a disposable PostgreSQL
+service. It does not deploy or use provider credentials. Check the actual run for
+the exact commit; local passes and a workflow definition are not green hosted CI
+or live-host acceptance.
+
 See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [the next-release agent-work roadmap](docs/NEXT_RELEASE_PLAN.md), [architecture and safety](docs/ARCHITECTURE.md), [Hermes integration](docs/HERMES_INTEGRATION.md) and [verification report](docs/VERIFICATION.md).
 
 ## Development roadmap

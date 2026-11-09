@@ -2,6 +2,40 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Credential-free CI definition and local runner (November 9, 2026)
+
+The workflow uses read-only repository permissions, nonpersistent checkout
+credentials, SHA-pinned official actions, no secrets/OIDC/deployments and a
+fresh PostgreSQL 16 job service. It does not use `pull_request_target`. The runner
+constructs a fresh HOME/HERMES_HOME and a narrow child environment rather than
+inheriting provider/database settings, source/E2E flags or Node/Python preloads.
+This is environment hygiene, not an OS/network sandbox for untrusted code.
+
+Independent review found and fixed a PostgreSQL URL validation bypass: a query
+parameter could override a loopback URL's host. The runner now accepts a narrow
+unambiguous loopback grammar and rejects query/fragment components, escapes,
+whitespace and invalid ports before subprocess execution. **36 local runner
+regressions passed**, including redacted validation errors, environment canaries,
+child failure and timeout handling. No database connection was needed to verify
+this fix; accepted forms were compared with SQLAlchemy connection arguments.
+
+The local all-suite runner completed **46 commands**: 11 generator checks, full
+pytest, a required React/react-test-renderer 19.3.0 version check, 21 executable
+module suites and 12 CommonJS suites. The initial working-tree aggregate was
+1,425 Python passes/696 optional skips; after the runner regressions were added,
+the full scrubbed Python rerun passed **1,461 tests with 696 optional skips** and
+two known dependency warnings. These counts include the detail-reader increment.
+
+The exact-host-only JavaScript entrypoint, physical Playwright layout fixture and
+artifact-only/helper entrypoints are explicitly excluded. Python host/model E2E
+and optional JS source checks retain their skip/exclusion reasons. The workflow
+passes its own disposable PostgreSQL URL, but that PostgreSQL 16 service and
+GitHub-hosted execution have **not been verified by these local runs**. Earlier
+PostgreSQL 17.11 checks and genuine-host evidence above/below retain their own
+scope. Inspect the actual Actions result for the exact public commit before
+calling CI green. This configuration neither changes branch protection nor
+publishes/deploys software. See [CI coverage and reproduction](CI.md).
+
 ## Company/Event detail reads and actual-host workflow (November 9, 2026)
 
 This increment uses public baseline
