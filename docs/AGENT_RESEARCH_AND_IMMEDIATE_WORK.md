@@ -5,6 +5,16 @@ reference host is exactly
 `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. No user account, browser profile,
 provider grant, scheduled job or production setting was changed for this plan.
 
+## Interactive requests are not the scheduled-analysis mode
+
+A user can ask the existing interactive Hermes agent to research or perform other
+supported work using its actual available tools. Do not apply this document's
+frozen scheduled-mode limits to every conversation. If a tool, account or approval
+is missing, identify the specific next step instead of refusing the whole goal;
+continue permitted work. These instructions do not grant new access or make an
+unimplemented feature available. Preserve direct user send review and host
+safeguards. See [agent assistance](AGENT_ASSISTANCE.md).
+
 ## What works today
 
 CRM can sit beside the genuine existing Hermes conversation. Reviewed record
@@ -86,8 +96,10 @@ security boundary.
 There are two distinct development options:
 
 1. **Interactive public-web research.** Use the genuine native conversation and
-   an explicitly authorized, actually isolated environment. Verify the browser
-   backend and complete effective tool inventory first. Do not copy credentials,
+   the selected environment and its available authorized tools. For disposable
+   integration tests, use an actually isolated environment and verify the browser
+   backend and effective tool inventory. Isolation is a test condition here, not
+   a new prerequisite imposed on every interactive research request. Do not copy credentials,
    reuse personal browser cookies, install paid services, weaken security/network
    settings, fill forms, submit messages, or assume access to a particular site.
    Any necessary login, credential, new grant or broader capability is a separate

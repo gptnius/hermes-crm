@@ -16,7 +16,7 @@ Primary sources:
 
 ## Native registration
 
-The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 42 tools. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
+The root entry point uses a relative package import because Hermes loads plugin packages in its own namespace, not by adding the checkout directory to sys.path. register(ctx) registers 73 tools, matching `plugin.yaml`. This is the registered catalog, not a claim that every tool is enabled in every conversation. Tool handlers accept `(args, **kwargs)` and return a JSON string. Dependencies are declared in pyproject.toml.
 
 Read toolset crm_read: crm_contact_report, crm_contact_list, crm_contact_get, crm_deal_list, crm_deal_get, crm_task_list, crm_task_get, crm_overview.
 

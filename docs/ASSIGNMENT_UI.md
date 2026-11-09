@@ -61,6 +61,22 @@ From the ordinary CRM view, a request action first opens the verified companion;
 
 Preparation lives only in the mounted CRM view. Closing it, switching scope or discarding it does not cancel work already saved elsewhere. A selectable preview might have been copied manually, so editing a previously exposed request retains a warning and references the earlier keys. It never assumes an earlier request was unsent or safe to replace.
 
+### Interactive help follows the user's request
+
+**Ask for help now** uses the available tools in the current native conversation,
+not the frozen tool scope of future internal analysis. It can ask the agent to
+research, make specified record edits, schedule requested work or complete a
+specifically identified task, subject to actual capabilities and normal approvals.
+It does not authorize those actions merely because the panel was opened.
+External sending retains direct user review/approval of recipient, account and
+content; research or drafting alone is not a send request.
+
+When a step is unavailable, the prepared instructions ask the agent to name the
+missing feature, host tool, account connection or permission, offer the exact next
+step and continue independent permitted work. No tool is enabled automatically,
+and task completion is not inferred from an analysis result. See
+[agent assistance](AGENT_ASSISTANCE.md).
+
 ## Saving and scheduling are separate
 
 Direct **Save future assignment** is the shortest path to real saved intent. The older future-preparation option also remains available: it asks the real native agent to call `crm_work_create` and save intent only. It must return the assignment ID and actual saved state. Refresh saved history to see that evidence; copying a request does not create a history row or scheduling badge.

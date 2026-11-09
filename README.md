@@ -8,6 +8,16 @@ A small, local-first CRM that your existing Hermes agent can use. Contacts, pipe
 
 **New here? Read the [setup and user guide](docs/USER_GUIDE.md)** for installation, feature walkthroughs, agent examples, reporting, optional integrations and troubleshooting.
 
+## Agent assistance
+
+HermesCRM is designed to help an agent carry out the user's explicit requests,
+using the current conversation's available tools. Interactive help is not limited
+to the separate scheduled internal-analysis mode. If a step needs a missing tool,
+account connection or permission, explain that exact need and continue the useful
+work that can proceed. Preserve direct user send review, applicable safeguards
+and normal host prompts. This does not enable new capabilities or grants. See
+[agent assistance and capability choices](docs/AGENT_ASSISTANCE.md).
+
 ## What works
 
 - Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.

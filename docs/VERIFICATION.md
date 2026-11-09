@@ -1,6 +1,38 @@
 # Verification report
 
-Updated November 8, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
+Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
+
+## Interactive assistance guidance (November 9, 2026)
+
+This focused increment uses public baseline
+`f58f7a3f1555599f8a1db2ddabf8bf01b94ac52f` (tree
+`6c6f4d135e36bcd15354bdc7bf17bba75f42b72e`). It removes an unnecessary blanket
+restriction in the interactive **Ask for help now** preview and makes selected
+tool descriptions point to available research/detail routes. It preserves direct
+user review before sending, normal host approvals and exact request scope.
+It does not change scheduled prompts/toolsets, record/version checks, schemas,
+credentials, retries or actual dispatch behavior.
+
+Cloud verification passed **1,377 Python tests**, with **680 optional skips** and
+two known dependency warnings. Three new registration/guidance contracts check
+research routes, explicit scheduling intent, preserved approval wording, exact
+registered/manifest tool inventory and unchanged frozen scheduled scope. The
+registered inventory is 73; the stale integration-guide count was corrected.
+Registration is not proof that a tool is enabled in a particular conversation.
+Actual React assignment fixtures cover interactive research, reviewed external
+sending, scheduling and task-completion requests without invoking an action.
+They assert the specific missing-tool/account/permission guidance, unchanged
+future-mode limits, no native composer access and no automatic submission.
+
+The **22 non-render module entrypoints** completed: 21 passing suites and one
+exact-host-source skip. Two additional optional source assertions skipped.
+**12 supported CommonJS entrypoints**, **11 generators**, syntax and whitespace
+checks passed. Independent source review found no blocking issue. These are
+prompt/description and component behavior tests, not evidence of live model
+obedience, current-host execution or external sending. No new PostgreSQL run was
+needed for description-only Python changes; prior backend results retain their
+original scope. No user app/profile or permission was changed. No green hosted
+CI or production-readiness claim is made. See [agent assistance](AGENT_ASSISTANCE.md).
 
 ## Sourced evidence and reviewed note proposals (November 8, 2026)
 

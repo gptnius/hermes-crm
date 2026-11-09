@@ -354,6 +354,12 @@ an existing primary Hermes conversation in the same connection/profile, then
 choose **Chat with Hermes** to open CRM beside it. No new model configuration is
 required by CRM.
 
+An explicit request supplies intent for its stated scope. The agent should use
+available tools to help, explain the specific missing feature/access when needed,
+and ask only for a missing approval rather than impose a blanket research ban.
+Normal host prompts, version checks and direct user review before external sending
+remain. See [how agent assistance handles capabilities](AGENT_ASSISTANCE.md).
+
 You can ask, for example:
 
 - “Create a CRM contact named Demo Buyer with email buyer@example.com and
