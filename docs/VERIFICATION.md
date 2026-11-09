@@ -2,6 +2,55 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Company/Event detail reads and actual-host workflow (November 9, 2026)
+
+This increment uses public baseline
+`7363fce95965cd4c16a69ae86080a33b173501c7` (tree
+`2ccd24bd5012ca135f3050a45ac86a614d093798`). The existing `crm_record_fields`
+reader now supports exact Company notes and Event notes/outcome summaries,
+returning their current version. Default summaries, protected-note boundaries,
+registered tool count, frozen scheduler toolsets and update/version checks are
+unchanged. Schema validation, workspace/profile resolution and the row read share
+one read-only snapshot; absent stores remain uninitialized.
+
+The final cloud suite for this increment passed **1,425 Python tests**, with
+**696 optional cases skipped** and two known dependency warnings. The separately
+developed CI-runner tests were excluded from that count because they are not part
+of this package. Runtime, test and manifest bytes match the frozen snapshot used
+for PostgreSQL and actual-host verification below. This increment changes no
+native UI source.
+
+Independent review and disposable PostgreSQL 17.11 ARM64 verification passed
+**943 mixed checks with no failures/skips**: 62 focused checks (47 local detail
+cases, 14 PostgreSQL cases and one harness-fingerprint seam) plus all 881 prior
+mixed cases. Six additional local semantic/HTTP-to-JavaScript/catalog checks
+passed separately. Do not describe these as 943 exclusively PostgreSQL-backed
+tests. Both owned fresh tmpfs-only loopback containers were removed and confirmed
+absent; all frozen source hashes were verified.
+
+A new genuine-host synthetic workflow passed in **both in-process and hosted
+plugin modes** against exact Hermes source
+`2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`. It uses real discovery/registry dispatch,
+not adapter stubs, to verify the 73 advertised names, explicit Company/Contact
+creation, scoped current-note reads, preservation/stale-write rejection, supplied
+research evidence and note proposal, local Event/owned task and self-reported outcome. Registered tools are not proof that all are enabled in any given
+conversation. The fingerprint seam was rerun with these two modes; it is already
+counted above and is not an extra new pass.
+
+The first host attempts stopped before discovery because the test body imported
+an unavailable YAML parser. A reviewed two-line test-only correction uses the
+host's installed safe ruamel.yaml loader. The guard, isolated environment, harness
+and workflow assertions were unchanged. Final host runs used Python 3.14.9 with
+SQLAlchemy 2.1.8 and ruamel.yaml 0.18.16. All initial/final owned guarded processes
+exited; no sockets, jobs files or forbidden-action logs remained.
+
+This is real host tool/data integration with synthetic records. It does not run
+a model, fetch the supplied example URL, apply the research proposal, invite
+anyone, send a message, schedule the task or validate physical UI behavior. No
+user app/profile, credentials, grants or provider settings changed. A live public
+research/model/UI workflow and operational restore remain distinct release gates
+in the [readiness plan](RELEASE_READINESS.md).
+
 ## Interactive assistance guidance (November 9, 2026)
 
 This focused increment uses public baseline

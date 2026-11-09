@@ -141,6 +141,17 @@ and outcome text; no protected data, mailbox credentials or provider capability
 is exposed. Existing scheduled `crm_read` and internal-work allowlists are
 unchanged. Agent text and record notes are untrusted data, not instructions.
 
+For a requested read or update that needs existing text, use `crm_record_fields`
+in the separate `crm_detail_read` toolset. Select `kind=companies` with `notes`,
+or `kind=events` with `notes` and/or `outcome_summary`. It returns only the selected
+ordinary fields and the current version, so the agent can preserve existing
+content before an explicit update. A never-completed or reopened Event has a
+null current outcome summary; an old outcome remains history, not the current
+result. Archived Company notes remain readable. Company/Event custom fields,
+wildcards and protected notes are not supported by this reader. Reads do not
+create tables or change records. Existing version checks still reject stale
+updates, and no scheduled toolset is widened.
+
 Typed reports now support Companies and Events, plus distinct linked Company
 ID/name fields on existing records. The old contact `company` report field still
 means stored text. Group by stable Company ID when names are duplicated. Filters

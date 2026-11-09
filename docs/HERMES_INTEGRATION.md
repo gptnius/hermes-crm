@@ -34,7 +34,11 @@ See [customization contracts](CUSTOMIZATION.md).
 
 Base read/write outputs omit ordinary notes and custom values. Exact ordinary
 field selection uses `crm_record_fields` in separate `crm_detail_read`; it is not
-added to fixed scheduled allowlists. Optional protected notes have no agent
+added to fixed scheduled allowlists. The supported kinds are Contacts, Deals,
+Tasks, Companies and Events. Exact ordinary `notes` are available for all five;
+`custom.<known_key>` is limited to Contacts/Deals/Tasks and `outcome_summary` to
+Events. Reads share a schema/scope/row snapshot, return the current version and
+do not initialize absent relationship storage. Optional protected notes have no agent
 tool. Native protection routes use profile-scoped `get_secret` for dedicated
 keyrings and the supported optional `captureGatewayFileDownload` SDK helper for
 explicit encrypted export downloads. No real keys are created or configured;

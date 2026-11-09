@@ -37,6 +37,7 @@ and normal host prompts. This does not enable new capabilities or grants. See
 - Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
 - Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
 - Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
+- Agent detail reads: exact ordinary notes for Contacts, Deals, Tasks, Companies and Events, plus Event outcome summaries and existing core custom fields. Reads return the current version so requested updates can preserve existing content; default summaries stay compact and scheduled scopes stay unchanged.
 - Layered protection: reduced default agent output, explicit ordinary-field reads, optional separately encrypted protected notes and encrypted CRM content exports. Keys remain user-managed; no full restore or general security guarantee. See [scope and recovery limits](docs/PROTECTION.md).
 - SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
 - Optional Gmail metadata history: default off, manual own-mailbox verification and reviewed contact/date reads through host-owned OAuth, a separate durable ledger and native contact timeline. Synthetic tests only; no live account connected or verified. See [setup and limits](docs/GMAIL_SETUP.md).
@@ -48,6 +49,13 @@ See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [the next-release
 This README is the priority index for future development. Planned capabilities
 below are not claims about the current release; detailed plans and verification
 remain linked here as work progresses.
+
+**Operational release work is in progress:** current-host agent workflows,
+Company/Event detail access, a new explicitly scoped timed-research mode,
+non-destructive backup/restore, credential-free CI and final native UX acceptance.
+These are separate release gates, not a production-readiness claim. Follow the
+[release readiness plan](docs/RELEASE_READINESS.md) for the execution order,
+integration/permission limits and required evidence.
 
 1. **Custom fields and stages, first increment implemented.** Typed optional fields for contacts,
    deals and tasks; configurable deal stages with stable identities and explicit

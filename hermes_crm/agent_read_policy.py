@@ -107,18 +107,31 @@ def read_record_fields(crm, *, kind, id, fields):
     A missing value for a known custom field is represented as null.
     """
     import re
-    if kind not in {'contacts', 'deals', 'tasks'}:
+    if kind not in {'contacts', 'deals', 'tasks', 'companies', 'events'}:
         raise CRMError('Invalid record kind')
     if not isinstance(id, str) or not 1 <= len(id) <= 36:
         raise CRMError('Invalid record ID')
     if not isinstance(fields, list) or not 1 <= len(fields) <= 20:
         raise CRMError('Request between 1 and 20 exact field paths')
-    if any(not isinstance(path, str) or not re.fullmatch(
+    relationship_fields = {'companies': {'notes'}, 'events': {'notes', 'outcome_summary'}}
+    if kind in relationship_fields:
+        if any(not isinstance(path, str) or path not in relationship_fields[kind] for path in fields):
+            raise CRMError('Only exact ordinary fields for this record kind may be requested')
+    elif any(not isinstance(path, str) or not re.fullmatch(
             r'notes|custom\.[a-z][a-z0-9_]{0,63}', path) for path in fields):
         raise CRMError('Only notes or custom.<known field key> may be requested')
     if len(set(fields)) != len(fields):
         raise CRMError('Duplicate requested field paths')
     with crm._read_connection() as conn:
+        if kind in relationship_fields:
+            from .companies import CompanyStore
+            from .events import EventStore
+            store = CompanyStore(crm) if kind == 'companies' else EventStore(crm)
+            # Schema validation, scope resolution and the versioned row share one
+            # read-only snapshot. Never initialize relationship tables on reads.
+            record = store.get(id, include_text=True, conn=conn)
+            return dict(id=record['id'], version=record['version'],
+                        fields={path: record[path] for path in fields})
         known = {field['key'] for field in crm.catalog(conn)['fields'][kind]}
         if any(path.startswith('custom.') and path[7:] not in known for path in fields):
             raise CRMError('Unknown custom field requested')
