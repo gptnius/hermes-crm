@@ -12,7 +12,7 @@ feature. Existing records are not migrated or erased.
 | Default agent output | Base contact/deal/task reads and mutation responses omit ordinary notes and all custom values; overview omits audit/backend/workspace internals. | Names, email, company, titles, stages, dates and aggregate counts remain visible. Not record authorization or a sensitive-data classifier. |
 | Explicit ordinary-field read | `crm_record_fields` in `crm_detail_read` accepts exact `notes` for Contacts/Deals/Tasks/Companies/Events, `custom.<known_key>` for Contacts/Deals/Tasks, or `outcome_summary` for Events. It returns the current record version. | No wildcard, protected-note or arbitrary path access. Granting this tool permits ordinary-data reads; it is not a human-consent check. |
 | Protected notes | A separate optional note per contact, deal or task is authenticated-encrypted before database persistence. Native controls require explicit reveal. | Ordinary Notes and custom fields remain unchanged and plaintext. Running host code and the local OS user can access configured keys. |
-| Encrypted export | Explicit native action creates an encrypted consistent snapshot of known CRM tables, then offers the host's native Save dialog. | Not a full Hermes backup, live restore, or proven disaster-recovery system. Keys, host files and attachments are excluded. |
+| Encrypted export | Explicit native action creates an encrypted consistent snapshot of known CRM tables, then offers the host's native Save dialog. | Offline fresh-target SQLite content restore is available; not a full Hermes backup, live restore, or proven disaster-recovery system. Keys, host files and attachments are excluded. |
 | Profile and version checks | Existing authenticated native transport, connection generation, workspace token and expected record/note versions apply. | No new human identity, shared-user roles or tenant authorization is introduced. |
 
 The dedicated field-reading tool is not added to fixed scheduled reminder or
@@ -68,7 +68,7 @@ this increment's tests. Keep recoverable copies of both rings outside the
 exported data, according to your own access and backup policy. Replacing the
 active ID does not re-encrypt old notes or exports. Removing an old key can make
 old data and replay verification permanently unavailable. There is no automated
-key rotation, escrow, revocation or recovery workflow.
+key rotation, escrow, revocation or key-recovery workflow.
 
 ## Native protected-note workflow
 
@@ -138,21 +138,29 @@ capturing a newer snapshot after cleanup or an interrupted write. A missing or
 unverified artifact remains unresolved; it is not recreated by that check.
 
 `decrypt_export_artifact` provides offline authenticated inspection and payload
-shape validation. **There is no restore endpoint or supported import-back
-workflow.** A successful encrypted export is not proof that a live datastore,
-provider integration, scheduled job or entire Hermes installation can be
-restored. Backup/restore drills remain a release gate.
+shape validation. The [offline restore CLI](BACKUP_RESTORE.md) implements usable
+CRM content recovery into a new SQLite target, with synthetic service read/write
+and failure-path evidence. It preserves safe local receipts, validates schema,
+references and retained note keys, and quarantines execution/provider history.
+Ordinary fields and notes are plaintext in the recovered database; protected
+notes remain encrypted. There is no in-place restore, restore UI or automatic
+live cutover. A successful export/restore is not proof of a complete Hermes
+backup: export v1 has no separate full-table inventory, so a completely omitted
+optional family cannot be detected. Real-data/host disaster and cutover drills
+remain release gates.
 
 Recovery also requires the original workspace identity and exact profile name.
 Renaming a profile or moving rows into a fresh workspace prevents normal note
-reveal. The export context records the original identities, but any recovery or
-rebinding must be separately designed and reviewed. The export key decrypts the
+reveal. The restore preserves the original identities; profile rebinding and
+PostgreSQL destinations are unsupported. Before connecting a recovered copy to
+a live host, the operator must stop/fence source jobs, dispatches and writes and
+reconcile uncertain external operations. Recovery does not cancel host jobs. The export key decrypts the
 outer snapshot only: protected-note rows still require their retained notes
 keys. Do not discard either ring or assume a fresh profile can open copied rows.
 
 ## Remaining work
 
-- Tested restore, recovery drills, key rotation and profile-rename/rebinding.
+- Real-host cutover/disaster drills, key rotation and profile-rename/rebinding.
 - Durable policy enforcement for records/fields across all agent, report and
   delegated-execution paths, with human roles where needed.
 - Inventory and retention controls across transcripts, journals, earlier

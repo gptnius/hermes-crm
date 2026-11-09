@@ -2,6 +2,67 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Offline fresh-target CRM content restore (November 9, 2026)
+
+The offline `python -m hermes_crm.recovery` command restores a downloaded native
+encrypted CRM export into a **new SQLite directory**, using explicit original
+workspace/profile and retained export/notes keyrings. It validates authentication,
+known schema/type/unique/FK contracts and note context before creating output.
+Recovered services support content reads and fresh version-checked writes; safe
+local retry receipts are preserved. Source schedule fields and runtime/provider
+rows remain in inspection-only `recovery_*` tables. Operational tasks have their
+schedule binding cleared and changed tasks receive a new version; native-work,
+experimental execution and Gmail runtime tables start empty.
+
+Focused command (set an explicit disposable PostgreSQL URL for portability):
+
+```sh
+python -m pytest -q tests/test_recovery.py tests/test_recovery_postgres.py tests/test_protection.py
+```
+
+The initial local run passed **56 cases** with 13 PostgreSQL cases skipped.
+The independently verified frozen snapshot then passed **69 focused checks**:
+27 SQLite recovery, 13 actual PostgreSQL-source → SQLite-destination recovery,
+and 29 local protection cases, with no failures or skips. PostgreSQL was 17.11
+ARM64 in a fresh tmpfs-only, loopback-bound disposable container. The subsequent
+943 prior mixed regression checks also passed: **1,012 mixed checks total**, not
+1,012 exclusively PostgreSQL-backed cases. Both owned containers were removed
+and all 253 frozen source hashes remained unchanged.
+
+Reproduce the PostgreSQL source contracts using an owned disposable database:
+
+```sh
+HERMES_CRM_TEST_POSTGRES_URL=postgresql+psycopg://localhost/disposable_crm python -m pytest -q tests/test_recovery_postgres.py
+```
+
+Every PostgreSQL case creates and drops its own random schema. No source host,
+provider, key provisioning or active app is used. Those cases reuse contracts for
+protected notes and rotated retained keys, local receipt replay, relationships,
+reports/research and fresh writes, runtime quarantine, six authentication
+failures, invalid references, no overwrite and interrupted output. An additional
+ownership/customization case verifies policy and schema receipts, typed values,
+deals, current-version writes and unchanged source rows. This case passed on
+both its actual PostgreSQL source and a separate synthetic SQLite smoke run.
+The base SQLite cases additionally cover malformed authenticated snapshots, CLI
+input sanitization and path punctuation without redirecting the database.
+
+The full local suite passed **1,489 tests with 709 optional skips** and two
+known dependency warnings. All **46 scrubbed runner commands** passed, including
+11 generators and the existing JavaScript/React suites. These local checks do
+not execute actual Hermes, live providers, physical dialogs or production cutover.
+
+The artifact is usable fresh-target CRM content recovery, not a full-host backup,
+in-place restore, rebinding, PostgreSQL destination or production cutover. Ordinary
+recovered notes/fields are plaintext; protected notes remain encrypted and require
+the original exact scope and retained keys. Export v1 lacks a separately
+authenticated full-table inventory: a wholly omitted optional family cannot be
+distinguished from one never initialized. No claim of complete installation
+backup follows from a successful restore. Operators must stop/fence old jobs,
+dispatches and writes and reconcile uncertain external outcomes before live
+cutover under the preserved workspace identity. Source host jobs are neither
+exported nor cancelled. Real-data, real-host disaster and live-cutover drills
+remain **unverified**. See [procedure and boundaries](BACKUP_RESTORE.md).
+
 ## Credential-free CI definition and local runner (November 9, 2026)
 
 The workflow uses read-only repository permissions, nonpersistent checkout
@@ -35,6 +96,19 @@ PostgreSQL 17.11 checks and genuine-host evidence above/below retain their own
 scope. Inspect the actual Actions result for the exact public commit before
 calling CI green. This configuration neither changes branch protection nor
 publishes/deploys software. See [CI coverage and reproduction](CI.md).
+
+### Independently verified hosted run
+
+The exact public CI commit `5bf345f23e58abd746b5897863458f026ff80435`
+passed [Actions run 42547059580](https://github.com/gptnius/hermes-crm/actions/runs/42547059580).
+Actual hosted Python results: **2,140 passed, 18 skipped**, four known warnings.
+All 11 generator commands, the Python command and 34 JavaScript/React commands
+passed. Docker output verified the explicit `127.0.0.1:5432:5432` mapping;
+the service ran PostgreSQL **16.15 x86_64** and container teardown succeeded.
+This result is for that exact commit, not later untested changes or live-host gates.
+The runner emitted a nonblocking compatibility annotation because the pinned
+actions target Node 20 and were run on Node 24; action-version maintenance is a
+separate follow-up, not a failed check or reason to grant more permissions.
 
 ## Company/Event detail reads and actual-host workflow (November 9, 2026)
 
@@ -82,7 +156,7 @@ This is real host tool/data integration with synthetic records. It does not run
 a model, fetch the supplied example URL, apply the research proposal, invite
 anyone, send a message, schedule the task or validate physical UI behavior. No
 user app/profile, credentials, grants or provider settings changed. A live public
-research/model/UI workflow and operational restore remain distinct release gates
+research/model/UI workflow and real-host restore/cutover drill remain distinct release gates
 in the [readiness plan](RELEASE_READINESS.md).
 
 ## Interactive assistance guidance (November 9, 2026)
@@ -183,8 +257,9 @@ assistive-technology behavior and live public-source research remain **unverifie
 for this increment**. The user's running application, records, profiles and
 credentials were not changed. Research content remains ordinary plaintext in the
 live database, and host conversations/tool logs may retain independent copies.
-Encrypted content export includes research tables but remains neither a full
-backup nor a tested restore workflow. General attachments, broader research
+Encrypted content export includes research tables. The later offline content
+restore increment above supersedes this increment's lack of restore coverage;
+it remains distinct from a full backup or live-host recovery drill. General attachments, broader research
 execution, outbound email and agent-result review closure remain separate work.
 See [research evidence and boundaries](RESEARCH_EVIDENCE.md).
 
@@ -245,8 +320,8 @@ assistive-technology behavior remain **unverified for this increment**. No live
 app activation or user-policy setting is implied. In-app draft recovery is not a
 durable offline draft store; task API/tool keys remain optional, and unkeyed
 uncertain writes have no receipt-replay guarantee. Encrypted content export
-includes the four ownership tables but remains neither a complete backup nor a
-tested restore workflow. See [task ownership and boundaries](TASK_OWNERSHIP.md).
+includes the four ownership tables. Later offline content restore coverage is
+recorded above; neither increment establishes a complete backup or live cutover. See [task ownership and boundaries](TASK_OWNERSHIP.md).
 
 ## Assignment evidence navigation and workflow audit
 
@@ -848,7 +923,8 @@ Verification on November 7, 2026:
 Real key provisioning/external secret-source integration was not exercised.
 The tested host's masked configuration can use plaintext `.env`; neither masking
 nor a copied home directory is a verified key-custody boundary. Profile rename,
-rekeying and supported restore/rebinding remain unimplemented. Physical native
+rekeying and rebinding remain unimplemented. The later offline content restore
+increment above adds fresh-target SQLite recovery without live cutover. Physical native
 Save-dialog/focus/Escape testing, wider accessibility and full recovery drills
 remain pending. No private profile, provider, mailbox or production datastore
 was used by these checks.

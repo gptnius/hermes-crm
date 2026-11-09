@@ -38,13 +38,17 @@ Hermes. Do not copy them into the plugin or test fixtures.
    path and cancellation/recovery, not only job creation. Unattended jobs follow
    host cron approval policy, not interactive approval cards. Never silently
    change global approval policy or inherit new MCP tools.
-4. **Usable backup and recovery.** Deliver and rehearse a non-destructive restore
-   into a fresh target, with key availability, schema/FK consistency, original
-   provenance, record/report/relationship reads and fresh writes verified. Preserve
-   safe local retry receipts. Quarantine execution/provider state and fence old
-   jobs before any cutover. Wrong/missing keys, incomplete exports, existing
-   targets and interrupted recovery must fail clearly. Until this passes,
-   encrypted content export is not a full backup or operational restore promise.
+4. **Usable backup and recovery.** Fresh-target SQLite CRM content restore is
+   implemented with synthetic evidence for retained-key validation, schema/FK
+   consistency, provenance, service reads/writes, local receipt replay and runtime
+   quarantine. See [the restore procedure](BACKUP_RESTORE.md) and [verification](VERIFICATION.md).
+   Real-data/host disaster and live-cutover drills remain unverified. Retain exact
+   source workspace/profile and keyrings; stop/fence source jobs, dispatches and
+   writes and reconcile uncertain external operations before any live cutover.
+   Ordinary recovered fields are plaintext; protected notes remain encrypted.
+   Export v1 cannot detect a wholly omitted optional family without a separate
+   full-table inventory. No in-place restore, rebinding, PostgreSQL destination
+   or full-host backup claim is made.
 5. **Repeatable checks.** Run credential-free SQLite/PostgreSQL, tool/API, React
    and generator contracts on the candidate commit. The [CI definition](CI.md)
    uses read-only permissions without secrets/deployment access; inspect the

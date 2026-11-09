@@ -505,11 +505,17 @@ when its separate toolset is allowed. Protected notes have no model tool.
 Encrypted export prepares a ciphertext-only CRM table snapshot, then offers an
 explicit native download. Cancellation does not delete the prepared artifact.
 The app does not infer that a file was saved merely because the dialog request
-finished. There is no restore workflow. Retain both notes and export keys plus
+finished. An [offline fresh-target SQLite content restore](BACKUP_RESTORE.md) is
+available with synthetic test evidence. It does not restore a whole Hermes host,
+merge into an existing database or perform live cutover. Ordinary notes remain
+plaintext; protected notes stay encrypted. Retain both notes and export keys plus
 the original workspace/profile identities; renaming a profile or copying rows
 to a fresh workspace can prevent normal reveal. The export key alone cannot
 decrypt protected-note rows. Read [protection setup, limits and recovery](PROTECTION.md)
-before using either feature with valuable data.
+before using these features with valuable data. The restore preserves source
+workspace/profile identity. Stop/fence source jobs and writes and reconcile
+uncertain external operations before operator-approved live cutover; recovery
+does not stop source jobs. Real-host cutover and disaster drills remain unverified.
 
 ## Storage, profiles and backups
 
@@ -527,7 +533,11 @@ Before an update or storage experiment, back up the intended workspace using a
 consistent SQLite backup or your database administrator's PostgreSQL backup
 procedure. Do not copy a live SQLite main file alone while writers are active;
 journal/WAL state can matter. Keep backups private and outside the source repo.
-There is no built-in backup, restore, export/import or schema-migration UI.
+Native encrypted content export and contact CSV transfer have their own UI.
+Content restore is an offline CLI into a fresh SQLite target, not an in-place
+restore, PostgreSQL destination or full-host backup UI. Export v1 cannot detect a
+completely omitted optional table family because it has no separate full-table
+inventory. Keep full database/host backup procedures alongside content exports.
 
 ### Optional PostgreSQL / Supabase PostgreSQL
 
@@ -602,7 +612,8 @@ before configuring one.
   unsuitable chart results are labelled rather than presented as complete.
 - No direct native prompt submission, hidden session, automatic provider setup,
   automatic retry of unknown scheduling, or enabled Run now bridge.
-- No general downgrade/restore workflow or migration from another CRM. Specific
+- No in-place restore, automatic cutover, general downgrade or migration from
+  another CRM. Offline fresh-target content restore is separate. Specific
   additive upgrades preserve existing rows; unsupported stored schemas fail
   closed rather than being silently repaired.
 
