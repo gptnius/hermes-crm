@@ -102,12 +102,12 @@ config_schema:
     choices: [sqlite, postgres]
     default: sqlite
     label: Storage backend
-    description: SQLite is local to this profile. PostgreSQL is explicit and never falls back.
+    description: SQLite is local to this gateway/profile. PostgreSQL is explicit and never falls back. Switching does not migrate records.
   database_url:
     type: secret
     env: HERMES_CRM_DATABASE_URL
     label: PostgreSQL connection URL
-    description: Optional. Used only when PostgreSQL is selected. Keep credentials in the host secret store.
+    description: Used only for PostgreSQL. Enter a database URL here, not in CRM records. This masked host field may be stored in plaintext .env; masking is not encryption.
 # Optional user-managed protection keyrings; no provider credentials.
 optional_env:
   - name: HERMES_CRM_NOTES_KEYS

@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_JS = {
     'native_research_contract.mjs': 'import-only shared fixture helper',
     'render_relationship_fixtures.mjs': 'render artifact generator, not assertions',
+    'render_storage_fixtures.mjs': 'render artifact generator, not assertions',
     'native_desktop_work_commands_host.mjs': 'requires separately verified Hermes source',
     'workbench_navigation_layout.cjs': 'requires separately installed Chromium/Playwright',
     'contact_detail_grid_rendered.cjs': 'requires separately installed Chromium/Playwright and browser-capable execution',

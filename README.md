@@ -44,7 +44,7 @@ and normal host prompts. This does not enable new capabilities or grants. See
 - Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
 - Agent detail reads: exact ordinary notes for Contacts, Deals, Tasks, Companies and Events, plus Event outcome summaries and existing core custom fields. Reads return the current version so requested updates can preserve existing content; default summaries stay compact and scheduled scopes stay unchanged.
 - Layered protection: reduced default agent output, explicit ordinary-field reads, optional separately encrypted protected notes and encrypted CRM content exports. An offline [fresh-target content restore](docs/BACKUP_RESTORE.md) is implemented with synthetic test evidence. Keys remain user-managed; no full-host backup, live-cutover or general security guarantee. See [scope and recovery limits](docs/PROTECTION.md).
-- SQLite default; explicit PostgreSQL schema selection and optional Supabase PostgreSQL connection.
+- SQLite default; optional PostgreSQL and native Settings → Storage with a host-managed connection setup and explicit read-only check.
 
 **Checks:** a [credential-free CI workflow](docs/CI.md) runs the supported
 contract suites with read-only repository permissions and a disposable PostgreSQL
@@ -236,9 +236,9 @@ The native pane calls the plugin namespace through ctx.rest; Hermes owns authent
 
 The optional standalone CLI is a separate local view. Start it in the same intended HERMES_HOME and leave HERMES_CRM_DATA_DIR unset to see the same SQLite records. That standalone process does not follow Desktop profile switches. Do not expose it as a public service.
 
-## PostgreSQL and Supabase
+## SQLite and PostgreSQL storage
 
-Install `.[postgres]` for the psycopg driver. For the standalone CLI, select a dedicated database and a dedicated schema explicitly:
+SQLite needs no database server. Native **Settings → Storage** shows the saved backend and opens Hermes plugin settings for configuration. It stays accessible if the CRM database cannot load. See [storage setup and check boundaries](docs/STORAGE_SETTINGS.md). PostgreSQL’s driver is included in a normal plugin install; the `postgres` extra remains compatible. For the standalone CLI, select a dedicated database and schema explicitly:
 
 ```bash
 export HERMES_CRM_BACKEND=postgres
@@ -249,9 +249,11 @@ hermes-crm
 
 Provide the real URL securely, not in chat or a committed file. Backend and schema must be set; invalid or unavailable PostgreSQL never falls back to SQLite. Schema names must start with crm_ and use lowercase letters, digits and underscores. The database role needs permission to create this schema and its tables.
 
-For native Hermes, set the plugin's backend setting to postgres and supply HERMES_CRM_DATABASE_URL through the host's supported profile secret configuration. Native tools use agent.secret_scope.get_secret, not another profile's process environment. The schema is derived from the active profile data directory, so profiles remain isolated even on the same database. See the integration document for selecting the matching schema in the standalone UI.
+For native Hermes, use **Settings → Storage → Open Hermes plugin settings**, select HermesCRM (then Agent settings if shown), choose PostgreSQL and save the connection URL in the host's masked field. The host may store it in the profile's plaintext `.env`; masking is not encryption. Return to reload and explicitly check the saved connection. Native tools use agent.secret_scope.get_secret, not another profile's process environment. The schema is derived from the active profile data directory, so profiles remain isolated even on the same database. See the integration document for selecting the matching schema in the standalone UI.
 
-Supabase is supported as a PostgreSQL connection option, not via its REST SDK. A direct database connection or session-mode pooler is recommended; use TLS for remote connections and a least-privilege dedicated database role. Hosted Supabase has not been exercised in this prototype. Do not mistake SQL portability for hosted-service or multi-tenant security verification.
+Changing storage does not migrate, upload, merge or delete existing records. PostgreSQL profile namespaces remain unchanged; selecting the same database on another installation is not automatic synchronization. A connection check does not prove CRM schema readiness or write permissions.
+
+Dedicated Supabase integration and guided provider setup are [future roadmap work](docs/STORAGE_SETTINGS.md#future-storage-work). This release offers SQLite and PostgreSQL, with no provider-specific setup or hosted-service verification claim.
 
 ## Tests
 

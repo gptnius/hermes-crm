@@ -209,3 +209,8 @@
 @container(max-width:640px){.hermes-crm-native .hc-contact-grid{grid-template-columns:minmax(0,1fr)}}
 
 .hermes-crm-native .hc-contact-grid>.hc-contact-log{margin-top:0}
+
+/* Storage is also available before a CRM snapshot can load. */
+.hermes-crm-native .hc-storage-settings{max-width:880px;margin-top:24px;overflow-wrap:anywhere}
+.hermes-crm-native .hc-storage-settings .hc-actions{flex-wrap:wrap;gap:12px}
+.hermes-crm-native .hc-storage-steps{margin:0;padding-left:24px;display:grid;gap:12px}

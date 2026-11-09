@@ -83,6 +83,10 @@ def meta():
         return metadata(crm)
 
 
+# Native settings remain reachable even if the selected CRM backend cannot open.
+from .storage_settings import router as storage_router
+router.include_router(storage_router)
+
 from .research_api import build_router as build_research_router
 router.include_router(build_research_router(service, require_workspace, actor='desktop'))
 

@@ -550,14 +550,17 @@ restore, PostgreSQL destination or full-host backup UI. Export v1 cannot detect 
 completely omitted optional table family because it has no separate full-table
 inventory. Keep full database/host backup procedures alongside content exports.
 
-### Optional PostgreSQL / Supabase PostgreSQL
+### SQLite and optional PostgreSQL
 
-The default SQLite setup is the simplest starting point. To use PostgreSQL,
-install the optional driver in the runtime that loads CRM:
+Native **Settings → Storage** shows the saved backend, opens the host’s Plugins
+settings for the active app profile, and offers an explicit read-only connection
+check. See [the storage guide](STORAGE_SETTINGS.md) for setup and boundaries.
+Changing stores does not migrate, upload, merge or delete records.
 
-```bash
-python -m pip install -e '.[postgres]'
-```
+The default SQLite setup is the simplest starting point. PostgreSQL's driver
+is included in a normal HermesCRM installation. If an older gateway lacks it,
+update/reinstall through the supported Hermes plugin installer for that gateway.
+The `postgres` extra remains compatible with existing packaging commands.
 
 For standalone mode, set `HERMES_CRM_BACKEND=postgres`, securely supply
 `HERMES_CRM_DATABASE_URL`, and explicitly select a dedicated
@@ -572,11 +575,9 @@ derives a separate schema from the active profile's data directory. Setting the
 standalone variables alone does not configure native mode. Switching backends
 does not migrate existing records.
 
-Supabase is a PostgreSQL connection option, not a Supabase REST integration or
-verified hosted multi-tenant deployment. Hosted Supabase has not been tested.
-Use TLS and a dedicated least-privilege role for remote databases, and review
-[Hermes integration](HERMES_INTEGRATION.md) and the [README](../README.md#postgresql-and-supabase)
-before configuring one.
+Dedicated Supabase integration and guided provider setup are future roadmap work.
+The current choices are SQLite and PostgreSQL; hosted-provider behavior is not
+verified by the local checks.
 
 ## Troubleshooting
 

@@ -9,14 +9,7 @@ def open_profile_crm(*, backend=None, profile=None):
         from hermes_constants import get_hermes_home, profile_name_for_home
         profile = profile_name_for_home(get_hermes_home()) or 'custom'
     if backend is None:
-        # Match PluginContext.get_config's settings/legacy-config lookup without
-        # constructing a fake tool context or retaining another profile's config.
-        from hermes_cli.config import load_config_readonly
-        config = load_config_readonly() or {}
-        entry = config.get('plugins', {}).get('entries', {}).get('hermes-crm', {})
-        settings = entry.get('settings', {})
-        legacy = entry.get('config', {})
-        backend = settings.get('backend', legacy.get('backend', 'sqlite'))
+        backend = configured_backend()
     data_dir = plugin_data_dir('hermes-crm')
     if backend == 'sqlite':
         return CRM(f'sqlite:///{data_dir / "data.db"}', profile=str(profile),
@@ -29,3 +22,13 @@ def open_profile_crm(*, backend=None, profile=None):
         schema = 'crm_' + hashlib.sha256(str(data_dir.resolve()).encode()).hexdigest()[:24]
         return CRM(url.replace('postgresql://', 'postgresql+psycopg://', 1), profile=str(profile), schema=schema)
     raise CRMError('Choose plugin backend sqlite or postgres explicitly', 503)
+
+
+def configured_backend():
+    """Match PluginContext settings/legacy lookup in the active host scope."""
+    from hermes_cli.config import load_config_readonly
+    config = load_config_readonly() or {}
+    entry = config.get('plugins', {}).get('entries', {}).get('hermes-crm', {})
+    settings = entry.get('settings', {})
+    legacy = entry.get('config', {})
+    return settings.get('backend', legacy.get('backend', 'sqlite'))

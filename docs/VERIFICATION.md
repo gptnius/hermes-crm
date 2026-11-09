@@ -5,9 +5,68 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Storage Settings checks (November 9, 2026)
+
+The SQLite/PostgreSQL Settings increment is based on core release
+`001cb6aa617a544d182b5b9ef761d0bc6133e819`. The initial frozen QA tree was
+`23a95186341c30bdfceba9d283d97f18dfe15214`; the final tested tree was
+`02b004ce080e1646d6804bc90fdc0783c2be720b`. Only the actual-host test fixture
+changed between those trees. All 296 final source hashes were checked. The
+subsequent documentation update adds this evidence and the scheduled-work
+cutover caveat, without changing runtime, UI or tests.
+
+- **Local contracts:** final-byte Python completed with 1,616 passed, 824 explicit
+  optional skips and two known warnings. All 13 generated-source checks and the
+  JavaScript/React fixtures passed, including settings access after a failed
+  snapshot, paused polling, stale-response rejection and the profile-scoped host
+  settings handoff. The full runner covered 51 commands; Python was rerun after
+  the last implementation change rather than treating the earlier count as final.
+- **Read-only probe:** 18 local cases and one real disposable PostgreSQL case
+  passed. Existing SQLite content is preserved; missing/corrupt stores, stale
+  selection, malformed input, credential minimization and cleanup are covered.
+  Independent real-driver tests used synthetic protocol peers to verify timeout
+  cancellation, closed sockets and client-certificate suppression. These are not
+  tests against a user's database or authentication setup.
+- **PostgreSQL-enabled aggregate:** 2,417 passed, 23 explicit skips and four known
+  warnings on PostgreSQL 17.11 ARM64. This mixed suite includes local/SQLite cases;
+  it is not 2,417 exclusively PostgreSQL-backed checks. The focused cases overlap
+  this total and must not be added. Its runtime/UI bytes match the final tree.
+- **Official catalog:** the released Hermes v0.23.0 validator passed all 16 checks,
+  with no warnings, six declared dependencies installed and host readiness true.
+  PostgreSQL's driver is now a normal declared dependency. The later test-only
+  correction does not change package dependencies or runtime behavior.
+- **Actual host:** the final corrected fixture passed both Desktop isolation
+  modes, both 83-tool registry/workflow modes and one local harness seam: five
+  passes, no skips. This used the genuine v0.23.0 source and a separate Python
+  3.14.9 environment with psycopg 3.3.8. These are synthetic ASGI/registry tests,
+  not model calls or visible-app interactions; the seam also overlaps local tests.
+- **Offscreen appearance:** 36 combinations passed layout checks across three
+  saved/error states, light/dark themes, three widths and compact/expanded help.
+  Six rendered images were inspected. The hidden Electron renderer used synthetic
+  component responses, denied network/permissions and no visible window. This
+  does not establish live database setup, physical keyboard/screen-reader use or
+  complete accessibility coverage.
+
+The first actual-host attempt failed a new fixture assumption that no database
+existed before Storage was requested. Existing native command registration already
+initializes the workspace. The corrected test snapshots the existing schema and
+rows in a read-only transaction and checks that the Storage requests leave them
+unchanged. It does not delete a database, skip registration or weaken the safety
+guard. Absent-store non-initialization remains covered by the focused tests.
+
+Owned PostgreSQL containers and hidden renderer exited; all guarded child
+processes were confirmed gone, with no forbidden-action logs or cron jobs. No
+installed app, user profile, database configuration or credentials were changed.
+These checks do not prove a live hosted PostgreSQL/Supabase deployment, migration,
+write readiness, production operation, catalog acceptance or submission. The
+connection check deliberately tests connectivity only; normal CRM initialization
+and any data/scheduler cutover remain separate operations.
+
 ## Core-only candidate checks (November 9, 2026)
 
-This candidate is derived from public source tree `3b000756d78253b827d089cdfc20bc73c3fdc4a5` (public commit `c8ef7f2ffafc74f6d710e0fcff0447713ad8cef3`). Active provider code and provider-only tests are excluded, not hidden behind settings. The 83 core tools and existing data identifiers remain unchanged. Shared recovery tests seed synthetic legacy tables directly rather than invoking removed provider stores.
+**Historical baseline:** these checks precede the Storage Settings increment above.
+
+The earlier core-only candidate is derived from public source tree `3b000756d78253b827d089cdfc20bc73c3fdc4a5` (public commit `c8ef7f2ffafc74f6d710e0fcff0447713ad8cef3`). Active provider code and provider-only tests are excluded, not hidden behind settings. The 83 core tools and existing data identifiers remain unchanged. Shared recovery tests seed synthetic legacy tables directly rather than invoking removed provider stores.
 
 Candidate-specific regression tests check absent provider imports/routes/UI/polling, unchanged legacy rows after core CRUD, encrypted metadata export, recovery quarantine and partial/incompatible-schema rejection. Independent review found an inherited export gap for an incomplete older Gmail-history table family; a read-only schema check now rejects missing tables, changed columns and changed constraints instead of producing an unrestorable export. This check never creates, alters, reconnects or clears provider state. The acceptance runs below used source tree `a5dcad4759c045c1da61717a893fa6878e3fcaab`; all 288 file hashes were reconciled unchanged. This subsequent update changes only README.md, COMPATIBILITY.md and VERIFICATION.md. It does not change the tested runtime or tests.
 

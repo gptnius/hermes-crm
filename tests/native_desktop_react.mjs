@@ -147,6 +147,8 @@ const ctx = {
   async rest(path, options) {
     calls.push({ path, profile: profile.get(), connection: connection.get() });
     if (path === "/snapshot" && snapshotError) throw new Error(snapshotError);
+    if (path === "/storage/status") return {backend:backendKind,configuration:"configured",selection_token:"a".repeat(64)};
+    if (path === "/storage/check") return {backend:backendKind,selection_token:"a".repeat(64),result:"connected",readiness_checked:false};
     if (options) {
       writes.push({ path, options, profile: profile.get() });
       if (writeError) throw Object.assign(new Error(writeError), taskFailureStatus ? {status:taskFailureStatus} : {});
@@ -303,9 +305,29 @@ await click('Settings');
 assert.match(text(), /Workspace settings/);assert.match(text(), /no mailbox connection or email synchronization/);
 assert.equal(button('Verify existing connection'), undefined);
 assert.equal(writes.length,settingsWriteStart);assert.equal(intervals.size,1);
+assert.match(text(), /Changing storage does not migrate, upload, merge or delete/);
+const settingsSnapshotCount=calls.filter(call=>call.path==='/snapshot').length;
+await act(async()=>{for(const callback of intervals) callback();});
+await flush();
+assert.equal(calls.filter(call=>call.path==='/snapshot').length,settingsSnapshotCount,'Settings must pause snapshot polling');
+assert.equal(button('Refresh'),undefined,'Settings cannot dispatch snapshot initialization via toolbar');
+
 assert.equal(calls.filter(call=>/\/email(?:-bridge)?\//.test(call.path)).length, 0, 'Core edition never reads or polls provider routes');
 assert.equal(button('Edit contact email aliases'),undefined);
 await click('Overview');assert.match(text(),/Weighted forecast/);
+// A new scope with a failed initial snapshot can still recover via Storage.
+snapshotError='Backend unavailable'; backendKind='postgres';
+await act(async()=>profile.set('storage-recovery')); await flush();
+assert.match(text(),/CRM could not complete this request/);
+await click('Settings');
+assert.match(text(),/PostgreSQL · user-managed database/);
+assert.equal(button('Check saved connection').props.disabled,false);
+await click('Check saved connection');
+assert.match(text(),/Connection succeeded/);
+snapshotError=''; backendKind='sqlite';
+await act(async()=>profile.set('work')); await flush();
+assert.match(text(),/Weighted forecast/);
+
 // Dashboard rows distinguish task ownership from saved agent intent and read exact tasks.
 assert.match(text(), /Upcoming Tasks/);
 assert.doesNotMatch(text(), /Up next/);

@@ -274,8 +274,33 @@ with patch.object(socket, 'create_connection', deny_network), \
         assert client.get(prefix + path, params={'workspace_token': 'not-authentication'}).status_code == 401
     assert client.post(prefix + '/contacts', json={}).status_code == 401
     assert client.post(prefix + '/work', json={'workspace_token': 'not-authentication'}).status_code == 401
+    # Registration above already opens CRM for native work-command identity.
+    # Storage diagnostics must leave that established schema and data unchanged.
+    # Dedicated storage tests cover an absent store without registration.
+    assert client.get(prefix + '/storage/status').status_code == 401
+    assert client.post(prefix + '/storage/check', json={}).status_code == 401
+    database = home / 'plugin-data/hermes-crm/data.db'
+    assert database.is_file()
+    def storage_database_state():
+        import sqlite3
+        connection = sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)
+        try:
+            connection.execute('BEGIN')
+            return tuple(connection.iterdump())
+        finally:
+            connection.close()
+    before_storage = storage_database_state()
+    storage = request('GET', '/storage/status')
+    assert storage['backend'] == 'sqlite' and storage['configuration'] == 'configured'
+    assert storage_database_state() == before_storage
+    result = request('POST', '/storage/check', json={'selection_token': storage['selection_token']})
+    assert result['result'] == 'connected' and result['readiness_checked'] is False
+    assert storage_database_state() == before_storage
+    request('POST', '/storage/check', 400, json={'selection_token': 'é' * 64})
+    request('POST', '/storage/check', 400, json={'selection_token': storage['selection_token'], 'url': 'not-permitted'})
     meta = request('GET', '/meta')
     token = meta['workspace_token']
+    assert request('POST', '/storage/check', json={'selection_token': storage['selection_token']})['result'] == 'connected'
     assert meta['native_desktop'] is True
     created = request('POST', '/contacts', 201, json={
         'workspace_token': token, 'idempotency_key': 'native-host-contact',
