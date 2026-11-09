@@ -12,6 +12,7 @@ artifacts/
 *.egg-info/
 
 .demo-data/
+.crm-data/
 
 build/
 dist/

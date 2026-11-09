@@ -26,7 +26,7 @@ For a remote backend, the Desktop half must also be installed on the computer ru
 
 The active app connection/profile controls ctx.rest. This is deliberately not the owner of an arbitrary focused chat tile. The UI displays the active scope and keys state by connection, profile, gateway activation epoch and a monotonic generation observing connection-state transitions. A switch or reconnect clears prior workspace and form state. Responses from the old scope are discarded, and writes check the captured scope immediately before transport. Plugin disposal invalidates pending clients and removes listeners.
 
-GET /snapshot returns metadata and initial records from one storage-factory call so a backend change cannot mix workspaces during refresh. Metadata contains an opaque persisted workspace_token. Each create/update/demo write includes the token captured when its form or confirmation opens. Search and detail requests also send their captured token. The backend rejects a mismatched token. This is additional stale-scope protection, not authentication; Hermes still enforces credentials and plugin enablement.
+GET /snapshot returns metadata and initial records from one storage-factory call so a backend change cannot mix workspaces during refresh. Metadata contains an opaque persisted workspace_token. Each create/update write includes the token captured when its form or confirmation opens. Search and detail requests also send their captured token. The backend rejects a mismatched token. This is additional stale-scope protection, not authentication; Hermes still enforces credentials and plugin enablement.
 
 ## Agent interaction
 
@@ -34,9 +34,30 @@ Desktop and native tools read/write the same database. Changes through either ro
 
 Saving a follow-up is not scheduling. The pane displays its scheduler state and tells the user to ask the existing Hermes agent to call crm_followup_schedule. Scheduling remains an active-agent operation through the supported host tool, with local delivery and read-only CRM toolset plus no_mcp. There is no REST scheduler endpoint and no extra model provider.
 
-## Synthetic demonstration
+## Developer-only synthetic workspace setup
 
-An empty workspace offers ordinary contact creation. Optional test-data seeding is under the title’s About information dialog, inside Test workspace setup. Prepare test records opens an explicit profile/connection/backend confirmation; Add test records checks the captured workspace token and refuses existing records. Synthetic provenance is available in About rather than a persistent working-view banner. Seeding is atomic and rolls back completely on failure. It uses only invented names and reserved example-domain emails. No user records are imported.
+Ordinary installations start empty. The native About dialog has no seeding
+controls. Existing synthetic workspace records are preserved, with provenance
+available in About and standalone Workspace details rather than a working-view
+banner.
+
+For development only, use the existing opt-in CLI with a fresh disposable data
+directory. From an environment with the package installed:
+
+```bash
+env -u HERMES_CRM_DATABASE_URL -u HERMES_CRM_POSTGRES_SCHEMA \
+  HERMES_CRM_BACKEND=sqlite \
+  HERMES_CRM_DATA_DIR="$(mktemp -d /tmp/hermes-crm-dev.XXXXXX)" hermes-crm --demo
+```
+
+The CLI starts a loopback-only server after seeding. Stop it with Ctrl+C. Never
+point this command at an existing datastore or a shared/customer database.
+It creates eight invented contacts using reserved example-domain addresses,
+eight deals and five internal tasks. No user records are imported. Seeding
+refuses existing CRM records, is atomic and rolls back completely on failure.
+The compatibility `/demo` API retains its explicit confirmation and captured
+workspace-token requirement; removing the UI controls does not change that API.
+See the isolated-testing guidance below before using a native host or provider.
 
 ## Verification scope
 

@@ -2,9 +2,9 @@
 
 **Intelligent Relationship Management**
 
-A small, local-first CRM that your existing Hermes agent can use. Contacts, pipeline, follow-ups and activity share one datastore inside a native Hermes Desktop pane, with an optional standalone web demo.
+A small, local-first CRM that your existing Hermes agent can use. Contacts, pipeline, follow-ups and activity share one datastore inside a native Hermes Desktop pane, with an optional standalone local view.
 
-**Prototype, not production software.** Synthetic demo data is opt-in. No customer data, private repository history, paid account, external model API or outbound messaging integration is included. Nothing sends outreach.
+**Prototype, not production software.** New workspaces start empty. No customer data, private repository history, paid account, external model API or outbound messaging integration is included. Nothing sends outreach.
 
 **New here? Read the [setup and user guide](docs/USER_GUIDE.md)** for installation, feature walkthroughs, agent examples, reporting, optional integrations and troubleshooting.
 
@@ -179,25 +179,26 @@ Install the unified package and enable both its agent/backend and Desktop compon
 
 Desktop and Agent version labels differ. Compatibility is verified against the exact host source revision below, not inferred from a release label. Desktop must supply the required routing capabilities; unsupported builds show a notice and disable CRM operations. See [exact host compatibility](docs/COMPATIBILITY.md).
 
-An empty workspace starts with ordinary record creation. Optional synthetic test setup is inside the page’s About information dialog; it requires explicit confirmation, never runs automatically and refuses existing records. See [native Desktop setup and test scope](docs/NATIVE_DESKTOP.md).
+An empty workspace starts with ordinary record creation. Existing workspace records are preserved when updating the plugin. See [native Desktop setup](docs/NATIVE_DESKTOP.md).
 
-## Optional standalone demo
+## Optional standalone local view
 
-Use Python 3.11 or newer. A virtual environment is recommended.
+Use Python 3.11 or newer. A virtual environment is recommended. These commands
+explicitly select a local SQLite workspace.
 
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-python -m pip install -e '.[test]'
-export HERMES_CRM_DATA_DIR="$PWD/.demo-data"
-hermes-crm --demo
+python -m pip install -e .
+export HERMES_CRM_BACKEND=sqlite
+unset HERMES_CRM_DATABASE_URL HERMES_CRM_POSTGRES_SCHEMA
+export HERMES_CRM_DATA_DIR="$PWD/.crm-data"
+hermes-crm
 ```
 
-Open http://127.0.0.1:8742. The server deliberately binds only to loopback. `--demo` seeds an empty workspace; remove that flag on later starts. Never point the demo at an existing datastore.
+Open http://127.0.0.1:8742. The server deliberately binds only to loopback. A fresh data directory starts empty; later starts using the same directory retain its records. Do not expose the server as a public service.
 
-The demo contains eight invented contacts using example.com, eight opportunities and five internal tasks. The workspace banner labels synthetic data. This is not a snapshot of any real CRM.
-
-To start an empty workspace, choose a fresh HERMES_CRM_DATA_DIR and omit `--demo`. Without a path override, storage is the active HERMES_HOME/plugin-data/hermes-crm/data.db; when loaded in Hermes, its public storage helper is used.
+Without a path override, storage is the active HERMES_HOME/plugin-data/hermes-crm/data.db; when loaded in Hermes, its public storage helper is used. Plugin installation does not copy another user's workspace records. Users intentionally connected to the same database can access the records in that configured workspace.
 
 ## Install as a native Hermes plugin
 
@@ -217,8 +218,8 @@ For isolated testing, use synthetic records and a fresh test home, without copyi
 
 Try in an interactive Hermes session:
 
-- “Create a CRM contact named Demo Buyer with email buyer@example.com. Use request key demo-buyer-1.”
-- “Create a $12,000 qualified opportunity linked to Demo Buyer.”
+- “Create a CRM contact named Example Buyer with email buyer@example.com. Use request key example-buyer-1.”
+- “Create a $12,000 qualified opportunity linked to Example Buyer.”
 - “Add an internal follow-up for tomorrow at 10 AM in my timezone.”
 - “Schedule that CRM follow-up as a one-shot local Hermes reminder.”
 - “Show the CRM overview and update the opportunity to proposal using its latest version.”
@@ -231,7 +232,7 @@ Real one-shot scheduler execution, CRM reads and saved local outputs passed cont
 
 The native pane calls the plugin namespace through ctx.rest; Hermes owns authentication and profile routing. Native REST and tool handlers share the same per-call storage factory. A workspace token and activation-epoch checks reject stale cross-profile writes.
 
-The optional standalone CLI is a separate local demo mode. Start it in the same intended HERMES_HOME and leave HERMES_CRM_DATA_DIR unset to see the same SQLite records. That standalone process does not follow Desktop profile switches. Do not expose it as a public service.
+The optional standalone CLI is a separate local view. Start it in the same intended HERMES_HOME and leave HERMES_CRM_DATA_DIR unset to see the same SQLite records. That standalone process does not follow Desktop profile switches. Do not expose it as a public service.
 
 ## PostgreSQL and Supabase
 

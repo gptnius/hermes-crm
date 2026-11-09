@@ -125,6 +125,7 @@ const writes = [],
   intervals = new Set();
 let backendTokenSuffix = "",
   backendKind = "sqlite";
+let workspaceSeeded = true;
 let reportTotal = 1;
 let snapshotError = "", testCatalog, testOwnerPolicy;
 let delayReport = false, releaseReport;
@@ -178,7 +179,7 @@ const ctx = {
         ...(testCatalog ? {catalog:testCatalog} : {}),
         ...(testOwnerPolicy ? {task_owner_policy:testOwnerPolicy} : {}),
         backend: backendKind,
-        demo: true,
+        demo: workspaceSeeded,
         profile: profile.get(),
         workspace_token: `token-${profile.get()}${backendTokenSuffix}`,
       },
@@ -454,7 +455,10 @@ for (const title of ['Overview', 'Contacts', 'Pipeline', 'Tasks', 'Record histor
   assert.equal(root.root.findByProps({ className: 'hc-wrap' }).props.inert, true);
   assert.match(text(), /Active app profile: work/);
   assert.match(text(), /HermesCRM · Intelligent Relationship Management/);
-  assert.match(text(), /Workspace provenance: these records were seeded as synthetic test data/);
+  assert.match(text(), /Workspace provenance: this workspace was seeded with synthetic records/);
+  for (const name of ["Test workspace setup", "Prepare test records", "Add test records"]) {
+    assert.equal(button(name), undefined, "Existing provenance does not expose a seed action");
+  }
   assert.equal(root.root.findAllByProps({ 'aria-label': 'Close information' }).length, 1);
   mockDocument.activeElement = drawerNode.controls[2];
   let trapped = false;
@@ -1277,35 +1281,28 @@ await act(async () => {
 assert.match(text(), /source-b/);
 overview.contacts = 0;
 overview.open_tasks = 0;
+workspaceSeeded = false;
 await click("Refresh");
 assert.doesNotMatch(text(), /Explore demo|synthetic|sample data/);
+await click("Contacts");
+assert.ok(button("+ Contact"), "Empty workspaces use ordinary contact creation");
+const emptyWorkspaceWrites = writes.length;
 await click("ⓘ");
-assert.equal(button("Test workspace setup").props['aria-expanded'], false);
-assert.equal(button("Prepare test records"), undefined, "Collapsed setup adds no hidden focus targets");
-await click("Test workspace setup");
-assert.equal(button("Test workspace setup").props['aria-expanded'], true);
-assert.ok(button("Prepare test records"));
-await click("Test workspace setup");
-assert.equal(button("Prepare test records"), undefined);
-await click("Test workspace setup");
-await click("Prepare test records");
+assert.doesNotMatch(text(), /Workspace provenance|test records|Test workspace setup|demo data|sample data/);
+for (const name of ["Test workspace setup", "Prepare test records", "Add test records"]) {
+  assert.equal(button(name), undefined, "Empty workspace About contains no seed controls");
+}
 assert.match(text(), /Sqlite backend/);
+await click("Close");
 backendTokenSuffix = "-changed";
 backendKind = "postgres";
 await click("Refresh");
-assert.match(
-  text(),
-  /Sqlite backend/,
-  "Confirmation preserves the backend named when opened",
-);
-const demoWriteIndex = writes.length;
-await click("Add test records");
-assert.equal(writes[demoWriteIndex].path, "/demo");
-assert.equal(
-  writes[demoWriteIndex].options.body.workspace_token,
-  "token-new-agent",
-  "Demo cannot silently move to the refreshed backend token",
-);
+await click("ⓘ");
+assert.match(text(), /Postgres backend/);
+assert.doesNotMatch(text(), /Workspace provenance|test records|Test workspace setup|demo data|sample data/);
+assert.equal(writes.length, emptyWorkspaceWrites, "Opening help or refreshing never populates records");
+assert.equal(writes.some(({path}) => path === "/demo"), false, "Production navigation never calls the seed API");
+await click("Close");
 await act(async () => {
   gateway.set("connecting");
 });
@@ -1319,7 +1316,7 @@ for (const dispose of pluginDisposers) dispose();
 assert.equal(profile.listeners.size, 0);
 assert.equal(epoch.listeners.size, 0);
 console.log(
-  "PASS actual React 19.3.0 Strict Mode: zero/single/multiple charts, focus/hover/keyboard/drillthrough, server filter pagination/races and current-ID preservation, cohesive record workspace/related prefills, bounded parent Back/Close and Company return, confirmed child-ID navigation/unknown-ID retry retention, explicit dirty discard/keep, detail Complete/Reopen/stale callback rejection, accessible drawer ref focus and keyboard boundaries, repeated cancel/save and mutation lock, retained client/backend validation input, honest read-only assignment history/manual+interval refresh/retained panel expansion/stale-error signals/latest-response guards, local-domain email edits/malformed input validation, name-only create, versioned edit/complete, exact scheduled timestamp, captured demo target, workspace token, stale detail navigation/cancellation, valid-input profile/source ABA remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
+  "PASS actual React 19.3.0 Strict Mode: zero/single/multiple charts, focus/hover/keyboard/drillthrough, server filter pagination/races and current-ID preservation, cohesive record workspace/related prefills, bounded parent Back/Close and Company return, confirmed child-ID navigation/unknown-ID retry retention, explicit dirty discard/keep, detail Complete/Reopen/stale callback rejection, accessible drawer ref focus and keyboard boundaries, repeated cancel/save and mutation lock, retained client/backend validation input, honest read-only assignment history/manual+interval refresh/retained panel expansion/stale-error signals/latest-response guards, local-domain email edits/malformed input validation, name-only create, versioned edit/complete, exact scheduled timestamp, empty-first controls with conditional provenance and no seed writes, workspace token, stale detail navigation/cancellation, valid-input profile/source ABA remount, stale form rejection, subscription/timer cleanup. SDK transport is a fixture; no live Hermes UI QA claimed.",
 );
 
 // A relationship save must not reopen a detail after navigation wins the refresh race.

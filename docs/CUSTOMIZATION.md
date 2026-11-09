@@ -115,7 +115,7 @@ code does not understand custom stages or values; do not assume a downgrade can
 display or edit them correctly. Recovery from a backup is a separate deliberate
 operation, not an automatic rollback supplied here.
 
-Native Desktop is the editing experience. The smaller standalone demo displays
+Native Desktop is the editing experience. The smaller standalone local view displays
 configured stages and retained custom values, and preserves them during ordinary
 record edits; it does not provide the customization editor or custom-value form
 controls. Its local API accepts validated values.

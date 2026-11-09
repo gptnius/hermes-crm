@@ -2,7 +2,7 @@
 
 The native CRM dashboard includes a typed report builder. Hermes agents use the
 same definitions, saved reports and dashboard, through separate reporting tools.
-The standalone demo retains its earlier preset views; this builder is native-only.
+The standalone local view retains its earlier preset views; this builder is native-only.
 
 ## Human workflow
 

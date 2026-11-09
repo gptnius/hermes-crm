@@ -2,6 +2,47 @@
 
 Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
+## Empty-first distribution and preserved workspace records (November 9, 2026)
+
+Normal standalone instructions now select SQLite explicitly, use an ignored
+`.crm-data` directory and omit the opt-in seed flag. The native About dialog no
+longer offers synthetic record creation. A previously seeded workspace retains
+its conditional provenance in About or standalone Workspace details; existing
+records, notes, audit actors and seed markers are not rewritten or deleted.
+The developer-only CLI flag and explicit confirmation/workspace-token API remain
+compatible. No backend, schema, storage factory or seed implementation changed.
+
+Six release regressions passed from the source and an extracted freshly built
+wheel. Temporary SQLite stores start with zero Contacts, Deals, Tasks, Companies
+and Events. A separately seeded profile has eight contacts, eight deals and five
+tasks while a second profile stays empty. Exact whole-table snapshots survive
+reopening and ordinary reads, including IDs, notes, actors and provenance.
+Import/tool registration does not open storage. CLI server startup is intercepted
+and native host storage/config are doubles: this is not actual Hermes package
+installation or activation proof.
+
+Offline wheel and source-distribution inventories contain no saved databases,
+SQLite WAL/SHM files, CSV exports, `.env`, `.git` or private workspace directories.
+They contain reusable synthetic generators/test fixtures, not a user's saved
+records, and those generators are not invoked by ordinary startup. Python
+packages include backend/static assets; the native Desktop manifest/UI is
+installed from the repository, a separate path not exercised by this packaging
+check. Deliberately configuring a shared PostgreSQL database/workspace is not
+local-only storage.
+
+The actual React fixture checks empty SQLite and PostgreSQL metadata, ordinary
+contact creation controls, conditional seeded provenance, absence of seed
+buttons and zero `/demo` writes. It uses synthetic transport, not a physical
+native window. No user datastore or installed app was modified for these checks.
+
+The final credential-free local aggregate passed **1,871 Python tests, with 834
+optional skips and two dependency warnings**, and all **50 runner commands**
+(13 generators, the Python suite and 36 JavaScript/React commands). All 236 local
+document-link targets resolved. Independent review reran the six new default
+cases and the full native React interaction suite with no blocking findings.
+PostgreSQL, genuine host activation, live providers and physical-window behavior
+were not re-exercised for this UI/documentation-only change.
+
 ## Process-separated content recovery rehearsal (November 9, 2026)
 
 The exact report-acknowledgement source tree

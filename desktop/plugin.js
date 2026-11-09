@@ -1471,7 +1471,6 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
     }
   }, [data?.meta.workspace_token]);
   const [notice, setNotice] = useState("");
-  const [demoConfirm, setDemoConfirm] = useState(null);
   const [searchResult, setSearchResult] = useState(null);
   const [chatNotice, setChatNotice] = useState("");
   const [help, setHelp] = useState(null);
@@ -1608,7 +1607,6 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       setNotice("Saved to this agent’s CRM.");
       setEditor(null);
       setDetailLoading(false);
-      setDemoConfirm(false);
       setHelp(null);
       await refresh();
       if (!client.current() || viewTicket !== viewRequest.current || options.body?.workspace_token !== latestWorkspace.current) return true;
@@ -1851,7 +1849,7 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       ),
     })) : help ? h(Drawer, {
       title: `About ${heading[0]}`, subtitle: heading[1], busy,
-      cancel: () => { setHelp(null); setDemoConfirm(false); }, returnFocus: help.returnFocus, closeLabel: "Close information",
+      cancel: () => { setHelp(null); }, returnFocus: help.returnFocus, closeLabel: "Close information",
     }, h("div", { className: "hc-editor-body" },
       h("p", null, "HermesCRM · Intelligent Relationship Management"),
       h(ProtectionHelp),
@@ -1860,18 +1858,9 @@ function Workspace({ ctx, identity, profile, connection, companion }) {
       h("p", null, "Discuss a record using Copy record reference, then paste it into native chat and review before sending. Copying does not attach context, edit your draft or send a message."),
       h("p", null, "Preview record reference shows exactly what is copied. Use Hide preview to collapse it. Record details are read through CRM tools; normal approval prompts still apply."),
       page === "tasks" && h("p", null, "To schedule a native reminder, ask the existing Hermes agent in this profile to use crm_followup_schedule with the task ID. Scheduling requires an active agent context; this pane does not create cron jobs. A scheduled badge confirms registration, not execution."),
-      data?.meta.demo && h("p", null, "Workspace provenance: these records were seeded as synthetic test data."),
+      data?.meta.demo && h("p", null, "Workspace provenance: this workspace was seeded with synthetic records."),
       error && h("p", { role: "alert", className: "hc-notice" }, error),
-      data && !overview.contacts && !overview.open_deals && !overview.open_tasks &&
-        h("section", null,
-          button("Test workspace setup", () => { setHelp({ ...help, setup: !help.setup }); setDemoConfirm(false); }, { "aria-expanded": Boolean(help.setup), disabled: busy }),
-          help.setup && h("div", null,
-          h("p", null, "Optional synthetic test records can only be added to an empty workspace. This action does not import customer data."),
-          button("Prepare test records", () => setDemoConfirm({ workspaceToken: data.meta.workspace_token, backend: data.meta.backend }), { disabled }),
-          demoConfirm && h("div", null,
-            h("p", null, `Add synthetic contacts, deals, and follow-ups to ${profile} on ${connection || "local"} (${label(demoConfirm.backend)} backend)?`),
-            button("Add test records", () => write("/demo", { method: "POST", body: { confirm: true, workspace_token: demoConfirm.workspaceToken } }), { disabled }),
-            button("Cancel", () => setDemoConfirm(false), { disabled: busy })))))) : null },
+    )) : null },
     h("div", { className: "hc-brandbar" },
       h("div", { className: "hc-brand" }, h(Wordmark), h("span", { className: "hc-brand-tagline" }, "Intelligent Relationship Management")),
     h(

@@ -3,7 +3,7 @@
 **Implemented, default off; live OAuth and mailbox behavior are not verified.**
 This pilot has only synthetic provider tests. No account was connected, no OAuth
 grant created, no mailbox read and no message sent during its development. It
-works through the native authenticated Desktop plugin, not the standalone demo.
+works through the native authenticated Desktop plugin, not the standalone local view.
 Ordinary CRM features work without Gmail setup.
 
 ## What it does

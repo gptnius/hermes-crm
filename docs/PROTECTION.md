@@ -85,7 +85,7 @@ key rotation, escrow, revocation or key-recovery workflow.
 Protected content is not included in ordinary snapshots, agent tools, reports,
 audit summaries, clipboard actions or local browser storage by this feature.
 Routes are mounted only in the Hermes-authenticated native component, not the
-standalone web demo. That is transport scoping, not proof of a human caller or
+standalone local view. That is transport scoping, not proof of a human caller or
 a defense against privileged code running inside the same host.
 
 Protected responses use `no-store`; validation and failure responses are

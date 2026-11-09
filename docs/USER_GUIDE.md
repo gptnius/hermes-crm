@@ -15,7 +15,7 @@ with no live-account verification yet.
 
 - [Features and the two ways to run](#features-and-the-two-ways-to-run)
 - [Install in Hermes Desktop](#install-in-hermes-desktop)
-- [Try the standalone demo](#try-the-standalone-demo)
+- [Use the standalone local view](#use-the-standalone-local-view)
 - [Your first contact, deal and follow-up](#your-first-contact-deal-and-follow-up)
 - [Record an actual conversation](#record-an-actual-conversation)
 - [Customize fields and deal stages](#customize-fields-and-deal-stages)
@@ -55,7 +55,7 @@ with no live-account verification yet.
   assignments with saved results and review states.
 - Profile-scoped SQLite storage by default, with explicit PostgreSQL support.
 
-**The standalone browser demo** is a smaller, loopback-only way to try the core
+**The standalone local view** is a smaller, loopback-only way to try the core
 contacts, pipeline, follow-ups, activity and preset dashboard views without
 Hermes Desktop. It does not provide the native report builder, contact-log
 panel, customization editor/custom-value controls, Gmail pilot, chat companion
@@ -118,15 +118,14 @@ Native mode needs no standalone server, localhost URL, iframe or separate API
 token. For a remote Hermes connection, the backend component belongs on that
 host and the Desktop component must also be installed on the Desktop computer.
 
-### 4. Choose empty or synthetic data
+### 4. Open your workspace
 
-Check the connection/profile shown in CRM. An empty workspace lets you create
-your first contact. Optional test data is under the information button beside the
-page title: **Test workspace setup → Prepare test records → Add test records**.
-Review the named profile, connection and backend before confirming. It adds eight
-invented contacts, eight deals and five internal tasks with reserved example-domain
-email addresses, and refuses a workspace that already contains CRM records.
-Provenance remains visible in About; normal working views have no test-data banner.
+Check the connection/profile shown in CRM. A new workspace starts empty and lets
+you create your first contact. Updating the plugin preserves existing records.
+Installation does not copy another user's workspace records. Users intentionally
+connected to the same database can access records in that configured workspace.
+If a workspace was previously seeded with synthetic records, its provenance
+remains available in About.
 
 Use a disposable profile for exploration. Switching the active app connection
 or profile switches the CRM workspace and clears previous views and unfinished
@@ -169,31 +168,36 @@ same catalog. These ordinary fields are not protected storage for secrets.
 See [customization usage and limits](CUSTOMIZATION.md) for probability behavior,
 archiving, stable select choices, conflict recovery, agent examples and reports.
 
-## Try the standalone demo
+## Use the standalone local view
 
-From the repository root, on a Unix-like shell:
+From the repository root, on a Unix-like shell, explicitly select a local SQLite
+workspace:
 
 ```bash
 python -m venv .venv
 . .venv/bin/activate
 python -m pip install -e .
-export HERMES_CRM_DATA_DIR="$PWD/.demo-data"
-hermes-crm --demo
-```
-
-Open [http://127.0.0.1:8742](http://127.0.0.1:8742). Stop the server with Ctrl+C.
-On later starts, reactivate the virtual environment, select the **same** data
-directory and omit `--demo`:
-
-```bash
-. .venv/bin/activate
-export HERMES_CRM_DATA_DIR="$PWD/.demo-data"
+export HERMES_CRM_BACKEND=sqlite
+unset HERMES_CRM_DATABASE_URL HERMES_CRM_POSTGRES_SCHEMA
+export HERMES_CRM_DATA_DIR="$PWD/.crm-data"
 hermes-crm
 ```
 
-To start empty, choose a different fresh data directory and omit `--demo` on the
-first run. Never seed an existing datastore. If port 8742 is already in use,
-choose another, for example `hermes-crm --port 8743`, and open that loopback port.
+Open [http://127.0.0.1:8742](http://127.0.0.1:8742). Stop the server with Ctrl+C.
+A fresh data directory starts empty. On later starts, reactivate the virtual
+environment and select the **same** data directory to retain your records:
+
+```bash
+. .venv/bin/activate
+export HERMES_CRM_BACKEND=sqlite
+unset HERMES_CRM_DATABASE_URL HERMES_CRM_POSTGRES_SCHEMA
+export HERMES_CRM_DATA_DIR="$PWD/.crm-data"
+hermes-crm
+```
+
+To start a separate empty workspace, choose a different fresh data directory.
+If port 8742 is already in use, choose another, for example
+`hermes-crm --port 8743`, and open that loopback port.
 
 This server deliberately binds to `127.0.0.1` and has no public authentication
 or multi-user permissions. Do not expose it through a public proxy or tunnel.
@@ -201,9 +205,10 @@ Starting it does not install or connect the native plugin.
 
 ## Your first contact, deal and follow-up
 
-These steps use native Desktop labels. Use invented data in a test workspace.
+These steps use native Desktop labels and placeholder contact details. Replace
+the examples with the records you intend to create.
 
-1. Open **Contacts → + Contact**. Enter `Demo Buyer`, `buyer@example.com`,
+1. Open **Contacts → + Contact**. Enter `Example Buyer`, `buyer@example.com`,
    legacy company text `Example Company`, and Contact type **Lead**. This text
    does not create a Company group; link the contact to an explicit Company
    separately using the [Companies guide](COMPANIES_EVENTS.md). Add any useful notes
@@ -362,9 +367,9 @@ remain. See [how agent assistance handles capabilities](AGENT_ASSISTANCE.md).
 
 You can ask, for example:
 
-- “Create a CRM contact named Demo Buyer with email buyer@example.com and
-  legacy company text Example Company. Use request key guide-demo-buyer-1.”
-- “Find Demo Buyer and create a $12,000 qualified deal linked to that contact.
+- “Create a CRM contact named Example Buyer with email buyer@example.com and
+  legacy company text Example Company. Use request key guide-example-buyer-1.”
+- “Find Example Buyer and create a $12,000 qualified deal linked to that contact.
   Show me the saved deal and amount.”
 - “Show lead contacts with no open follow-up. Do not send messages or schedule
   anything.”
@@ -577,7 +582,7 @@ python -m pip install -e '.[postgres]'
 
 For standalone mode, set `HERMES_CRM_BACKEND=postgres`, securely supply
 `HERMES_CRM_DATABASE_URL`, and explicitly select a dedicated
-`HERMES_CRM_POSTGRES_SCHEMA`, for example `crm_demo`. Schema names must begin
+`HERMES_CRM_POSTGRES_SCHEMA`, for example `crm_workspace`. Schema names must begin
 with `crm_` and use lowercase letters, digits and underscores. The role needs
 permission to create the schema and tables. Invalid PostgreSQL configuration
 fails rather than silently falling back to SQLite.
@@ -607,8 +612,8 @@ before configuring one.
   [Host compatibility](COMPATIBILITY.md). Reinstalling the plugin does not add
   missing host APIs. Do not disable the compatibility guard.
 - **Expected records disappeared after switching:** check the active
-  connection/profile and backend. The standalone demo may use a different
-  `HERMES_CRM_DATA_DIR`. Do not seed demo data to recover missing records.
+  connection/profile and backend. The standalone local view may use a different
+  `HERMES_CRM_DATA_DIR`. Do not seed synthetic records to recover missing records.
 - **Saved report cannot be added as a card:** save the definition, then preview
   the saved version again. An edited report may require **Review latest version**
   on its card. Archived reports must be restored and reviewed.
