@@ -3,7 +3,7 @@
 Status: implemented, with verification evidence in [VERIFICATION.md](VERIFICATION.md).
 This document describes the
 bounded increment, not a production-readiness or feature-parity claim. The
-[README roadmap](../README.md#development-roadmap) is the priority index for
+[current roadmap](ROADMAP.md) is the priority index for
 future development.
 
 ## Familiar configuration, one shared contract

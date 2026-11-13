@@ -1,12 +1,16 @@
 # Release readiness and operational acceptance
 
-> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. Host/catalog validation of this exact candidate is tracked separately from historical full-edition evidence. No numeric release compatibility or catalog acceptance is established by a development-host pass.
+> **Contest core.** Available workflows and integration boundaries are summarized in the [user guide](USER_GUIDE.md) and [current scope and roadmap](ROADMAP.md). Gmail connections, OAuth settings, mailbox history and polling are not shipped in this edition. Legacy provider tables remain solely for encrypted export and quarantined recovery; opening the core does not clear or reconnect them. Exact host validation and remaining operational limits are recorded in [verification](VERIFICATION.md); test passes and catalog acceptance are not production certification.
 
 
 This is the work plan for a useful, reliable single-user HermesCRM release.
 It is not a production-readiness certificate. Completed source changes, local
 contracts, actual-host tests and a successful live workflow are different evidence.
 Use [verification](VERIFICATION.md) for exact tested revisions and limits.
+Available features are indexed in the [current scope and roadmap](ROADMAP.md);
+items here may need broader operational qualification rather than initial
+implementation. Multi-user workspaces, fuller email integration and established
+CRM connections remain roadmap work, not current release capabilities.
 
 ## Target deployment
 

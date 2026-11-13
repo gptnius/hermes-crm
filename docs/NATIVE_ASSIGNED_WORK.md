@@ -1,6 +1,6 @@
 # Native assigned work
 
-This prototype adds future one-shot internal assignments. Intent can be saved through the native CRM form or an agent tool. Scheduling uses either a real active Hermes tool context or the separate CRM-confirmed, authenticated native user-command lane. It is separate from the default-disabled Desktop execution bridge and from the simpler existing follow-up reminder tool. It does not send email, make calls, modify provider settings or complete business tasks automatically.
+The core supports future one-shot internal assignments. Intent can be saved through the native CRM form or an agent tool. Scheduling uses either a real active Hermes tool context or the separate CRM-confirmed, authenticated native user-command lane. It is separate from the default-disabled Desktop execution bridge and from the simpler existing follow-up reminder tool. It does not send email, make calls, modify provider settings or complete business tasks automatically.
 
 ## User-facing contract
 

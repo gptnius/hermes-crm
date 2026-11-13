@@ -1,6 +1,6 @@
 # Layered protection: first increment
 
-This is an optional, local-user prototype, not a security or compliance
+This is an optional protection feature for a local user, not a security or compliance
 certification. Ordinary CRM use does not require an encryption key. No key,
 account, secret source, role, network setting or provider is configured by this
 feature. Existing records are not migrated or erased.
@@ -169,7 +169,7 @@ keys. Do not discard either ring or assume a fresh profile can open copied rows.
   additional accessibility and physical native Save-dialog testing.
 
 Import/export for routine data portability follows this protection increment;
-external CRM linking remains deferred. See the [README roadmap](../README.md#development-roadmap)
+external CRM linking remains deferred. See the [current roadmap](ROADMAP.md)
 and [verification record](VERIFICATION.md) for implemented versus planned scope.
 
 ## Verified host interfaces

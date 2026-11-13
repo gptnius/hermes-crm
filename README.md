@@ -1,212 +1,89 @@
 # HermesCRM
 
-> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. The tested core snapshot passed the official Hermes v0.23.0 validator, genuine host checks and a PostgreSQL-enabled regression suite. See the verification report for exact scope; these results are not maintainer acceptance or production certification.
+**Intelligent Relationship Management for you and your Hermes agent.**
 
+HermesCRM is an open-source, local-first CRM inside Hermes Desktop. You and your
+existing Hermes agent work with the same contacts, companies, deals, follow-ups
+and relationship history. Research leads, manage a sales pipeline and log
+conversations in one workspace. Tailor the CRM with custom fields and deal
+stages, and build reports and dashboards with charts you can drill into to
+explore the underlying records.
 
-**Intelligent Relationship Management**
+The contest core includes a working native interface and **83 agent tools**.
+It is an early release for a local user's workspace, with the operational limits
+listed below. Email connectors and sending are outside this edition.
 
-A small, local-first CRM that your existing Hermes agent can use. Contacts, pipeline, follow-ups and activity share one datastore inside a native Hermes Desktop pane, with an optional standalone local view.
+[Watch the contest demo](https://x.com/gptnius/status/2120259388568961305) ·
+[Setup and user guide](docs/USER_GUIDE.md) ·
+[Current scope and roadmap](docs/ROADMAP.md) ·
+[Catalog submission](https://github.com/NousResearch/hermes-agent/pull/152881)
 
-**Prototype, not production software.** New workspaces start empty. No customer data, private repository history, paid account, external model API or outbound messaging integration is included. Nothing sends outreach.
+## What you can do today
 
-**New here? Read the [setup and user guide](docs/USER_GUIDE.md)** for installation, feature walkthroughs, agent examples, reporting, optional integrations and troubleshooting.
+| Workflow | Available in the contest core |
+| --- | --- |
+| Build a relationship database | Create and edit contacts and companies; link people to a company and open its related contacts, deals, tasks and Events. |
+| Manage sales and follow-ups | Track deal stages, USD values, probabilities and weighted pipeline; organize due dates, priorities and optional human owners. |
+| Research leads with Hermes | Use the tools available in your existing Hermes conversation to research a person or company, create linked records, retain sourced evidence and review proposed notes. Search tools and provider access come from Hermes. |
+| Keep relationship context | Log calls, meetings, emails, chats and other interactions; keep local Events and linked tasks. These are records of activity, separate from administrative record history. |
+| Adapt the CRM | Add typed custom fields to contacts, deals and tasks, and configure deal stages with explicit open/won/lost outcomes. Desktop forms, agent tools and reports use the same definitions. |
+| Build reports and dashboards | Save typed report definitions, add table/KPI/bar/line/donut cards and open the contributing records. |
+| Bring records in and out | Preview, map and review contact CSV imports; export selected contact columns. Optional encrypted content exports support offline fresh-target recovery with retained keys. |
+| Request future agent work | Explicitly schedule one-shot reminders, internal CRM analysis or bounded public research. Review saved results in CRM. Saving a task or assignment alone does not schedule it. |
 
-## Agent assistance
+Ordinary record editing needs no CRM account, paid service or new model API key.
+Agent conversations use your existing Hermes provider configuration, permissions
+and costs. New workspaces start empty; the demo's dashboard and pipeline use
+sample records. Its Nous Research workflow shows separately saved agent research.
+Neither sample data nor a saved report establishes a new live action.
 
-HermesCRM is designed to help an agent carry out the user's explicit requests,
-using the current conversation's available tools. Interactive help is not limited
-to the separate scheduled internal-analysis mode. If a step needs a missing tool,
-account connection or permission, explain that exact need and continue the useful
-work that can proceed. Preserve direct user send review, applicable safeguards
-and normal host prompts. This does not enable new capabilities or grants. See
-[agent assistance and capability choices](docs/AGENT_ASSISTANCE.md).
+## See the native workflow
 
-## What works
+CRM opens inside Hermes navigation and can sit beside the existing native chat.
+The Desktop pane and agent tools share the active profile's datastore; there is
+no separate CRM model client. For a record handoff, copy the checked record
+reference, then paste, review and send it in native chat.
 
-- Native Desktop: real SDK pane, CRM page, sidebar navigation and palette command, using Hermes-authenticated profile-scoped transport.
-- Workbench UI: coordinated light/dark pages, bright dark-mode metadata, flat cards, larger underlined navigation on its own row, clearly separated contact rows with blue name links, structured record/transfer drawers and an original licensed HermesCRM wordmark. See the [design system and coverage](docs/DESIGN_SYSTEM.md).
-- Native conversation companion: open CRM beside an existing matching main conversation or visible native chat tab, preserving an unsent tab draft. Copying validated record references and preparing agent requests still require a verified main conversation, with manual paste/review/Send. No draft writes or automatic submission. See [native chat](docs/NATIVE_CHAT.md).
-- Contacts: paged reports with combined Stage, Contact type, company, email and follow-up filters; structured record details, related records and grouped create/edit drawers.
-- Main dashboard: preset stage/attention views plus a typed report builder, shared saved definitions, version-pinned table/KPI/bar/line/donut cards and live contributing-record drilldowns. See [flexible reports](docs/FLEXIBLE_REPORTS.md).
-- Upcoming Tasks: the earliest six open tasks, including visibly overdue work, with current linked-contact context and direct task links. Task human owners are explicit labels, never inferred from creators, reminders or the current Hermes profile. Saved agent-work intent and its human owner remain separate from task ownership, scheduling and execution.
-- Record history: recent administrative changes retain verified current-contact links. Relationship Activities separately shows completed local Events and self-reported contact logs, not fabricated communication evidence.
-- Companies and Events: explicit Company groups, reviewed primary contact links, paged related records, local appointments/calls with Scheduled, Needs rescheduling, Completed and Cancelled states, versioned corrections and genuine associated tasks. No automatic name merging, invitations, calls or agent execution. See [setup and use](docs/COMPANIES_EVENTS.md).
-- Logged contact: explicit self-reported interactions with corrections, kept separate from CRM edits and imported historical evidence.
-- Research evidence: supplied source claims and separate hypotheses for exact Companies/Contacts, immutable evidence, and version-bound note proposals with explicit review/application. No web fetching, sends or scheduled-tool expansion. See [research review and limits](docs/RESEARCH_EVIDENCE.md).
-- Pipeline: six initial stages plus custom stages, stable keys and explicit open/won/lost outcomes, integer-cent USD amounts, company/value filters and weighted forecast.
-- Customization: versioned optional text/number/boolean/date/single-select fields on contacts, deals and tasks; native record forms and typed reports use the same catalog as agents. Archive retains definitions/values; used deal stages cannot be archived. See [custom fields and stages](docs/CUSTOMIZATION.md).
-- Follow-ups: timezone-aware due dates, optional human owners with an explicit workspace policy, priority, completion, direct saving of future internal-work assignments, paged assignment history and a server-counted coverage queue. Saving does not schedule work. A separate reviewed CRM confirmation can schedule, check or cancel that exact future assignment through the existing native conversation. Task-specific Preview/Copy remains available for manual native chat Send. See [assignment workflow](docs/ASSIGNMENT_UI.md).
-- Native Hermes: 83 tools across separate record, assigned-work, native-report, schema and separate Company/Event permission sets, active-profile storage, optimistic version checks and idempotent creates. Existing scheduled assignments do not gain Company/Event or schema-writing tools.
-- Native scheduling: a one-shot local Hermes reminder for an existing task, with safe handling of saved-but-unregistered and unknown outcomes.
-- Assigned-work prototype: explicit agent-tool or CRM-confirmed user-command scheduling, paused-create/bind/resume and authenticated native-run reports awaiting review. Future one-shots passed guarded deterministic-model tests and one separately authorized real-model internal-analysis check. Results still require human review. See [native assigned work](docs/NATIVE_ASSIGNED_WORK.md).
-- Opt-in scheduled public research: an existing open task can target one current Contact or Company with a reviewed public question, search/extraction preset and source limit. Bound runs may save evidence and one note proposal, not apply notes or complete the task. Native controls save intent and prepare an explicit request for the existing Hermes chat; host tools/provider availability remain separate. See [workflow and limits](docs/SCHEDULED_RESEARCH_UI.md). See also [optional provider setup and isolated live-search evidence](docs/PUBLIC_RESEARCH_SETUP.md).
-- Result acknowledgement: native report cards support **Mark result reviewed** and **Undo acknowledgement**, with durable history and independent source warnings. This records local review, not quality approval, task completion or another agent action. See [result review](docs/REPORT_REVIEW_UI.md).
-- Contact CSV: native column mapping, row validation, duplicate review and create-only batch imports; filtered, selected-column exports with formula-like text escaping and explicit plaintext-file retention. Existing contact custom fields are supported. See [contact transfer and limits](docs/CONTACT_TRANSFER.md).
-- Agent detail reads: exact ordinary notes for Contacts, Deals, Tasks, Companies and Events, plus Event outcome summaries and existing core custom fields. Reads return the current version so requested updates can preserve existing content; default summaries stay compact and scheduled scopes stay unchanged.
-- Layered protection: reduced default agent output, explicit ordinary-field reads, optional separately encrypted protected notes and encrypted CRM content exports. An offline [fresh-target content restore](docs/BACKUP_RESTORE.md) is implemented with synthetic test evidence. Keys remain user-managed; no full-host backup, live-cutover or general security guarantee. See [scope and recovery limits](docs/PROTECTION.md).
-- SQLite default; optional PostgreSQL and native Settings → Storage with a host-managed connection setup and explicit read-only check.
+![HermesCRM dashboard populated with sample records beside native Hermes navigation and chat](https://github.com/user-attachments/assets/9fae4eea-53a0-4d24-9d2c-d1d5e50bb7a3)
 
-**Checks:** a [credential-free CI workflow](docs/CI.md) runs the supported
-contract suites with read-only repository permissions and a disposable PostgreSQL
-service. It does not deploy or use provider credentials. Check the actual run for
-the exact commit; local passes and a workflow definition are not green hosted CI
-or live-host acceptance.
+*Dashboard with sample records, Hermes navigation and the native chat companion.*
 
-See [the detailed development plan](docs/DEVELOPMENT_PLAN.md), [the next-release agent-work roadmap](docs/NEXT_RELEASE_PLAN.md), [architecture and safety](docs/ARCHITECTURE.md), [Hermes integration](docs/HERMES_INTEGRATION.md) and [verification report](docs/VERIFICATION.md).
+![HermesCRM pipeline with sample deals beside native Hermes navigation and chat](https://github.com/user-attachments/assets/c2027b6a-0d27-4ccf-9b44-52acedf16e6d)
 
-## Development roadmap
+*Pipeline and follow-up context in the same native workspace. These
+privacy-reviewed captures are also published in the catalog submission.*
 
-This README is the priority index for future development. Planned capabilities
-below are not claims about the current release; detailed plans and verification
-remain linked here as work progresses.
+Try an explicit request such as:
 
-**Operational release work is in progress:** current-host agent workflows,
-Company/Event detail access, qualification of the new explicitly scoped timed-research mode,
-operator restore/cutover drills, credential-free CI and final native UX acceptance.
-The [process-separated content recovery rehearsal](docs/recovery-rehearsal/REPORT.md)
-now verifies encrypted export and fresh-target restore with retained test keys,
-exact record/receipt persistence and inactive runtime quarantine. It does not
-establish supported installer activation, host restart or real-data cutover.
+> Research a company using the public research tools available in this Hermes
+> chat. Create a Company and linked Contacts for the people you can verify,
+> retaining source references and distinguishing facts from hypotheses. Show
+> me the saved records and any proposed notes for review.
 
-These are separate release gates, not a production-readiness claim. Follow the
-[release readiness plan](docs/RELEASE_READINESS.md) for the execution order,
-integration/permission limits and required evidence.
+Then use the same records to create a deal, set a follow-up, log an actual
+conversation or build a dashboard card. Resolve ambiguous identities and times
+before writing. See the [research-to-CRM walkthrough](docs/USER_GUIDE.md#research-to-crm-workflow)
+and [agent assistance guide](docs/AGENT_ASSISTANCE.md).
 
-1. **Custom fields and stages, first increment implemented.** Typed optional fields for contacts,
-   deals and tasks; configurable deal stages with stable identities and explicit
-   open/won/lost outcomes; shared native forms, agent tools and report metadata.
-   Preserve existing records and saved definitions, validate migrations on SQLite
-   and PostgreSQL, and reject destructive changes rather than silently convert
-   data. See the [customization plan](docs/CUSTOMIZATION_PLAN.md).
-2. **Layered protection, first increment implemented.** Default agent responses
-   minimize ordinary notes/custom values; exact-field reads are separate. Optional
-   protected notes and encrypted content exports use user-managed dedicated keys.
-   Existing ordinary copies remain plaintext. Continue with scoped authorization,
-   key lifecycle, real-host recovery drills, copy retention and remote database
-   roles/TLS. A masked secret may be plaintext `.env`; no tenant-isolation,
-   compliance or production-security claim is made. See [protection boundaries](docs/PROTECTION.md).
-3. **Import and export, contact-first increment implemented.** Native UTF-8 CSV
-   mapping/preview, existing typed contact fields, explicit row/duplicate review,
-   atomic create-only batches and durable outcome receipts. Filtered exports use
-   selected ordinary columns, visible spreadsheet escaping and explicit plaintext
-   artifact retention. No existing contact is overwritten. Continue with reviewed
-   updates/merges, relationship-aware deals/tasks, larger resumable batches and
-   retention controls. See [contact transfer](docs/CONTACT_TRANSFER.md).
-4. **External CRM linking, deferred.** Future HubSpot/Salesforce connections need
-   account-scoped authorization, durable external identifiers, field ownership,
-   conflict review and recovery. Read-only refresh, reviewed write-back and
-   automatic two-way synchronization are different capabilities, not synonyms
-   for CSV import. No connector or live migration is included today.
+## Quickstart in Hermes Desktop
 
-**Companies, Events and relationship history, first increment implemented.**
-Explicit Company groups and reviewed contact links preserve legacy text without
-automatic merging. Local appointment/call Events carry truthful status and
-provenance; Activities and administrative Record history remain separate. Shared
-UI/agent/report contracts passed SQLite/PostgreSQL checks and isolated rendered
-UI tests. Physical native-host and research/attachment workflow limits remain
-explicit in [verification](docs/VERIFICATION.md). See the
-[implementation plan](docs/COMPANIES_EVENTS_PLAN.md) and
-[usage guide](docs/COMPANIES_EVENTS.md).
+You need Python 3.11+, Git and a compatible Hermes Agent **and** Desktop build.
+The verified host source is official Hermes v0.23.0 at
+[`2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`](https://github.com/NousResearch/hermes-agent/tree/2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19).
+Desktop and Agent labels differ; check [host compatibility](docs/COMPATIBILITY.md)
+before changing an existing installation. The plugin does not upgrade Hermes.
 
-**Workflow improvements:** native record-to-record Back navigation and creation
-continuity, practical Event date/time entry, clearer relationship pages and
-in-app dirty-form controls are implemented with integrity fixes. New contacts
-can be created atomically with an optional explicit Company link; contextual
-Company/Contact/opportunity actions prefill local Events without inferred links.
-See [contextual creation and recovery](docs/CONTEXTUAL_CREATION.md). Native agent
-work also supports direct reading of an exact selected assignment’s evidence
-and backward navigation when a later history page fails. These read-only
-improvements do not acknowledge a report or change execution permissions; see
-[assignment status and result reading](docs/ASSIGNMENT_UI.md). Exact test scope
-and remaining checks are in [verification](docs/VERIFICATION.md). A usable
-agent-result review step and integration gaps remain in the
-[workflow plan](docs/WORKFLOW_REVIEW.md), with unsettled metric, review and
-permission decisions explicitly parked.
-
-Additional work and remaining limits:
-
-- **Sourced research review, first increment implemented:** store supplied source
-  claims and hypotheses for an exact Company or Contact, prepare a version-bound
-  ordinary note append, and apply only after explicit current-record review.
-  Separate research tools do not add web access, automatic sending or
-  scheduled-agent permissions. See [usage and limits](docs/RESEARCH_EVIDENCE.md)
-  and the [implementation plan](docs/RESEARCH_EVIDENCE_PLAN.md).
-- **Agent work:** a supported safe immediate-execution path, stronger recovery
-  evidence, reviewed cadences and bounded research capabilities. Consultation
-  preparation should link a research task to its Event, Contact and Company,
-  then retain reviewed research notes or attachments with explicit provenance.
-  The links, sourced note proposals and opt-in timed research mode are implemented.
-  Live-provider research qualification, broader scheduled permissions, full
-  quality-review dispositions and attachments require their own verification or
-  development. A bounded [Reviewed in CRM acknowledgement](docs/REPORT_REVIEW_PLAN.md)
-  is implemented; it does not imply task completion, note application or quality approval. No promise that
-  every task executes or that outages and unknown outcomes cannot occur. See
-  [agent-work roadmap](docs/NEXT_RELEASE_PLAN.md).
-- **Files and links, planned:** reviewed HTTPS references and managed uploads
-  linked to exact CRM records, with provenance, retained revisions, explicit
-  storage destinations and scoped recovery. Uploading a record file does not
-  automatically send it to the agent. No attachment upload/store is implemented
-  yet; see the [file implementation plan](docs/ATTACHMENTS_PLAN.md).
-- **Task accountability, first increment implemented:** tasks require due dates
-  and support a separate human owner label. Optional workspace settings can
-  require owners for new tasks and task-detail edits, including completion, and
-  offer a visible default. No owner is inferred or backfilled. Scheduler and
-  relationship-only maintenance are exempt; older writers/direct SQL are not
-  constrained. Personal settings remain an explicit choice. See
-  [task ownership and limits](docs/TASK_OWNERSHIP.md).
-- **Reporting:** multiple pipelines, stage-transition history and actual outcome
-  dates before historical funnels; broader date controls, dashboard-wide filter
-  semantics and scale testing. Advanced formulas, arbitrary joins and custom
-  objects are deferred. See [report limits](docs/FLEXIBLE_REPORTS.md).
-- **Future communication integrations:** always-running email synchronization,
-  provider-backed proposal activity, and optional calling/texting integrations
-  (for example, Telnyx). These need explicit account authorization, reviewed
-  actions, durable provider identifiers and delivery/outcome evidence. They are
-  not implemented by the audit timeline; no calls, texts or email sends are
-  enabled by this roadmap.
-- **Conversation and email:** safer host-supported draft insertion only when a
-  session-bound contract exists; future provider integration and
-  later provider-backed communication features. No automatic sending, account
-  grants or inbox access is authorized by this roadmap. See
-  [native chat](docs/NATIVE_CHAT.md).
-- **Release quality:** the Workbench design system is applied across native pages,
-  dialogs and the standalone surface. Continue physical-host accessibility,
-  responsive/dark-mode and
-  interrupted-workflow coverage, backup/restore validation, larger datasets and
-  operational documentation. The current product remains a prototype.
-
-## Native Desktop first
-
-Install the unified package and enable both its agent/backend and Desktop components in Capabilities → Plugins. Open CRM from the sidebar or command palette. No localhost service, iframe, separate API token or new model provider is required. The active app connection/profile controls this workspace, and a profile change clears previous records and unfinished forms.
-
-Desktop and Agent version labels differ. Compatibility checks passed on the official Hermes v0.23.0 release source and runtime identified below; the release label alone does not establish Desktop SDK capabilities. Desktop must supply the required routing capabilities; unsupported builds show a notice and disable CRM operations. See [exact host compatibility](docs/COMPATIBILITY.md).
-
-An empty workspace starts with ordinary record creation. Existing workspace records are preserved when updating the plugin. See [native Desktop setup](docs/NATIVE_DESKTOP.md).
-
-## Optional standalone local view
-
-Use Python 3.11 or newer. A virtual environment is recommended. These commands
-explicitly select a local SQLite workspace.
+The following selects the submitted core revision, rather than a development
+branch:
 
 ```bash
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install -e .
-export HERMES_CRM_BACKEND=sqlite
-unset HERMES_CRM_DATABASE_URL HERMES_CRM_POSTGRES_SCHEMA
-export HERMES_CRM_DATA_DIR="$PWD/.crm-data"
-hermes-crm
+git clone https://github.com/gptnius/hermes-crm.git
+cd hermes-crm
+git checkout --detach da1d1412eaf10c3ea8ba0b4431cafdbc59c6bcae
 ```
 
-Open http://127.0.0.1:8742. The server deliberately binds only to loopback. A fresh data directory starts empty; later starts using the same directory retain its records. Do not expose the server as a public service.
-
-Without a path override, storage is the active HERMES_HOME/plugin-data/hermes-crm/data.db; when loaded in Hermes, its public storage helper is used. Plugin installation does not copy another user's workspace records. Users intentionally connected to the same database can access the records in that configured workspace.
-
-## Install as a native Hermes plugin
-
-Verified integration target: official Hermes v0.23.0, whose tag resolves to source commit `2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19`, including its Desktop SDK. The clean validation runtime reports `0.23.0`. The official validator passed all 16 checks with no warnings, and five genuine host checks passed using synthetic records. The repository uses a native plugin.yaml and register(ctx) entry point. Its `requires_hermes: >=0.23.0` declaration was exercised at 0.23.0; this is not exhaustive compatibility testing of every earlier or later release. See [verification scope and results](docs/VERIFICATION.md#core-only-candidate-checks-november-9-2026).
-
-After reviewing a local Git checkout, install it with a file URI and enable it in the intended profile. On the tested host, a bare absolute path was misparsed as a GitHub identifier; this file-URI form worked:
+Review the source and dependencies, then install into your intended Hermes
+profile, replacing the example with the checkout's absolute path:
 
 ```bash
 hermes plugins install "file:///absolute/path/to/hermes-crm"
@@ -214,75 +91,129 @@ hermes plugins doctor /absolute/path/to/hermes-crm
 hermes plugins validate /absolute/path/to/hermes-crm
 ```
 
-Follow the host's dependency and enablement prompts. The Python dependencies are declared in pyproject.toml. Do not install into another person's existing profile without their permission.
+Follow the host's dependency prompts. In **Capabilities → Plugins**, enable both
+the **agent/backend** and **Desktop** components. Open **HermesCRM** from the
+sidebar or **Open HermesCRM** in the command palette. Native mode needs no
+standalone server, iframe or separate API token.
 
-For isolated testing, use synthetic records and a fresh test home, without copying real credentials or configuration. A separate Hermes home does not prevent the host from auto-discovering other CLI logins. See [safe test setup](docs/NATIVE_DESKTOP.md#isolated-testing-and-provider-discovery).
+Create a contact, link a company, add a deal and save a due follow-up. Open an
+existing matching Hermes conversation and choose **Chat with Hermes** to work
+beside it. The [user guide](docs/USER_GUIDE.md) covers remote-host installation,
+updating both components, profile switching and a step-by-step first workflow.
+Updating the plugin preserves existing records; installation does not import
+another user's data.
 
-Try in an interactive Hermes session:
+An [optional standalone local view](docs/USER_GUIDE.md#use-the-standalone-local-view)
+offers a smaller core interface at `http://127.0.0.1:8742`. It is loopback-only and
+does not provide all native editors, reporting or scheduling controls. Do not
+expose it as a public service.
 
-- “Create a CRM contact named Example Buyer with email buyer@example.com. Use request key example-buyer-1.”
-- “Create a $12,000 qualified opportunity linked to Example Buyer.”
-- “Add an internal follow-up for tomorrow at 10 AM in my timezone.”
-- “Schedule that CRM follow-up as a one-shot local Hermes reminder.”
-- “Show the CRM overview and update the opportunity to proposal using its latest version.”
+## Storage, permissions and external activity
 
-The agent must resolve ambiguous people and times rather than guess. Scheduling is a separate explicit operation from saving a due date. CRM tools never send an email or other external message.
+- **SQLite by default.** Records belong to the selected Hermes profile.
+  Native REST and agent tools use the same per-call storage factory and reject
+  stale workspace writes. This is profile scoping, not multi-tenant access control.
+- **Optional PostgreSQL.** Native **Settings → Storage** opens host-managed
+  configuration and offers an explicit read-only connection check. Records go
+  to the database URL you configure. Switching backends does not migrate,
+  synchronize, merge or delete records; a connection check does not establish
+  schema readiness or write permissions. Invalid PostgreSQL settings do not fall
+  back to SQLite. Use a dedicated role and TLS for remote storage. Hosted-service
+  deployment is unverified; see [storage setup](docs/STORAGE_SETTINGS.md).
+- **User-managed secrets and recovery.** Native secret reads use Hermes's active
+  profile scope. A masked host field may still be stored in plaintext `.env`.
+  Optional protected notes and encrypted exports require separately retained
+  keys; existing ordinary fields remain plaintext. There is no automatic backup,
+  in-place restore or full-host recovery. See [protection](docs/PROTECTION.md)
+  and [backup/restore](docs/BACKUP_RESTORE.md).
+- **Explicit scheduling.** On your request, the agent or reviewed native command
+  can create one-shot Hermes cron jobs for a task reminder, internal CRM analysis
+  or bounded public research. Jobs run unattended, deliver locally and cannot
+  schedule more jobs. Research may use Hermes web/search tools and third-party
+  providers for the public question you approve; the gateway must be running.
+  Host approvals remain in force. Reconcile unknown outcomes before retrying,
+  and review results before applying notes or declaring work complete. See
+  [assigned work](docs/NATIVE_ASSIGNED_WORK.md) and
+  [public research setup](docs/PUBLIC_RESEARCH_SETUP.md).
+- **Communication logs are available; email transport is separate.** This
+  edition does not ship Gmail/OAuth connections, mailbox history or polling,
+  email sending, calls, texts or calendar synchronization. Legacy provider table
+  definitions remain solely for encrypted export and quarantined recovery;
+  opening the core does not clear or reconnect them.
 
-Historical full-edition checks verified real one-shot scheduler execution, CRM reads and saved local outputs using deterministic loopback model responses. These are not new model or scheduler runs for this core candidate. The newer assigned-work tests also passed default deferred discovery and authenticated reporting in both plugin isolation modes. Earlier setup tests invoke registered scheduling handlers with a real active-agent context. Those command-to-run tests prepared through authenticated CRM REST and scheduled through a real durable native user session, then executed the actual scheduler/agent/report path. Neither fixture tests a model choosing to schedule or a physical native confirmation click. A separate isolated Terra 6.1 check passed for synthetic internal analysis; broad real-model quality, visible Desktop reminders and restart recovery remain unverified. See the verification report for the exact test scope.
+## Does it connect to email?
 
-### Desktop and agent use the same records
+The **submitted core does not include an email connector**. A separate, opt-in Gmail metadata auto-logging
+pilot has tested read-only metadata access through an existing Hermes Google
+Workspace CLI connection: mailbox verification, an exact inbound-message
+metadata match to a CRM contact, and one successful app-open automatic poll.
+No message bodies or sends were included. Persistent/background synchronization
+and general recovery were not established by those checks. Reusing a compatible
+existing connection requires the needed read access; a connection or permission
+to send is not proof of read scopes. Verification, history reads and polling have
+separate controls. No new CRM OAuth grant is inherent when the existing connection
+already has the required access.
 
-The native pane calls the plugin namespace through ctx.rest; Hermes owns authentication and profile routing. Native REST and tool handlers share the same per-call storage factory. A workspace token and activation-epoch checks reject stale cross-profile writes.
+Separately authorized Hermes CLI tools may send messages outside CRM, subject to
+their existing send permission and user review. CRM adds no send grant; manually
+logging a communication is a separate action, not provider delivery evidence.
 
-The optional standalone CLI is a separate local view. Start it in the same intended HERMES_HOME and leave HERMES_CRM_DATA_DIR unset to see the same SQLite records. That standalone process does not follow Desktop profile switches. Do not expose it as a public service.
+That pilot is separate development/testing work, not a feature shipped in the
+pinned contest entry. See [integration scope and next steps](docs/ROADMAP.md#email-and-other-integrations).
 
-## SQLite and PostgreSQL storage
+## Current operational limits
 
-SQLite needs no database server. Native **Settings → Storage** shows the saved backend and opens Hermes plugin settings for configuration. It stays accessible if the CRM database cannot load. See [storage setup and check boundaries](docs/STORAGE_SETTINGS.md). PostgreSQL’s driver is included in a normal plugin install; the `postgres` extra remains compatible. For the standalone CLI, select a dedicated database and schema explicitly:
+This is an early release for a local user's workspace, without public
+authentication, shared-user roles or tenant isolation. It has not been qualified
+for production operation or large datasets.
 
-```bash
-export HERMES_CRM_BACKEND=postgres
-export HERMES_CRM_DATABASE_URL='postgresql://...'
-export HERMES_CRM_POSTGRES_SCHEMA=crm_my_workspace
-hermes-crm
-```
+- Contact reports and Company/Event related lists/selectors are paged. Legacy
+  record lists, deal/task views and form choices return up to **500 records**;
+  legacy record history returns up to **100**. Deal-list totals cover returned
+  records. Some aggregate/history queries scan local history.
+- Reports have typed supported fields, up to 100 rows per page and 100 grouping
+  buckets. Dates/day buckets use UTC. Multiple pipelines, arbitrary joins or
+  formulas, calculated/required/unique fields, dashboard-wide filters and
+  historical conversion funnels remain future work.
+- CSV import is contact-only, create-only and bounded; it is not a full CRM
+  migration. Attachments and external CRM connectors are not implemented.
+- Native chat handoff preserves the existing conversation. The plugin does not
+  write drafts, submit prompts or create a hidden session. Future assignments
+  and scheduled research have separate, bounded permissions and require review.
+- Native Desktop checks include macOS; broader platform, physical keyboard,
+  screen-reader and responsive coverage remain incomplete. Broader real-model
+  quality, visible reminders and operational restart/cutover recovery also need
+  further qualification.
 
-Provide the real URL securely, not in chat or a committed file. Backend and schema must be set; invalid or unavailable PostgreSQL never falls back to SQLite. Schema names must start with crm_ and use lowercase letters, digits and underscores. The database role needs permission to create this schema and its tables.
+See [detailed limits](docs/USER_GUIDE.md#limits-and-verification),
+[report boundaries](docs/FLEXIBLE_REPORTS.md) and the
+[prioritized roadmap](docs/ROADMAP.md). Implemented functionality and remaining
+release gates are documented separately there.
 
-For native Hermes, use **Settings → Storage → Open Hermes plugin settings**, select HermesCRM (then Agent settings if shown), choose PostgreSQL and save the connection URL in the host's masked field. The host may store it in the profile's plaintext `.env`; masking is not encryption. Return to reload and explicitly check the saved connection. Native tools use agent.secret_scope.get_secret, not another profile's process environment. The schema is derived from the active profile data directory, so profiles remain isolated even on the same database. See the integration document for selecting the matching schema in the standalone UI.
+## Verification and development
 
-Changing storage does not migrate, upload, merge or delete existing records. PostgreSQL profile namespaces remain unchanged; selecting the same database on another installation is not automatic synchronization. A connection check does not prove CRM schema readiness or write permissions.
+The submitted core passed the official Hermes v0.23.0 validator's 16 checks,
+genuine host registry/API checks with synthetic records, and a PostgreSQL-enabled
+regression suite. Historical native UI and scheduler checks retain their exact
+source and test scope in the [verification report](docs/VERIFICATION.md); they
+are not all fresh tests of this revision or proof of general model quality.
 
-Dedicated Supabase integration and guided provider setup are [future roadmap work](docs/STORAGE_SETTINGS.md#future-storage-work). This release offers SQLite and PostgreSQL, with no provider-specific setup or hosted-service verification claim.
+[Hosted CI for the submitted commit](https://github.com/gptnius/hermes-crm/actions/runs/42724774779)
+passed. The [credential-free CI workflow](docs/CI.md) uses disposable synthetic
+data and PostgreSQL, does not deploy, and uses no provider credentials.
+[The user guide](docs/USER_GUIDE.md#limits-and-verification) lists development
+checks; use the matching run and revision when interpreting results.
 
-## Tests
-
-```bash
-python -m pytest -q
-python scripts/build_report_panels.py --check
-python scripts/build_customization_panel.py --check
-python scripts/build_protection_panel.py --check
-python scripts/build_contact_transfer_panel.py --check
-python scripts/build_design_system.py --check
-python scripts/build_wordmark_component.py --check
-python scripts/build_relationship_panel.py --check
-node tests/native_workbench.mjs
-node tests/standalone_workbench.cjs
-node --experimental-vm-modules tests/desktop_contact_transfer.mjs
-node --experimental-vm-modules tests/desktop_protection.mjs
-node --experimental-vm-modules tests/desktop_reports.mjs
-node --experimental-vm-modules tests/desktop_contact_log.mjs
-node --experimental-vm-modules tests/desktop_relationships_react.mjs
-node tests/standalone_relationship_ui.cjs
-node --check hermes_crm/static/app.js
-```
-
-Tests use temporary synthetic data. See docs/VERIFICATION.md for exact tested environments, native Hermes doctor results, browser limitations and PostgreSQL findings.
-
-## Deliberate limits
-
-This is a single-workspace, local-user prototype. It has no public authentication, tenant permissions, messaging, calendar integration, attachments, full CRM migrations or a background daemon. Contact reports use server pagination with filtered totals. Coverage and assignment history use server pages with exact evidence-item totals; their current implementation scans local history and is not optimized for large datasets. Legacy lists, deal/task list views and their form choices are bounded at 500 records, and legacy record history at 100; displayed deal-list totals cover returned records. New Company/Event related lists and relationship selectors use server pagination rather than that legacy 500-row cap. This is a small-workspace prototype, not a large CRM data browser. Direct chat prompt submission remains disabled. CRM-confirmed future scheduling uses an authenticated user command, not model-tool approval hooks; it requires the matching existing main native chat and stable trusted host configuration. See [operation boundaries](docs/CRM_CONFIRMED_OPERATIONS.md). Native future assignments remain a bounded, separately tested path. Native saved report definitions and dashboard cards are implemented within the [documented report limits](docs/FLEXIBLE_REPORTS.md). CSV transfer is contact-only, create-only and bounded; it is not a full migration or restore. Multiple pipelines, required/unique/calculated fields, arbitrary joins/formulas, dashboard-global filters and historical funnel reports remain future work. Customization uses a versioned additive schema upgrade; it does not migrate another CRM or provide automatic backup/restore. Optional encrypted exports support offline fresh-target SQLite content recovery through the [restore CLI](docs/BACKUP_RESTORE.md), preserving original workspace/profile identity and requiring retained keys. No in-place restore or automatic cutover is supported; keep existing tested full backups and recovery keys. Stop/fence source jobs and writes before operator-approved cutover. Back up an existing datastore before updating. No catalog PR, contest entry or production deployment is created by running the app.
+For implementation details, see [architecture](docs/ARCHITECTURE.md),
+[Hermes integration](docs/HERMES_INTEGRATION.md), [native Desktop](docs/NATIVE_DESKTOP.md),
+[customization](docs/CUSTOMIZATION.md), [reports](docs/FLEXIBLE_REPORTS.md) and
+[contact transfer](docs/CONTACT_TRANSFER.md). Historical detailed plans remain
+linked from the [roadmap](docs/ROADMAP.md).
 
 ## License
 
-MIT for this project's code. The original outlined wordmark derives from SIL OFL 1.1 Libre Bodoni; its notice and provenance are retained. Dependencies retain their own licenses, including LGPL-3.0-only for the optional separately installed PostgreSQL driver. See [licensing and distribution notes](docs/LICENSING.md). Product names are used to describe compatibility. This project is not affiliated with Nous Research, HubSpot or Salesforce.
+MIT for this project's code. The original outlined wordmark derives from SIL
+OFL 1.1 Libre Bodoni; its notice and provenance are retained. Dependencies retain
+their own licenses; see [licensing and distribution notes](docs/LICENSING.md).
+Product names describe compatibility. This project is not affiliated with
+Nous Research, HubSpot or Salesforce.

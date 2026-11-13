@@ -1,17 +1,27 @@
 # HermesCRM: setup and user guide
 
-> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. Host/catalog validation of this exact candidate is tracked separately from historical full-edition evidence. No numeric release compatibility or catalog acceptance is established by a development-host pass.
-
-
 **Intelligent Relationship Management**
 
-HermesCRM keeps contacts, deals, follow-ups and activity in one workspace that
-you can use from Hermes Desktop and your existing Hermes agent. Start here to
-install it, try a small example and understand what the current prototype does.
+HermesCRM is a working local-first CRM for you and your existing Hermes agent.
+Manage contacts, companies, deals, follow-ups, research and relationship history
+through the native Desktop interface or 83 agent tools using the same active-profile
+records. Tailor the CRM with custom fields and deal stages, and build saved
+reports and dashboards with charts you can drill into to open contributing
+records.
 
-**This is a local-user prototype, not production or multi-tenant CRM software.**
-Start with invented data. It does not send outreach, import a mailbox, or run an
-agent just because you save a record. This core edition has no mailbox integration.
+Start with installation, a first record, then the research-to-CRM walkthrough.
+[Watch the contest demo](https://x.com/gptnius/status/2120259388568961305) or see
+the [native screenshots](../README.md#see-the-native-workflow).
+
+This guide covers the submitted core at
+`da1d1412eaf10c3ea8ba0b4431cafdbc59c6bcae`. The core passed official Hermes
+v0.23.0 validation and synthetic host/PostgreSQL checks; see
+[compatibility](COMPATIBILITY.md) and [verification](VERIFICATION.md) for exact scope.
+It is an early release for a local user's workspace, without multi-tenant access
+control or production qualification. Use invented data when exploring.
+Communication logging is available; mailbox connections and sending are outside
+this edition. The [separate pilot result](#provider-integration) and
+[roadmap](ROADMAP.md) describe integration work separately from available features.
 
 ## Contents
 
@@ -19,6 +29,8 @@ agent just because you save a record. This core edition has no mailbox integrati
 - [Install in Hermes Desktop](#install-in-hermes-desktop)
 - [Use the standalone local view](#use-the-standalone-local-view)
 - [Your first contact, deal and follow-up](#your-first-contact-deal-and-follow-up)
+- [Research-to-CRM workflow](#research-to-crm-workflow)
+- [Companies, Events and relationship history](#companies-events-and-relationship-history)
 - [Record an actual conversation](#record-an-actual-conversation)
 - [Customize fields and deal stages](#customize-fields-and-deal-stages)
 - [Build reports and dashboard cards](#build-reports-and-dashboard-cards)
@@ -30,6 +42,7 @@ agent just because you save a record. This core edition has no mailbox integrati
 - [Storage, profiles and backups](#storage-profiles-and-backups)
 - [Troubleshooting](#troubleshooting)
 - [Limits and verification](#limits-and-verification)
+- [Current scope and roadmap](ROADMAP.md)
 
 ## Features and the two ways to run
 
@@ -60,7 +73,7 @@ agent just because you save a record. This core edition has no mailbox integrati
 **The standalone local view** is a smaller, loopback-only way to try the core
 contacts, pipeline, follow-ups, activity and preset dashboard views without
 Hermes Desktop. It does not provide the native report builder, contact-log
-panel, customization editor/custom-value controls, chat companion
+panel, customization editor/custom-value controls, chat companion,
 contact CSV, protected-note/export controls or native assignment/scheduler controls. It displays configured stages and
 preserves retained custom values during ordinary edits.
 It is not a hosted web application or a substitute for native integration tests.
@@ -91,9 +104,11 @@ provider configuration and its ordinary permissions and costs.
 ```bash
 git clone https://github.com/gptnius/hermes-crm.git
 cd hermes-crm
+git checkout --detach da1d1412eaf10c3ea8ba0b4431cafdbc59c6bcae
 ```
 
-Review the checkout and its dependency declarations before installing. There is
+This selects the submitted core rather than a development branch. Review the
+checkout and its dependency declarations before installing. There is
 no JavaScript build step for the native pane: it uses the host's SDK and React.
 Keep credentials and personal data out of the checkout.
 
@@ -240,6 +255,50 @@ integer cents, so **$12,000 = 1,200,000 cents**.
 Open a record and choose **Edit** to change it. If a version conflict appears,
 refresh and review the latest record rather than overwriting another change.
 CRM activity records edits; it does not prove a customer was contacted.
+
+## Research-to-CRM workflow
+
+Use native chat for the research request and CRM for durable records and review.
+This example is an instruction you can try, not a claim that new research has
+already run:
+
+1. Open the intended Hermes connection/profile and its existing native
+   conversation. Choose **Chat with Hermes** in CRM to keep the same conversation
+   beside the workspace.
+2. Ask Hermes to research a company using the public tools available in that
+   chat, resolve the correct people, and create one Company with explicitly
+   linked Contacts. Request source references and distinguish verified facts
+   from hypotheses. Do not infer private contact details.
+3. Open the Company to review the saved team list and related records. Inspect
+   each Contact's current details and ordinary notes. Review separate research
+   evidence and proposed note appends before applying them; an evidence packet
+   or hypothesis is not an automatically verified fact.
+4. Create a linked opportunity and due follow-up as needed. Record actual calls,
+   meetings or emails through the contact log, and use local Events for
+   appointments. Saving these records does not contact anyone or schedule work.
+5. Build a saved report or dashboard card from the same records. If you request
+   future analysis or research, use the separate reviewed scheduling workflow,
+   then inspect the saved result before applying notes or marking a business
+   task complete.
+
+For example:
+
+> Research this company's public team information using the tools available in
+> this Hermes chat. Create a Company and linked Contacts for people you can
+> verify, retain source references, and show me the records and proposed notes.
+> Ask about ambiguous identities or missing access.
+
+Interactive research depends on the existing host's tools and provider access;
+CRM does not supply a web-search account. Record-reference copy uses the matching
+conversation and current record version. Paste, review and send in native chat;
+the plugin does not insert or submit the prompt. See
+[agent assistance](AGENT_ASSISTANCE.md), [native chat](NATIVE_CHAT.md) and
+[research evidence](RESEARCH_EVIDENCE.md).
+
+The published demo uses sample records for dashboard/pipeline views and
+separately saved Nous Research work for the research-to-CRM example. The
+screenshots show saved state; they do not establish that a new agent job,
+message or external action ran at capture time.
 
 ## Review upcoming tasks
 
@@ -469,11 +528,40 @@ offers it. Closing a panel or app is not cancellation. Some recovery controls
 exist only until the plugin/app reloads, although confirmed records and operation
 receipts are durable. See [Assignment workflow](ASSIGNMENT_UI.md) and
 [CRM-confirmed operations](CRM_CONFIRMED_OPERATIONS.md) before relying on this
-prototype for scheduled work.
+early release for scheduled work.
 
 ## Provider integration
 
-This core edition does not ship Gmail connections, authorization, history reads or polling. Existing pilot metadata remains stored unchanged; encrypted exports retain it, and recovery quarantines it rather than enabling provider activity.
+The core ships communication logging, not a mailbox connector. It does not ship
+Gmail connections, authorization, history reads or polling. Existing pilot
+metadata remains stored unchanged; encrypted exports retain it, and recovery
+quarantines it rather than enabling provider activity.
+
+A **separate, opt-in Gmail metadata auto-logging pilot** at
+[`c8ef7f2f`](https://github.com/gptnius/hermes-crm/tree/c8ef7f2ffafc74f6d710e0fcff0447713ad8cef3)
+has a bounded authorized live result through an existing Hermes Google Workspace
+CLI connection: mailbox verification, exact inbound-message metadata matching to
+a CRM contact, and one successful app-open automatic poll. Access was read-only
+metadata, with no message bodies or sends. This does not establish persistent or
+background synchronization, general reopen/recovery, a new OAuth grant or later
+broker readiness.
+
+Reusing an existing compatible connection requires the needed read access;
+connection presence or send permission does not prove read scopes. Mailbox
+verification, history reads and polling retain separate controls. No new CRM
+OAuth grant is inherent if that connection already has the required access.
+
+Separately authorized Hermes CLI sending is another path outside CRM, subject
+to its existing send permission and user review of recipient/account/content.
+CRM adds no send grant. A manual contact log records a self-reported interaction;
+it does not establish provider delivery or automatically ingest a CLI send.
+
+That pilot is development/testing work and is **not included in the pinned
+contest entry**. It is not an installation recommendation. Follow the
+[integration roadmap](ROADMAP.md#email-and-other-integrations) for the remaining
+qualification gates. Interactive help can still use separately available Hermes
+tools within your request and host permissions; CRM does not grant an account
+connection or add sending capabilities.
 
 ## Import and export contact CSV
 
@@ -630,7 +718,8 @@ verified by the local checks.
 The repo's [verification report](VERIFICATION.md) records actual checks and
 remaining gaps. Synthetic tests, controlled scheduler runs and a limited real
 model check are not proof of general model quality, cross-platform usability,
-visible notifications, restart recovery or production readiness. Hosted Supabase is unverified. Provider integration is not shipped.
+visible notifications, restart recovery or production readiness. Hosted Supabase is unverified. Email/provider connectors are not shipped in the
+contest core; separate pilot and host-tool activity are described above.
 
 For local development checks, from the repository root in your virtual
 environment:

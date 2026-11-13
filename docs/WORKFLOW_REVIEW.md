@@ -276,7 +276,7 @@ diff; inspect real isolated light/dark rendering at wide/narrow widths; record
 what remains untested. Physical host interaction, provider behavior, accessibility
 and production performance must not be inferred from synthetic fixtures.
 
-The [README roadmap](../README.md#development-roadmap) remains the priority index.
+The [current roadmap](ROADMAP.md) remains the priority index.
 The [verification report](VERIFICATION.md) separates implemented and tested fixes
 from remaining verification limits. The result-review action and remaining
 workflow gaps above are designs or backlog, not release claims.

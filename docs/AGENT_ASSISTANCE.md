@@ -31,8 +31,9 @@ feature into a blanket refusal to help.
   sending account and content. A research or drafting request is not permission
   to send. An already-approved exact send need not be approved twice unless the
   scope changes or the host requires it. HermesCRM has no email-sending adapter;
-  a separately configured host tool is a different capability and does not
-  automatically create provider-backed CRM history.
+  a separately authorized Hermes CLI/host send tool is a different capability,
+  subject to its existing send permission and user review. CRM grants no extra
+  sending access and does not automatically create provider-backed CRM history.
 
 The **Ask for help now** preview uses this approach. Copying a request still does
 not send it, grant access, schedule work or invoke a model. The user pastes,
@@ -74,7 +75,11 @@ This guidance does not create tools, relax version/identity checks, change
 credentials, expand scheduled access or enforce model behavior. Missing host
 features remain real limits. Follow the [native conversation workflow](NATIVE_CHAT.md),
 [research review guide](RESEARCH_EVIDENCE.md), [assignment workflow](ASSIGNMENT_UI.md)
-and provider integration (not shipped in this core edition) for the implemented routes.
+and [communication/integration scope](USER_GUIDE.md#provider-integration) for
+current routes. The core can log communications; the separate opt-in, read-only Gmail
+metadata auto-logging pilot is not shipped. Reuse of an existing compatible connection is not
+proof of read scopes: verification, history and polling retain separate controls.
+No new CRM OAuth grant is inherent if the connection already has the needed access.
 
 Future work should make capability diagnosis more structured, qualify additional
 explicitly selected scheduled capabilities beyond the research presets, and design

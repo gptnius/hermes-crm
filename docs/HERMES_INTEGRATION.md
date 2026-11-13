@@ -58,7 +58,7 @@ The added report tool makes the current read toolset eight tools. Historical liv
 
 Use `ctx.dispatch_tool('cronjob_manage', payload, **context)` in an active tool turn. Forward session context. Do not import the private cron function or edit jobs.json.
 
-The adapter targets the pinned source contract and does not pretend to support older `cronjob` registry naming. ISO timestamps with UTC offsets are one-shot schedules. A bare interval such as 30m is recurring, so this prototype never constructs that shorthand.
+The adapter targets the pinned source contract and does not pretend to support older `cronjob` registry naming. ISO timestamps with UTC offsets are one-shot schedules. A bare interval such as 30m is recurring, so this release never constructs that shorthand.
 
 Hermes can save a job but fail scheduler registration. Its result may contain success=false, job_id, job_saved=true, scheduler_registered=false and retry_create=false. The CRM preserves the ID and marks uncertain. A generic error can also arise after persistence and is not proof no job exists.
 

@@ -57,7 +57,8 @@ still apply. There is no hidden report-authoring model or API key.
   contributing deals, not a misleading list of distinct contacts.
 - **Last logged contact** is the latest active self-reported contact event. An
   empty value means no event was logged, not proof that contact never happened.
-  CRM edits and optional Gmail observations are not automatically contact events.
+  CRM edits and legacy/separate-pilot Gmail observations are not automatically
+  contact events. The contest core does not fetch mailbox metadata.
 - **Next follow-up** is the earliest due time among open linked tasks, including
   overdue tasks. It is not evidence of execution or a never-missed guarantee.
 - **Leads created per UTC day** selects contacts currently classified as leads
@@ -111,6 +112,6 @@ Summaries are not exposed through general report columns or legacy CRM read tool
   saved records before attempting a replacement. Local writes can complete after
   navigation; stale responses are not displayed in another profile.
 
-This is a bounded prototype. It is not HubSpot/Salesforce parity, a tenant
-permission system or a production migration. Synthetic database and component
+Reporting has the bounds described above. It does not provide HubSpot/Salesforce
+feature parity, a tenant permission system or a production migration. Synthetic database and component
 checks do not replace native physical visual and accessibility testing.
