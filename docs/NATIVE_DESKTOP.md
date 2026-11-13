@@ -1,6 +1,6 @@
 # Native Hermes Desktop
 
-> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. Host/catalog validation of this exact candidate is tracked separately from historical full-edition evidence. No numeric release compatibility or catalog acceptance is established by a development-host pass.
+> **Contest core.** Available workflows and integration boundaries are summarized in the [user guide](USER_GUIDE.md) and [current scope and roadmap](ROADMAP.md). Gmail connections, OAuth settings, mailbox history and polling are not shipped in this edition. Legacy provider tables remain solely for encrypted export and quarantined recovery; opening the core does not clear or reconnect them. Exact host validation and remaining operational limits are recorded in [verification](VERIFICATION.md); test passes and catalog acceptance are not production certification.
 
 
 The unified package now contains the requested native Desktop surface. It does not open an iframe or require the standalone web server.

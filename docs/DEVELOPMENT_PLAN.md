@@ -1,10 +1,10 @@
 # Hermes CRM: development plan
 
-Status: focused prototype in development. Target: working, reviewable open-source plugin before November 11, 2026. Official announcement cutoff verified as November 11 at 5 PM EST (22:00 UTC); submission requirements are documented in HERMES_INTEGRATION.md. No submission or deployment is part of this build.
+Historical planning status: focused prototype in development. Original target: working, reviewable open-source plugin before November 11, 2026. Official announcement cutoff verified as November 11 at 5 PM EST (22:00 UTC); submission requirements are documented in HERMES_INTEGRATION.md. No submission or deployment is part of this build.
 
 This is the original implementation plan and retains its historical scope.
 The current feature inventory, design direction and prioritized roadmap are in
-[README](../README.md); completed increments and remaining gates are recorded in
+[current scope and roadmap](ROADMAP.md); completed increments and remaining gates are recorded in
 [VERIFICATION](VERIFICATION.md). Deferred items below may have since shipped.
 
 ## Product promise

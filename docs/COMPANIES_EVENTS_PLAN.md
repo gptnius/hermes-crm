@@ -1,6 +1,6 @@
 # Companies, Events and relationship history
 
-Status: implemented as a bounded local prototype. See the
+Status: implemented for a local workspace, with the documented limits. See the
 [verification report](VERIFICATION.md) for actual tests and remaining gates.
 This plan adds genuine Company groups and local Events without rewriting
 existing records or claiming an external communication/calendar integration.

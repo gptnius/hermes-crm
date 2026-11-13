@@ -1,6 +1,10 @@
 # Suggested 80-second demonstration
 
-This is a rehearsal outline, not a recorded or posted demo. Use only a clean synthetic workspace.
+This is the historical rehearsal outline. The final published contest demo is
+[available on X](https://x.com/gptnius/status/2120259388568961305); the current
+feature/status index is the [roadmap](ROADMAP.md). The outline below retains its
+original scope and is not the final film script. Use a clean synthetic workspace
+when rehearsing it.
 
 0–12 seconds: Open the native CRM pane in Hermes Desktop, with both plugin components enabled in a disposable profile. Explain that the same profile-local CRM is used by the pane and the existing Hermes agent. Focus or hover a dashboard stage for value, deal count and unique-contact details, then click to open its contact report. Show the active Stage filter; Contact type is a separate category.
 

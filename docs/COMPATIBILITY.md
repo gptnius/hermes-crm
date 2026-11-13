@@ -1,6 +1,6 @@
 # Host compatibility
 
-> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. The tested core snapshot passed the official Hermes v0.23.0 validator, genuine host checks and a PostgreSQL-enabled regression suite. See the verification report for exact scope; these results are not maintainer acceptance or production certification.
+> **Contest core.** Available workflows and integration boundaries are summarized in the [user guide](USER_GUIDE.md) and [current scope and roadmap](ROADMAP.md). Gmail connections, OAuth settings, mailbox history and polling are not shipped in this edition. Legacy provider tables remain solely for encrypted export and quarantined recovery; opening the core does not clear or reconnect them. Exact host validation and remaining operational limits are recorded in [verification](VERIFICATION.md); test passes and catalog acceptance are not production certification.
 
 
 Desktop and Agent have different release labels. A backend version alone does not establish that the Desktop SDK supplies the required routing APIs.

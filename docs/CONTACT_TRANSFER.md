@@ -147,5 +147,5 @@ for the broader risk and why no sanitization strategy is universal.
 Future work includes reviewed update/merge mappings, relationship-aware deals
 and tasks, larger/resumable batches, clearer format interchange, retention
 controls and restoration drills. External CRM linking remains deferred in the
-[README roadmap](../README.md#development-roadmap). Tests and remaining physical
+[current roadmap](ROADMAP.md). Tests and remaining physical
 native-file-dialog checks are recorded in [verification](VERIFICATION.md).

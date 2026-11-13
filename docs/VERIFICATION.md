@@ -1,9 +1,30 @@
 # Verification report
 
-> **Core-only contest candidate.** Gmail transports, OAuth settings, provider routes, connection panels and polling are not shipped in this edition. Contacts, relationships, agent tools, research, reports, scheduling boundaries, customization, protection and import/export remain. Legacy provider table definitions exist only for safe encrypted export and quarantined recovery; opening this edition does not clear or reconnect existing data. The tested core snapshot passed the official Hermes v0.23.0 validator, genuine host checks and a PostgreSQL-enabled regression suite. See the verification report for exact scope; these results are not maintainer acceptance or production certification.
+## Reading the release evidence
+
+The submitted core is
+[`da1d1412eaf10c3ea8ba0b4431cafdbc59c6bcae`](https://github.com/gptnius/hermes-crm/tree/da1d1412eaf10c3ea8ba0b4431cafdbc59c6bcae).
+Its [hosted CI run](https://github.com/gptnius/hermes-crm/actions/runs/42724774779)
+passed, and [catalog PR #152881](https://github.com/NousResearch/hermes-agent/pull/152881)
+was merged on November 11, 2026. Catalog acceptance does not establish production
+qualification. Historical sections below retain their original dates, source
+identities, open items and test scope; their submission status is not a current
+status report.
+
+The [current scope and roadmap](ROADMAP.md) is the feature/status index. The
+[published demo](https://x.com/gptnius/status/2120259388568961305) shows saved
+native UI state and research records, with sample data for the dashboard and
+pipeline. It is distinct from a new automated test run.
+
+Gmail is absent from this core. The separate pilot's bounded live metadata check
+is summarized in the [user guide](USER_GUIDE.md#provider-integration); it is
+separate evidence, not a core test or proof of background synchronization,
+message bodies, sending, a new OAuth grant or general recovery.
+
+> **Contest core.** Available workflows and integration boundaries are summarized in the [user guide](USER_GUIDE.md) and [current scope and roadmap](ROADMAP.md). Gmail connections, OAuth settings, mailbox history and polling are not shipped in this edition. Legacy provider tables remain solely for encrypted export and quarantined recovery; opening the core does not clear or reconnect them. Exact host validation and remaining operational limits are recorded in [verification](VERIFICATION.md); test passes and catalog acceptance are not production certification.
 
 
-Updated November 9, 2026. Historical native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
+Historical record, updated November 9, 2026. Native and scheduler runs below retain their original scope. This is a tested prototype, not a production release. Native Mac workflows and real one-shot scheduler execution passed on the exact source builds below. Most scheduler fixtures used deterministic loopback model responses; a separate bounded real-model internal-analysis check is recorded below. Broader reasoning behavior, visible reminder presentation, restart recovery, accessibility/cross-platform coverage and hosted-service validation remain incomplete.
 
 ## Storage Settings checks (November 9, 2026)
 
@@ -1356,7 +1377,7 @@ authorization and production migration are not verified by these tests.
 pending.** React/VM tests are not a visual or full accessibility pass. The user's
 open review app remained on its prior published revision throughout this work.
 See [customization behavior and limits](CUSTOMIZATION.md) and the
-[README roadmap](../README.md#development-roadmap).
+[current roadmap](ROADMAP.md).
 
 ## Flexible reports, saved dashboard and contact log
 

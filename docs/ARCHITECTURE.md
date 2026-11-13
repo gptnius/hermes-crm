@@ -7,7 +7,7 @@
 Tables are crm_contacts, crm_deals, crm_tasks, crm_activity, crm_idempotency and crm_settings. All mutating record operations write audit activity in the same transaction. No tool accepts arbitrary SQL, shell text or network destinations.
 
 - IDs: UUID strings.
-- Money: non-negative integer cents, USD only in this prototype.
+- Money: non-negative integer cents, USD only in this release.
 - Dates: due times require an offset and are normalized to UTC.
 - Updates: require a version. Competing changes return a conflict rather than silently overwrite.
 - Creates: stable idempotency keys return the original result; reused keys with changed input fail.
@@ -37,7 +37,7 @@ and short internal SQL aliases preserve long public field identifiers on Postgre
 This is ordinary plaintext application storage, not field encryption or a tenant
 authorization boundary. Dedicated schema toolsets do not expand scheduled agent
 permissions. See [customization limits](CUSTOMIZATION.md) and the
-[ordered roadmap](../README.md#development-roadmap).
+[ordered roadmap](ROADMAP.md).
 
 ## Optional protection and minimized agent output
 
@@ -99,7 +99,8 @@ cross-process initialization and same-key replay. No existing table is migrated.
 
 Authenticated analytics routes and dedicated report/contact-log toolsets share
 these services. Legacy `crm_read` and fixed scheduled-job capabilities do not
-expand. Gmail, generic edit activity and authored contact events remain separate.
+expand. Legacy/separate-pilot Gmail metadata, generic edit activity and authored
+contact events remain separate. The contest core has no active email connector.
 The native components are deterministically inlined for the single-module SDK
 loader. Their frozen unknown-write requests persist across route-client changes
 within the plugin lifetime. No provider, scheduler or model is called by reporting.
@@ -109,7 +110,7 @@ See [report contracts and limits](FLEXIBLE_REPORTS.md).
 
 Saving a task creates no timer. crm_followup_schedule performs a native cronjob_manage create for the task's explicit UTC due date, with local delivery and only the crm_read toolset enabled, plus the host no_mcp sentinel to prevent implicit MCP expansion. The prompt contains a record ID, not user-supplied notes. It reads the task again when fired and treats completed tasks as no action needed.
 
-Before dispatch, the record atomically enters scheduling. A concurrent request cannot create a second job. A success response with job ID records scheduled. Any unproven error, exception, malformed response or saved-but-unregistered result records uncertain and preserves a known ID. Automatic retry-create is blocked. The operator must inspect Hermes jobs before any reconciliation. This prototype intentionally has no reset button that could create duplicates.
+Before dispatch, the record atomically enters scheduling. A concurrent request cannot create a second job. A success response with job ID records scheduled. Any unproven error, exception, malformed response or saved-but-unregistered result records uncertain and preserves a known ID. Automatic retry-create is blocked. The operator must inspect Hermes jobs before any reconciliation. The implementation intentionally has no reset button that could create duplicates.
 
 Job creation is not execution confirmation. Hermes' gateway must be running. Completing a task does not delete the host job. A scheduled task's due time cannot be edited through CRM until its host schedule is managed; schedule reconciliation UI is deferred.
 
